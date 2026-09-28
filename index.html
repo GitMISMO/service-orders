@@ -1353,7 +1353,7 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: email, password: password })
     }).then(readBody).then(function (r) {
-      if (!r.ok) throw fail(r.status, r.body);
+      if (!r.ok) throw tag(fail(r.status, r.body), project);
       sput(TOKEN, JSON.stringify(r.body));
       HEAD = {};
       return r.body;
@@ -1379,6 +1379,13 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
     return e;
   }
 
+  /* Record which project key a failure was against.  Set once and never
+     overwritten, so the FIRST key that failed is the one reported. */
+  function tag(e, project) {
+    if (e && project && !e.project) e.project = project;
+    return e;
+  }
+
   function readBody(r) {
     return r.json().catch(function () { return {}; })
       .then(function (j) { return { ok: r.ok, status: r.status, body: j }; });
@@ -1392,9 +1399,13 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
       opts.headers['Content-Type'] = 'application/json';
       opts.body = JSON.stringify(body);
     }
+    /* Every path is /{project}/..., so the project is recoverable here.  Naming
+       it on the error is what lets the page say WHICH key the relay refused
+       instead of a bare code somebody then has to guess at. */
+    var proj = decodeURIComponent(String(path).split('/')[1] || '');
     return fetch(BASE + path, opts).then(readBody).then(function (r) {
-      if (r.status === 401) { sdrop(TOKEN); throw fail(401, r.body); }
-      if (!r.ok) throw fail(r.status, r.body);
+      if (r.status === 401) { sdrop(TOKEN); throw tag(fail(401, r.body), proj); }
+      if (!r.ok) throw tag(fail(r.status, r.body), proj);
       return r.body;
     });
   }
@@ -1515,18 +1526,39 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
   function loginAny(email, password) {
     var keys = (CFG.projects || []).slice();
     if (!keys.length) return Promise.reject(fail(0, { message: 'No project keys are configured for this page.' }));
-    var lastClosed = null;
+    var lastErr = null, unkErr = null, sawForbidden = false, sawUnknown = false;
     function attempt(i) {
       if (i >= keys.length) {
-        throw lastClosed || fail(401, { error: 'NO_ACCESS',
+        /* ⚠ Every key refused, and WHY matters — these three are different
+           things and only one of them is the person's fault.
+
+             403 on some key   the password is RIGHT; the relay authenticated
+                               them and then said they have no access to that
+                               project.  Their account simply has no service
+                               orders on it.  Never call this a bad password.
+             UNKNOWN_PROJECT   the relay has never heard of these projects.  A
+                               setup gap, and nothing the person can do.
+             401 everywhere    genuinely not recognised. */
+        /* ⚠ UNKNOWN_PROJECT is checked FIRST and on purpose.  A relay that has
+           never heard of a project cannot have an opinion about who may reach
+           it, so a 403 collected alongside one says nothing about the account.
+           Reporting the 403 first tells a perfectly good account that it has no
+           service orders, and points the person at an email that fixes
+           nothing. */
+        if (sawUnknown) throw (unkErr || lastErr);
+        if (sawForbidden) {
+          var ne = fail(403, { error: 'NO_SERVICE_ORDERS',
+            message: 'This account has no service orders on it.' });
+          ne.noServiceOrders = true;
+          throw ne;
+        }
+        throw lastErr || fail(401, { error: 'NO_ACCESS',
           message: 'That email and password were not recognised.' });
       }
       return login(keys[i], email, password).catch(function (e) {
-        /* 401/403 here means "not this key" — which for a contractor is true of
-           four of the five.  Keep going.  Anything else is a real failure and
-           stops the loop, so a relay that is down does not read as a bad
-           password. */
-        if (e.closed) { lastClosed = e; return attempt(i + 1); }
+        if (e.status === 403) { sawForbidden = true; lastErr = e; return attempt(i + 1); }
+        if (e.code === 'UNKNOWN_PROJECT') { sawUnknown = true; unkErr = unkErr || e; lastErr = e; return attempt(i + 1); }
+        if (e.closed) { lastErr = e; return attempt(i + 1); }
         throw e;
       });
     }
@@ -1545,9 +1577,24 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
                         private repository and needs the sign-in to read.
 
      Nothing about a person is inferred from their email address by this page. */
+  /* ⚠ ONLY the keys this page is configured for.
+     An account is one account across every tool on resources.mismo.org, so the
+     access map a sign-in returns also carries summit-hq, glossary and anything
+     else that person has.  Treating one of those as a service-orders project
+     asks the wrong repository for an orders file and the relay rightly answers
+     UNKNOWN_PROJECT.  The page's own project list is the filter. */
   function keysOf(sess) {
     var acc = (sess && sess.access) || {};
-    return Object.keys(acc);
+    var mine = CFG.projects || [];
+    if (!mine.length) return Object.keys(acc);
+    return mine.filter(function (k) { return Object.prototype.hasOwnProperty.call(acc, k); });
+  }
+  /* Everything else the account can reach — never used to decide anything, only
+     to explain a "you have no service orders" screen without guessing. */
+  function otherKeys(sess) {
+    var acc = (sess && sess.access) || {};
+    var mine = CFG.projects || [];
+    return Object.keys(acc).filter(function (k) { return mine.indexOf(k) < 0; });
   }
   function whoami() {
     var sess = session();
@@ -1558,7 +1605,8 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
     }
     var keys = keysOf(sess);
     var slugs = CFG.slugs || {};
-    var me = { name: sess.name || sess.email, email: sess.email, access: sess.access || {}, keys: keys };
+    var me = { name: sess.name || sess.email, email: sess.email, access: sess.access || {},
+               keys: keys, otherKeys: otherKeys(sess) };
 
     /* Every slug the person may reach, in the order the keys are configured, so
        a view that spans companies always gets them in the same order. */
@@ -2892,10 +2940,34 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
        keep them signed in \u2014 signing them out here would hide the fault and
        waste their time on a password they never got wrong. */
     if (window.console && console.error) console.error('service orders:', e);
+    var code = (e && e.code) || '';
+    /* Two failures are worth naming, because the fix is somebody else's and
+       saying which one saves a round of guessing. */
+    if (code === 'UNKNOWN_PROJECT') {
+      shut('The Relay Does Not Know About These Yet',
+        'You are signed in and your account is fine. The relay answered <b>UNKNOWN_PROJECT</b>, ' +
+        'which means the service order projects are not reachable to it yet.' +
+        (e.project ? '<br><br>The key it refused was <b>' + esc(e.project) + '</b>.' : '') +
+        '<br><br>Two things have to be true, and one of them is not: the five entries are in ' +
+        '<b>projects.json</b>, and the six repositories are on the <b>relay token</b>. ' +
+        'The second one is Perry\u2019s.' +
+        '<br><br>Nothing is wrong with your setup, and nothing has been changed or sent.');
+      return;
+    }
+    if (e && e.missing) {
+      shut('A File Is Missing',
+        'You are signed in and your account is fine, but a file this page needs is not in the ' +
+        'repository yet.' +
+        (e.message ? '<br><br><span class="fineprint">' + esc(e.message) + '</span>' : '') +
+        '<br><br>This usually means the upload in step 4 has not been done for one company. ' +
+        'Nothing has been changed and nothing has been sent.');
+      return;
+    }
     shut('Something Went Wrong at Our End',
       'You are signed in and your account is fine \u2014 this page failed to build your view. ' +
       'Nothing has been changed and nothing has been sent.' +
-      (e && e.message ? '<br><br><span class="fineprint">' + esc(e.message) + '</span>' : '') +
+      (e && e.message ? '<br><br><span class="fineprint">' + esc(e.message) +
+        (e.project ? ' \u2014 ' + esc(e.project) : '') + '</span>' : '') +
       '<br><br><b>Email Jonna Critchley at jcritchley@mismo.org</b> and quote that line.');
   }
 
@@ -2963,6 +3035,20 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
         document.body.classList.remove('signedout');
         start();
       }).catch(function (e) {
+        if (e && e.noServiceOrders) {
+          warn('<b>Your password is fine.</b> This account is recognised, but it has no service ' +
+               'orders on it yet \u2014 service orders are a separate permission from MISMO\u2019s ' +
+               'other tools. <b>Email Jonna Critchley</b> at ' +
+               '<a href="mailto:jcritchley@mismo.org">jcritchley@mismo.org</a> and she can add it.');
+          return;
+        }
+        if (e && e.code === 'UNKNOWN_PROJECT') {
+          warn('<b>This is not your password.</b> The relay does not yet have the service order ' +
+               'projects set up, so there is nothing to sign in to. Nothing you can do will fix ' +
+               'this from here \u2014 tell Jonna the relay answered <b>UNKNOWN_PROJECT</b>' +
+               (e.project ? ' for <b>' + esc(e.project) + '</b>' : '') + '.');
+          return;
+        }
         if (e && e.closed) {
           warn('<b>That email and password were not recognised.</b> Check the address is the one ' +
                'MISMO set up, and that the password was pasted whole — they are long on purpose. ' +
@@ -2981,6 +3067,24 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
     });
   }
 
+  /* Signed in, recognised, but this account carries no service-orders key.  The
+     commonest cause by far is an account that already existed for another tool
+     on resources.mismo.org and has simply not been given one here yet \u2014 so
+     say that, and name what it does carry, rather than leaving somebody
+     wondering whether they typed their password wrong. */
+  function noKeys(me) {
+    var other = (me && me.otherKeys) || [];
+    shut('Your Account Is Not Set Up for This Yet',
+      'You are signed in as <b>' + esc(me.email || '') + '</b> and your password is fine. ' +
+      'The account just has no service orders against it yet.' +
+      (other.length
+        ? '<br><br>It does reach ' + (other.length === 1 ? 'one other MISMO tool' :
+            other.length + ' other MISMO tools') + ': <b>' + esc(other.join(', ')) + '</b>. ' +
+          'Service orders are a separate permission and have to be added to it.'
+        : '') +
+      '<br><br><b>Email Jonna Critchley at jcritchley@mismo.org</b> and she can add it.');
+  }
+
   function start() {
     R.boot();
     if (!R.signedIn()) { signInView(); return; }
@@ -2992,10 +3096,7 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
       if (me.kind === 'president') return presidentView();
       if (me.kind === 'vp-product') return vpView();
       if (me.kind === 'admin') return adminView();
-      shut('Nothing to Show You',
-        'You are signed in as <b>' + esc(me.email || '') + '</b>, and the relay recognises the ' +
-        'account \u2014 but it carries no service order keys, so there is nothing for this page to ' +
-        'show you. <b>Email Jonna Critchley at jcritchley@mismo.org</b> and she can put that right.');
+      noKeys(me);
     }).catch(closed);
   }
 
