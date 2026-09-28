@@ -1,0 +1,2825 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MISMO Service Orders and Agreements</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<style>:root{
+ --navy:#0d314c; --sky:#74bfeb; --navy-deep:#06202f; --navy-mid:#14486e;
+ --sky-soft:#a9d8f3; --sky-wash:#e4f2fb;
+ --ground:#f1f6fa; --surface:#ffffff; --surface-2:#f6fafd; --surface-3:#e9f1f8;
+ --border:#d5e2ed; --border-strong:#adc4d6; --rule:#e5eef5; --line:#e5eef5; --sunk:#f6fafd;
+ --ink:#0d314c; --ink-2:#456179; --ink-3:#7794aa;
+ --good:#0f7b5c; --bad:#b3372c; --warn:#a2701a;
+ --accent-soft:#e4f2fb;
+ --display:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+ --ui:var(--display); --mono:'IBM Plex Mono',ui-monospace,monospace;
+ --hq-h:64px; --rail-w:240px; --rail-mini:62px;
+ color-scheme:light;
+}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
+ --ground:#061722; --surface:#0d2837; --surface-2:#123143; --surface-3:#173c52;
+ --border:#1f4a63; --border-strong:#2f6688; --rule:#173547; --line:#173547; --sunk:#123143;
+ --ink:#e9f4fb; --ink-2:#a6c5d9; --ink-3:#7a9db4;
+ --good:#4fc79b; --bad:#f08579; --warn:#e0a83c; --accent-soft:#173c52;
+ color-scheme:dark; } }
+:root[data-theme="dark"]{
+ --ground:#061722; --surface:#0d2837; --surface-2:#123143; --surface-3:#173c52;
+ --border:#1f4a63; --border-strong:#2f6688; --rule:#173547; --line:#173547; --sunk:#123143;
+ --ink:#e9f4fb; --ink-2:#a6c5d9; --ink-3:#7a9db4;
+ --good:#4fc79b; --bad:#f08579; --warn:#e0a83c; --accent-soft:#173c52;
+ color-scheme:dark; }
+
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--ground);color:var(--ink);font-family:var(--display);font-size:14px;line-height:1.55;
+ padding-left:var(--rail-w);transition:padding-left .2s cubic-bezier(.4,0,.2,1);-webkit-text-size-adjust:100%}
+h1,h2,h3,h4{letter-spacing:-.012em;margin:0}
+.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+.wrap{padding:26px 30px 90px;max-width:none}
+@media(max-width:640px){ .wrap{padding:18px 16px 70px} }
+.lede{color:var(--ink-2);font-size:14.5px;margin:0 0 22px}
+
+/* ── cards in a grid ─────────────────────────────────────────── */
+.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;margin-bottom:28px}
+@media(max-width:1180px){ .grid{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media(max-width:760px){ .grid{grid-template-columns:1fr} }
+.card{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:15px 16px;
+ text-align:left;font:inherit;color:inherit;cursor:pointer;display:flex;flex-direction:column;gap:7px;
+ box-shadow:0 1px 2px rgba(6,32,47,.05)}
+.card:hover{border-color:var(--border-strong);box-shadow:0 4px 14px rgba(6,32,47,.10)}
+.card:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
+.card h3{font-size:14.5px;font-weight:600;display:flex;align-items:center;gap:8px}
+.card .cnt{font-family:var(--mono);font-size:10px;letter-spacing:.06em;font-weight:600;color:var(--ink-3);
+ background:var(--surface-3);border-radius:20px;padding:2px 8px;margin-left:auto;flex:0 0 auto}
+.card p{margin:0;color:var(--ink-2);font-size:12.7px}
+.card .figs{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:2px}
+.card .fig{display:flex;flex-direction:column}
+.card .fig b{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:16px;font-weight:600;color:var(--ink)}
+.card .fig i{font-style:normal;font-family:var(--mono);font-size:9px;letter-spacing:.09em;
+ text-transform:uppercase;color:var(--ink-3);font-weight:600}
+
+/* ── the right panel ─────────────────────────────────────────── */
+.scrim{position:fixed;inset:0;background:rgba(6,32,47,.44);z-index:120;border:0;padding:0;display:none}
+.scrim.on{display:block}
+.panel{position:fixed;top:0;right:0;bottom:0;width:min(680px,calc(100vw - 56px));z-index:121;
+ background:var(--ground);border-left:1px solid var(--border-strong);
+ box-shadow:-10px 0 34px rgba(6,32,47,.28);display:none;flex-direction:column}
+.panel.on{display:flex}
+@media(max-width:820px){ .panel{width:100vw;max-width:none} }
+.panel-h{display:flex;align-items:center;gap:12px;padding:14px 20px;background:var(--surface);
+ border-bottom:1px solid var(--border);flex:0 0 auto}
+.panel-h h2{font-size:16px;font-weight:600}
+.panel-x{margin-left:auto;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;
+ color:var(--ink-2);width:30px;height:30px;font-size:17px;line-height:1;cursor:pointer;flex:0 0 auto}
+.panel-x:hover{background:var(--surface-3);color:var(--ink)}
+.panel-b{overflow:auto;padding:18px 20px 60px;flex:1 1 auto}
+
+/* ── rows that open on a click ───────────────────────────────── */
+.rows{border:1px solid var(--border);border-radius:9px;overflow:hidden;background:var(--surface)}
+.row{border-bottom:1px solid var(--rule)}
+.row:last-child{border-bottom:0}
+.row-h{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:0;
+ padding:11px 14px;font:inherit;color:inherit;cursor:pointer}
+.row-h:hover{background:var(--surface-2)}
+.row-h:focus-visible{outline:2px solid var(--sky);outline-offset:-2px}
+.row.open .row-h{background:var(--sky-wash);}
+:root[data-theme="dark"] .row.open .row-h{background:var(--surface-3)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .row.open .row-h{background:var(--surface-3)} }
+.row-h .rt{font-weight:600;font-size:13.4px;flex:1 1 auto;min-width:0}
+.row-h .rs{font-family:var(--mono);font-size:11.5px;font-variant-numeric:tabular-nums;color:var(--ink-2);flex:0 0 auto}
+.row-h .chev{width:15px;height:15px;flex:0 0 auto;stroke:var(--ink-3);fill:none;stroke-width:2;
+ stroke-linecap:round;stroke-linejoin:round;transition:transform .15s}
+.row.open .chev{transform:rotate(90deg)}
+.row-b{display:none;padding:4px 16px 18px;background:var(--surface-2);border-top:1px solid var(--rule)}
+.row.open .row-b{display:block}
+
+/* ── fields, separate not blobs ──────────────────────────────── */
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px 20px;margin:14px 0 4px}
+.f{display:flex;flex-direction:column;gap:2px;min-width:0}
+.f label{font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;
+ color:var(--ink-3);font-weight:600}
+.f .v{font-size:13.2px;color:var(--ink);overflow-wrap:anywhere}
+.f .v.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.blk{margin-top:16px}
+.blk h4{font-size:11px;font-family:var(--mono);letter-spacing:.09em;text-transform:uppercase;
+ color:var(--ink-3);font-weight:700;margin-bottom:5px}
+.blk ul{margin:0;padding-left:19px}
+.blk li{margin-bottom:4px}
+.blk p{margin:0 0 7px;white-space:pre-wrap}
+
+/* the order as it will read */
+.doc{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:20px 24px;margin-top:16px}
+.doc .dt{font-weight:700;font-size:14px;margin-bottom:12px}
+.doc .sec{margin-top:15px}
+.doc .sn{font-weight:600;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--navy-mid);margin-bottom:4px}
+:root[data-theme="dark"] .doc .sn{color:var(--sky)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .doc .sn{color:var(--sky)} }
+.doc p{margin:0 0 6px;white-space:pre-wrap}
+.doc .sig{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:24px;
+ border-top:1px solid var(--rule);padding-top:14px}
+@media(max-width:620px){ .doc .sig{grid-template-columns:1fr} }
+.doc .sig div b{display:block;font-size:11px;font-family:var(--mono);letter-spacing:.08em;
+ text-transform:uppercase;color:var(--ink-3);margin-bottom:5px}
+.doc .sig div span{display:block;font-size:13px}
+
+/* tables */
+table{border-collapse:collapse;width:100%;font-size:12.8px}
+th,td{padding:7px 11px;text-align:left;border-bottom:1px solid var(--rule)}
+th{background:var(--surface-3);font-size:10px;font-family:var(--mono);letter-spacing:.08em;
+ text-transform:uppercase;color:var(--ink-2);font-weight:700;border-bottom:2px solid var(--navy-mid)}
+td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+tr:last-child td{border-bottom:0}
+tfoot td{font-weight:700;background:var(--surface-2);border-top:2px solid var(--border-strong)}
+.tbl{border:1px solid var(--border);border-radius:9px;overflow:hidden;background:var(--surface)}
+
+/* chips + callouts */
+.chip{display:inline-flex;align-items:center;gap:5px;font-family:'IBM Plex Sans',sans-serif;font-size:10.5px;
+ letter-spacing:.05em;text-transform:uppercase;font-weight:600;padding:2px 8px;border-radius:20px;
+ background:var(--surface-3);color:var(--ink-2);white-space:nowrap}
+.chip.warn{background:rgba(162,112,26,.14);color:var(--warn)}
+.chip.good{background:rgba(15,123,92,.13);color:var(--good)}
+.note{border-left:3px solid var(--warn);background:rgba(162,112,26,.08);padding:10px 14px;
+ border-radius:0 7px 7px 0;margin:14px 0;font-size:13px}
+.note b{color:var(--warn)}
+.ok{border-left-color:var(--good);background:rgba(15,123,92,.08)}
+.ok b{color:var(--good)}
+
+/* ── editing ─────────────────────────────────────────────────── */
+.f input, .f select{font:inherit;font-size:13.2px;font-family:var(--display);color:var(--ink);
+ background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;width:100%;min-width:0}
+.f input.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.f input:hover,.f select:hover{border-color:var(--border-strong)}
+.f input:focus,.f select:focus{outline:2px solid var(--sky);outline-offset:-1px;background:var(--surface-2)}
+.f.edited label{color:var(--warn)}
+.f.edited input,.f.edited select{border-color:var(--warn);background:rgba(162,112,26,.07)}
+.row.edited .row-h .rt::after{content:"Edited";font-family:var(--mono);font-size:9px;letter-spacing:.06em;
+ font-weight:600;color:var(--warn);background:rgba(162,112,26,.14);border-radius:20px;padding:2px 7px;margin-left:8px}
+.editnote{font-size:12.3px;color:var(--ink-3);margin:2px 0 10px}
+
+/* the floating changes button */
+.chgbtn{position:fixed;right:22px;bottom:22px;z-index:130;background:var(--navy);color:#fff;
+ border:1px solid var(--navy-mid);border-radius:24px;padding:11px 19px;font:inherit;font-family:var(--display);
+ font-size:13px;font-weight:600;cursor:pointer;box-shadow:0 6px 20px rgba(6,32,47,.32);display:none;align-items:center;gap:9px}
+.chgbtn.on{display:flex}
+.chgbtn:hover{background:var(--navy-mid)}
+.chgbtn .n{font-family:var(--mono);background:var(--sky);color:var(--navy-deep);border-radius:20px;padding:1px 8px;font-size:11.5px}
+:root[data-theme="dark"] .chgbtn{background:var(--sky);color:var(--navy-deep);border-color:var(--sky)}
+:root[data-theme="dark"] .chgbtn .n{background:var(--navy-deep);color:var(--sky)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .chgbtn{background:var(--sky);color:var(--navy-deep);border-color:var(--sky)}
+  :root:not([data-theme="light"]) .chgbtn .n{background:var(--navy-deep);color:var(--sky)} }
+.copybtn{background:var(--surface-3);border:1px solid var(--border-strong);border-radius:6px;color:var(--ink);
+ font:inherit;font-size:12.5px;font-weight:600;padding:7px 14px;cursor:pointer;margin-bottom:14px}
+.copybtn:hover{background:var(--sky-wash)}
+:root[data-theme="dark"] .copybtn:hover{background:var(--surface-2)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .copybtn:hover{background:var(--surface-2)} }
+
+/* the signing box, as the contractor will see it */
+.signbox{border:2px dashed var(--border-strong);border-radius:9px;padding:16px 18px;margin-top:20px;background:var(--surface-2)}
+.signbox h4{font-size:11px;font-family:var(--mono);letter-spacing:.09em;text-transform:uppercase;
+ color:var(--ink-3);font-weight:700;margin-bottom:9px}
+.signbox .stamp{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);margin-top:11px;
+ border-top:1px solid var(--rule);padding-top:9px}
+.signbox .ack{display:flex;align-items:center;gap:9px;margin-top:12px;font-size:13px}
+.signbox .ack input[type=checkbox]{width:17px;height:17px;accent-color:var(--navy-mid)}
+.fakebtn{background:var(--navy);color:#fff;border:0;border-radius:7px;padding:9px 18px;font:inherit;
+ font-family:var(--display);font-size:13px;font-weight:600;margin-top:13px;opacity:.55;cursor:not-allowed}
+:root[data-theme="dark"] .fakebtn{background:var(--sky);color:var(--navy-deep)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .fakebtn{background:var(--sky);color:var(--navy-deep)} }
+
+/* clickable overview figures */
+.fig.click{cursor:pointer;border-radius:6px;padding:3px 7px;margin:-3px -7px}
+.fig.click:hover{background:var(--sky-wash)}
+:root[data-theme="dark"] .fig.click:hover{background:var(--surface-3)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .fig.click:hover{background:var(--surface-3)} }
+.fig.click b{text-decoration:underline;text-decoration-color:var(--border-strong);text-underline-offset:3px}
+
+/* ── stat tiles ──────────────────────────────────────────────── */
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin:0 0 26px}
+@media(max-width:980px){ .stats{grid-template-columns:repeat(3,1fr)} }
+@media(max-width:640px){ .stats{grid-template-columns:1fr 1fr} }
+.stat{display:block;width:100%;text-align:left;background:var(--surface);
+ border:1px solid var(--border);border-radius:8px;padding:15px 16px;
+ font-family:inherit;color:inherit;cursor:pointer;transition:border-color .12s, background .12s}
+.stat:hover{border-color:var(--border-strong);background:var(--surface-2)}
+.stat:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
+.stat .lab{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;
+ color:var(--ink-3);line-height:1.35;font-weight:600;font-family:var(--mono)}
+.stat .val{display:block;font-family:var(--mono);font-variant-numeric:tabular-nums;
+ font-size:25px;font-weight:600;margin-top:6px;letter-spacing:-.02em;line-height:1.1}
+.stat .sub{display:block;font-size:11.5px;color:var(--ink-3);margin-top:3px}
+.stat.warn{border-left:3px solid var(--warn)} .stat.warn .val{color:var(--warn)}
+.stat.good{border-left:3px solid var(--good)} .stat.good .val{color:var(--good)}
+
+/* clickable table rows */
+tr.clk{cursor:pointer}
+tr.clk:hover td{background:var(--sky-wash)}
+:root[data-theme="dark"] tr.clk:hover td{background:var(--surface-3)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) tr.clk:hover td{background:var(--surface-3)} }
+tr.clk td:first-child::after{content:"›";color:var(--ink-3);font-size:15px;margin-left:8px}
+
+/* who may change what */
+.lockbar{display:flex;align-items:center;gap:9px;background:var(--surface-3);border:1px solid var(--border);
+ border-radius:7px;padding:8px 12px;margin:2px 0 12px;font-size:12.3px;color:var(--ink-2)}
+.lockbar svg{width:15px;height:15px;flex:0 0 auto;stroke:var(--ink-3);fill:none;stroke-width:1.8}
+.lockbar b{color:var(--ink)}
+
+/* print / save as PDF */
+.printbtn{background:var(--surface-3);border:1px solid var(--border-strong);border-radius:6px;color:var(--ink);
+ font:inherit;font-family:var(--display);font-size:12.3px;font-weight:600;padding:6px 13px;cursor:pointer;
+ display:inline-flex;align-items:center;gap:7px;margin:14px 0 0}
+.printbtn:hover{background:var(--sky-wash)}
+:root[data-theme="dark"] .printbtn:hover{background:var(--surface-2)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .printbtn:hover{background:var(--surface-2)} }
+.printbtn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+#printhost{display:none}
+
+@media print{
+  body.printing{padding:0 !important;background:#fff !important}
+  body.printing > *{display:none !important}
+  body.printing > #printhost{display:block !important}
+  #printhost .doc{border:0;padding:0;margin:0;background:#fff;color:#000;
+    font-family:Georgia,'Times New Roman',serif;font-size:11pt;line-height:1.5}
+  #printhost .doc .sn{color:#000}
+  #printhost .signbox,#printhost .printbtn,#printhost .note{display:none !important}
+  @page{margin:1in 1.1in}
+}
+
+/* ── the contracting company's own view, previewed ───────────── */
+.cvframe{border:1px solid var(--border-strong);border-radius:12px;overflow:hidden;background:var(--surface);
+ box-shadow:0 6px 24px rgba(6,32,47,.10);margin-bottom:26px}
+.cvbar{background:var(--navy);color:#fff;display:flex;align-items:center;gap:14px;padding:11px 18px}
+.cvbar .nm{font-weight:600;font-size:14px;color:var(--sky)}
+.cvbar .who{margin-left:auto;font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;
+ text-transform:uppercase;color:rgba(255,255,255,.62);font-weight:600}
+.cvurl{background:var(--surface-3);border-bottom:1px solid var(--border);padding:7px 18px;
+ font-family:var(--mono);font-size:11px;color:var(--ink-3);overflow-wrap:anywhere}
+.cvbody{padding:18px}
+.cvsec{margin-bottom:24px}
+.cvsec:last-child{margin-bottom:0}
+.cvsec h3{font-size:13.5px;font-weight:600;margin-bottom:3px;display:flex;align-items:center;gap:9px}
+.cvsec .cvsub{font-size:12.3px;color:var(--ink-3);margin-bottom:10px}
+.meter{height:6px;border-radius:4px;background:var(--surface-3);overflow:hidden;min-width:70px;flex:1 1 auto}
+.meter i{display:block;height:100%;background:var(--sky)}
+.meter i.hot{background:var(--warn)}
+.meter i.over{background:var(--bad)}
+.cvnote{font-size:12.3px;color:var(--ink-2);background:var(--surface-3);border-radius:7px;padding:9px 13px;margin-top:10px}
+
+/* ── figures in the sans face, still aligned ─────────────────── */
+.num, .f .v.num, .f input.num, td.n, th.n, .stat .val, .card .fig b, .row-h .rs,
+table .n, .doc .num{ font-family:var(--display) !important; font-variant-numeric:tabular-nums;
+  letter-spacing:-.004em }
+.stat .val{ font-weight:650 }
+
+/* ── services and deliverables, one field per line ───────────── */
+.sdlist{display:flex;flex-direction:column;gap:7px;margin-top:6px}
+.sdrow{display:flex;gap:8px;align-items:flex-start}
+.sdrow input{flex:1 1 auto;min-width:0;font:inherit;font-size:13.2px;font-family:var(--display);
+ color:var(--ink);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 9px}
+.sdrow input:hover{border-color:var(--border-strong)}
+.sdrow input:focus{outline:2px solid var(--sky);outline-offset:-1px;background:var(--surface-2)}
+.sdrow.edited input{border-color:var(--warn);background:rgba(162,112,26,.07)}
+.sdx{flex:0 0 auto;width:28px;height:30px;border:1px solid var(--border);border-radius:6px;
+ background:var(--surface-2);color:var(--ink-3);cursor:pointer;font-size:15px;line-height:1;padding:0}
+.sdx:hover{background:var(--surface-3);color:var(--bad)}
+.sdadd{align-self:flex-start;background:var(--surface-3);border:1px solid var(--border);border-radius:6px;
+ color:var(--ink-2);font:inherit;font-family:var(--display);font-size:12.2px;font-weight:600;padding:5px 12px;cursor:pointer;margin-top:2px}
+.sdadd:hover{background:var(--sky-wash);color:var(--ink)}
+.srcline{font-size:11.5px;color:var(--ink-3);margin-top:5px}
+.srcline b{color:var(--ink-2)}
+
+/* ── the review queue in the company view ────────────────────── */
+.q td:first-child{width:34px}
+.q input[type=checkbox]{width:17px;height:17px;accent-color:var(--navy-mid);cursor:pointer}
+.qask{background:none;border:1px solid var(--border);border-radius:6px;color:var(--ink-2);
+ font:inherit;font-family:var(--display);font-size:11.8px;padding:4px 10px;cursor:pointer;white-space:nowrap}
+.qask:hover{background:var(--surface-3);color:var(--ink)}
+.qask.on{background:rgba(162,112,26,.14);border-color:var(--warn);color:var(--warn);font-weight:600}
+.qbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid var(--rule)}
+.qcount{font-size:12.5px;color:var(--ink-2)}
+.qcount b{color:var(--ink)}
+.qbox{margin-top:8px}
+.qbox input{width:100%;font:inherit;font-size:12.8px;font-family:var(--display);color:var(--ink);
+ background:var(--surface);border:1px solid var(--warn);border-radius:6px;padding:6px 9px}
+
+/* ── their shell: the same masthead and rail, their own sections ── */
+.cvsplit{display:flex;min-height:420px}
+.cvrail{flex:0 0 182px;background:var(--navy);color:#fff;padding:10px 8px;display:flex;flex-direction:column;gap:1px}
+.cvrail .lbl{font-family:var(--mono);font-size:9px;letter-spacing:.12em;text-transform:uppercase;
+ font-weight:700;color:rgba(255,255,255,.5);padding:4px 9px 7px}
+.cvrail a{display:flex;align-items:center;gap:9px;border-radius:6px;color:rgba(255,255,255,.78);
+ padding:7px 9px;font-size:12.5px;font-weight:500;text-decoration:none;cursor:default}
+.cvrail a.on{color:#fff;font-weight:600;background:var(--navy-mid);box-shadow:inset 3px 0 0 var(--sky)}
+.cvrail a svg{width:15px;height:15px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.7;
+ stroke-linecap:round;stroke-linejoin:round;opacity:.85}
+.cvrail a.on svg{stroke:var(--sky);opacity:1}
+.cvrail .foot{margin-top:auto;border-top:1px solid rgba(80,164,219,.2);padding-top:7px}
+.cvsplit > .cvbody{flex:1 1 auto;min-width:0}
+@media(max-width:820px){ .cvsplit{flex-direction:column} .cvrail{flex:0 0 auto;flex-direction:row;flex-wrap:wrap;gap:4px}
+  .cvrail .lbl,.cvrail .foot{display:none} }
+.cvopen{cursor:pointer}
+.cvopen:hover td{background:var(--sky-wash)}
+:root[data-theme="dark"] .cvopen:hover td{background:var(--surface-3)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .cvopen:hover td{background:var(--surface-3)} }
+
+/* ── pick the company from inside the preview, where the eye is ── */
+.cvpick{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 14px}
+.cvpick .cvlab{font-family:var(--mono);font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;
+ font-weight:700;color:var(--ink-3);margin-right:2px}
+.cvpick button{background:var(--surface);border:1px solid var(--border);border-radius:20px;
+ color:var(--ink-2);font:inherit;font-family:var(--display);font-size:12.5px;font-weight:600;
+ padding:6px 14px;cursor:pointer}
+.cvpick button:hover{border-color:var(--border-strong);color:var(--ink)}
+.cvpick button.on{background:var(--navy);border-color:var(--navy);color:#fff}
+:root[data-theme="dark"] .cvpick button.on{background:var(--sky);border-color:var(--sky);color:var(--navy-deep)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .cvpick button.on{background:var(--sky);border-color:var(--sky);color:var(--navy-deep)} }
+.cvpick button:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
+
+/* ── the company record ──────────────────────────────────────── */
+/* rows share the header's grid so every column starts in the same place */
+.crow{display:grid;gap:8px;align-items:center;margin-bottom:7px}
+.crow input,.crow select{min-width:0;width:100%;font:inherit;font-size:13.2px;font-family:var(--display);
+ color:var(--ink);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 9px}
+.crow input.num{font-variant-numeric:tabular-nums}
+.crow input:hover,.crow select:hover{border-color:var(--border-strong)}
+.crow input:focus,.crow select:focus{outline:2px solid var(--sky);outline-offset:-1px;background:var(--surface-2)}
+.crow .cx{width:28px;justify-self:start;height:30px;border:1px solid var(--border);border-radius:6px;
+ background:var(--surface-2);color:var(--ink-3);cursor:pointer;font-size:15px;line-height:1;padding:0}
+.crow .cx:hover{background:var(--surface-3);color:var(--bad)}
+.crow .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--ink-3);
+ background:var(--surface-3);border-radius:4px;padding:4px 8px;white-space:nowrap;
+ text-align:center;justify-self:stretch;overflow:hidden;text-overflow:ellipsis}
+.chead{display:grid;gap:8px;margin-bottom:5px;padding:0 0 1px}
+.chead span{font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;
+ color:var(--ink-3);font-weight:600}
+.addbtn{background:var(--surface-3);border:1px solid var(--border);border-radius:6px;color:var(--ink-2);
+ font:inherit;font-family:var(--display);font-size:12.2px;font-weight:600;padding:5px 12px;cursor:pointer;margin-top:4px}
+.addbtn:hover{background:var(--sky-wash);color:var(--ink)}
+.card.newco{border-style:dashed;align-items:center;justify-content:center;text-align:center;min-height:132px}
+.card.newco h3{justify-content:center}
+.card.newco .plus{font-size:26px;line-height:1;color:var(--ink-3);font-weight:300}
+
+/* ── no pills: squared tags and tabs throughout ──────────────── */
+.chip{border-radius:4px;padding:2px 7px}
+.card .cnt{border-radius:4px}
+.crow .tag{border-radius:4px}
+.railhits .rh-g{border-radius:0}
+.cvpick button{border-radius:5px;padding:6px 13px}
+.chgbtn{border-radius:7px}
+.meter,.meter i{border-radius:2px}
+.stat{border-radius:7px}
+.card{border-radius:8px}
+
+/* one column spec per section, used by the header and its rows alike */
+.cgrid-rate{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 28px}
+.cgrid-msa{grid-template-columns:minmax(0,1fr) minmax(0,1.3fr) minmax(0,1fr) 28px}
+.cgrid-sign{grid-template-columns:118px minmax(0,1fr) minmax(0,1fr) minmax(0,1.25fr)}
+.cgrid-people{grid-template-columns:minmax(0,1.2fr) minmax(0,1.3fr) minmax(0,1fr) 28px}
+@media(max-width:820px){
+  .cgrid-rate,.cgrid-msa,.cgrid-sign,.cgrid-people{grid-template-columns:1fr}
+  .crow .cx{justify-self:end}
+  .chead{display:none}
+  .crow{padding-bottom:9px;border-bottom:1px solid var(--rule)}
+}
+.cvrail a[data-cvs],.cvrail #cv-theme{cursor:pointer}
+.cvrail a[data-cvs]:hover,.cvrail #cv-theme:hover{color:#fff;background:rgba(255,255,255,.09)}
+
+/* ── time reporting ──────────────────────────────────────────── */
+.tstate{display:flex;flex-wrap:wrap;align-items:center;gap:10px;background:var(--surface-3);
+ border:1px solid var(--border);border-radius:7px;padding:9px 13px;margin-bottom:12px}
+.tstate .dot{width:9px;height:9px;border-radius:50%;flex:0 0 auto;background:var(--ink-3)}
+.tstate.open .dot{background:var(--sky)}
+.tstate.sub .dot{background:var(--warn)}
+.tstate.appr .dot{background:var(--good)}
+.tstate .st{font-weight:600;font-size:13px}
+.tstate .sd{font-size:12.4px;color:var(--ink-2)}
+.tstate .acts{margin-left:auto;display:flex;gap:8px}
+.tbtn{background:var(--navy);color:#fff;border:1px solid var(--navy);border-radius:6px;
+ font:inherit;font-family:var(--display);font-size:12.5px;font-weight:600;padding:6px 14px;cursor:pointer}
+.tbtn:hover{background:var(--navy-mid)}
+.tbtn.ghost{background:var(--surface);color:var(--ink-2);border-color:var(--border-strong)}
+.tbtn.ghost:hover{background:var(--surface-2);color:var(--ink)}
+:root[data-theme="dark"] .tbtn{background:var(--sky);color:var(--navy-deep);border-color:var(--sky)}
+:root[data-theme="dark"] .tbtn.ghost{background:var(--surface-2);color:var(--ink);border-color:var(--border-strong)}
+@media (prefers-color-scheme:dark){
+ :root:not([data-theme="light"]) .tbtn{background:var(--sky);color:var(--navy-deep);border-color:var(--sky)}
+ :root:not([data-theme="light"]) .tbtn.ghost{background:var(--surface-2);color:var(--ink);border-color:var(--border-strong)} }
+.tw input,.tw select{width:100%;min-width:0;font:inherit;font-size:12.8px;font-family:var(--display);color:var(--ink);
+ background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:4px 7px}
+.tw input.h{font-variant-numeric:tabular-nums;text-align:right}
+.tw input:focus,.tw select:focus{outline:2px solid var(--sky);outline-offset:-1px}
+.tw input:disabled,.tw select:disabled{background:var(--surface-2);color:var(--ink-2);cursor:not-allowed;border-style:dashed}
+.tw td{vertical-align:top;padding:6px 8px}
+.tw .neg{color:var(--bad);font-weight:600}
+.hdot{display:inline-flex;align-items:center;gap:6px;white-space:nowrap}
+.hdot i{width:8px;height:8px;border-radius:50%;background:var(--ink-3);flex:0 0 auto}
+.hdot.g i{background:var(--good)} .hdot.y i{background:var(--warn)} .hdot.r i{background:var(--bad)}
+.steps{counter-reset:s;margin:0;padding:0;list-style:none}
+.steps li{counter-increment:s;position:relative;padding-left:32px;margin-bottom:11px}
+.steps li::before{content:counter(s);position:absolute;left:0;top:0;width:22px;height:22px;border-radius:5px;
+ background:var(--navy);color:#fff;font-family:var(--display);font-size:11.5px;font-weight:700;
+ display:flex;align-items:center;justify-content:center}
+:root[data-theme="dark"] .steps li::before{background:var(--sky);color:var(--navy-deep)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .steps li::before{background:var(--sky);color:var(--navy-deep)} }
+
+/* ── one timesheet entry, in the panel ───────────────────────── */
+.tnote label{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;
+ color:var(--ink-3);font-weight:600;margin-bottom:4px}
+.tnote textarea{width:100%;min-height:104px;resize:vertical;font:inherit;font-size:13.4px;line-height:1.55;
+ font-family:var(--display);color:var(--ink);background:var(--surface);border:1px solid var(--border);
+ border-radius:7px;padding:10px 12px}
+.tnote textarea:hover{border-color:var(--border-strong)}
+.tnote textarea:focus{outline:2px solid var(--sky);outline-offset:-1px;background:var(--surface-2)}
+.tnote textarea:disabled{background:var(--surface-2);color:var(--ink-2);border-style:dashed;cursor:not-allowed}
+.tnote{margin-top:16px}
+.tnote .cnt2{font-size:11.5px;color:var(--ink-3);margin-top:4px}
+.tbar{position:sticky;bottom:0;display:flex;flex-wrap:wrap;gap:9px;align-items:center;
+ background:var(--surface);border-top:1px solid var(--border);margin:22px -20px -60px;padding:13px 20px 16px}
+.tbar .sp{margin-left:auto;font-size:12.3px;color:var(--ink-3)}
+.tbar .sp b{color:var(--warn)}
+.tw tr.trow{cursor:pointer}
+.tw tr.trow:hover td{background:var(--sky-wash)}
+:root[data-theme="dark"] .tw tr.trow:hover td{background:var(--surface-3)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .tw tr.trow:hover td{background:var(--surface-3)} }
+.tw td.notecell{color:var(--ink-2);font-size:12.4px}
+.tw td.notecell.empty{color:var(--ink-3);font-style:italic}
+
+/* ── fiscal year picker inside their sections ────────────────── */
+.fypick{display:flex;align-items:center;gap:9px;margin:0 0 10px}
+.fypick label{font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;
+ color:var(--ink-3);font-weight:600}
+.fypick select{font:inherit;font-size:12.6px;font-family:var(--display);font-weight:600;color:var(--ink);
+ background:var(--surface);border:1px solid var(--border-strong);border-radius:5px;padding:5px 10px;cursor:pointer}
+.fypick select:hover{background:var(--surface-2)}
+.fypick select:focus{outline:2px solid var(--sky);outline-offset:1px}
+.fypick .hint{font-size:11.8px;color:var(--ink-3)}
+
+/* ---------- wording library ---------- */
+.wsec{margin:14px 0 0}
+.wsec h4{margin:0 0 6px;font:600 .78rem/1.3 'IBM Plex Sans',sans-serif;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--muted)}
+.wsec ul{margin:0;padding-left:18px}
+.wsec li{margin:0 0 5px;font-size:.92rem;line-height:1.5}
+.wsec p{margin:0;font-size:.92rem;line-height:1.55}
+.wfind{margin:0 0 12px}
+.wfind input{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:5px;
+  background:var(--card);color:var(--ink);font:400 .95rem/1.3 'IBM Plex Sans',sans-serif}
+.wfind input:focus{outline:2px solid var(--sky);outline-offset:1px;border-color:var(--sky)}
+h3.sech{margin:26px 0 10px;font:600 1rem/1.3 'IBM Plex Sans',sans-serif;color:var(--ink)}
+
+.crow.isnew input,.crow.isnew select{border-color:var(--sky);background:rgba(116,191,235,.08)}
+.addbtn{margin-top:10px}
+
+.printwarn{margin:12px 0 4px;background:var(--card);border:1px solid var(--warn);
+  border-left:4px solid var(--warn);border-radius:6px;padding:14px 16px;font-size:13px;
+  line-height:1.55;color:var(--ink)}
+.printwarn b{color:var(--ink)}
+.printwarn>b:first-child{color:var(--warn);display:block;margin-bottom:6px;font-size:13.5px}
+.printwarn p{margin:0 0 6px}
+.printwarn ol{margin:0;padding-left:20px}
+.printwarn li{margin-bottom:6px}
+.printwarn .pw-x{margin-top:10px;background:var(--surface-3);border:1px solid var(--border);
+  border-radius:5px;color:var(--ink-2);font:inherit;font-size:12.2px;font-weight:600;
+  padding:5px 12px;cursor:pointer}
+.printwarn .pw-x:hover{background:var(--sky-wash);color:var(--ink)}
+@media print{.printwarn{display:none}}
+
+/* ---------- health: the colour is the value ---------- */
+.hmark{display:inline-block;width:12px;height:12px;border-radius:50%;vertical-align:-1px;
+  background:var(--ink-3);box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
+.hmark.g{background:var(--good)} .hmark.y{background:var(--warn)} .hmark.r{background:var(--bad)}
+.hmark.na,.hmark.none{width:auto;height:auto;border-radius:4px;background:none;box-shadow:none;
+  font-size:10.5px;font-weight:600;letter-spacing:.04em;color:var(--ink-3)}
+.hpick{display:flex;gap:6px;align-items:center}
+.hp{display:inline-flex;align-items:center;justify-content:center;width:34px;height:30px;padding:0;
+  background:var(--card);border:1px solid var(--line);border-radius:5px;cursor:pointer}
+.hp:hover:not(:disabled){border-color:var(--sky)}
+.hp:disabled{cursor:default;opacity:.55}
+.hp:focus-visible{outline:2px solid var(--sky);outline-offset:1px}
+.hp .hpdot{width:13px;height:13px;border-radius:50%;background:var(--ink-3);
+  box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
+.hp.g .hpdot{background:var(--good)} .hp.y .hpdot{background:var(--warn)} .hp.r .hpdot{background:var(--bad)}
+.hp .hpna{font-family:'IBM Plex Sans',sans-serif;font-size:10.5px;font-weight:700;
+  letter-spacing:.03em;color:var(--ink-3)}
+.hp.na{width:42px}
+.hp.on{border-color:var(--navy);box-shadow:0 0 0 2px var(--sky-wash)}
+.hp.on .hpna{color:var(--ink)}
+:root[data-theme="dark"] .hp.on{border-color:var(--sky)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .hp.on{border-color:var(--sky)} }
+.vh{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;
+  clip:rect(0 0 0 0);white-space:nowrap;border:0}
+.tw th.hcol,.tw td.hcol{text-align:center}
+
+/* A contracting company's block inside the VP's and the President's views. */
+.cvco{border:1px solid var(--border); border-radius:8px; margin:0 0 16px; overflow:hidden}
+.cvco-h{display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 12px;
+  padding:10px 14px; background:var(--surface-3); border-bottom:1px solid var(--border)}
+.cvco-h b{font-size:13.5px}
+.cvco-t{margin-left:auto; font-size:12.5px; color:var(--ink-2)}
+.cvco .tbl{border:0}
+.cvaccept{font-size:12px; color:var(--ink-2); white-space:nowrap}
+@media (max-width:620px){ .cvco-t{margin-left:0; width:100%} }
+
+/* The order name is a sentence, not a label, so it gets the width — otherwise
+   it wraps one word per line and the table becomes unreadable. */
+.cvq{table-layout:auto; width:100%}
+.cvq th.so, .cvq td:first-child{width:46%; min-width:300px; white-space:normal;
+  overflow-wrap:break-word; line-height:1.35}
+.cvq th.n, .cvq td.n{white-space:nowrap; width:1%}
+.cvq td, .cvq th{vertical-align:middle}
+@media (max-width:900px){ .cvq th.so, .cvq td:first-child{min-width:180px} }
+
+/* A Help page inside a framed screen. */
+.cvhelp{padding:4px 0 0}
+.cvhelp h4{font-size:13px; font-weight:600; margin:18px 0 6px; color:var(--ink)}
+.cvhelp h4:first-child{margin-top:4px}
+.cvhelp ol{margin:0 0 4px; padding-left:22px}
+.cvhelp li{margin:0 0 6px; line-height:1.5; color:var(--ink-2)}
+.cvhelp li b{color:var(--ink)}
+
+/* The totals band — the same one the real portal carries, so the preview and
+   the page agree about what a company sees. */
+.tot{display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 14px;
+  margin:0 0 14px; padding:11px 14px; border-radius:8px;
+  background:var(--surface-3); border:1px solid var(--border)}
+.tot-l{font-family:var(--mono); font-size:9.5px; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--ink-3); font-weight:700; white-space:nowrap}
+.tot-v{font-size:14px; color:var(--ink)}
+.tot-v b{font-size:17px; font-weight:600; font-variant-numeric:tabular-nums}
+@media (max-width:620px){ .tot{gap:2px 10px} .tot-l{width:100%} }
+
+/* Review table: keep the order name readable in a narrow scroller */
+.cvbody .tbl{overflow-x:auto}
+.cvbody table.q{min-width:640px}
+.cvbody table.q td:nth-child(2){min-width:280px; white-space:normal; overflow-wrap:normal; word-break:normal}
+@media (max-width:620px){
+  .cvbody table.q{min-width:560px}
+  .cvbody table.q td:nth-child(2){min-width:240px}
+}
+
+/* The role switch on the company preview */
+.cvrolenote{font-size:12px; color:var(--ink-3); margin-left:10px; flex:1 1 220px; min-width:0}
+.cvnote.warnnote{border-left:3px solid var(--warn); background:var(--surface-3)}
+@media (max-width:620px){ .cvrolenote{margin-left:0; flex-basis:100%} }
+
+/* Issues & Activity */
+.issacts{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px}
+.resbox{margin-top:12px; padding:12px; border-radius:8px;
+  background:var(--surface-3); border:1px solid var(--border)}
+.resbox .fields{margin:0 0 10px}
+.chip.bad{background:rgba(179,55,44,.14); color:var(--bad); font-weight:600}
+.chip.good{background:rgba(15,123,92,.14); color:var(--good); font-weight:600}
+.row-b textarea{width:100%; box-sizing:border-box; font:inherit; font-size:13px;
+  padding:8px 10px; border-radius:6px; border:1px solid var(--border);
+  background:var(--surface); color:var(--ink); resize:vertical}
+.row-b .f > textarea{margin-top:2px}
+.row-sub .sp.long, .row-b p.long{overflow-wrap:anywhere}
+
+/* The state band inside a submitted week */
+.wkstate{display:flex; flex-wrap:wrap; align-items:baseline; gap:4px 12px;
+  margin:12px 0 0; padding:10px 12px; border-radius:8px;
+  background:var(--surface-3); border-left:3px solid var(--border)}
+.wkstate.good{border-left-color:var(--good)}
+.wkstate.warn{border-left-color:var(--warn)}
+.wk-l{font-family:var(--mono); font-size:9.5px; letter-spacing:.11em;
+  text-transform:uppercase; font-weight:700; color:var(--ink-2); white-space:nowrap}
+.wk-d{font-size:12.5px; color:var(--ink-3); flex:1 1 260px; min-width:0}
+@media (max-width:620px){ .wk-l{width:100%} }
+.nonote{color:var(--ink-3); opacity:.75; font-style:italic; font-size:12px}
+
+/* Invoices */
+.cvh4{font-family:var(--display); font-size:13px; font-weight:700; color:var(--ink);
+  margin:26px 0 8px; padding-bottom:6px; border-bottom:1px solid var(--border)}
+.cvh4:first-of-type{margin-top:4px}
+.totrow td{border-top:2px solid var(--border); background:var(--surface-3)}
+.upbox{margin:14px 0; border:1px solid var(--border); border-radius:9px; background:var(--surface)}
+.upl{font-family:var(--mono); font-size:9.5px; letter-spacing:.11em; text-transform:uppercase;
+  font-weight:700; color:var(--ink-3); padding:10px 14px 0}
+.updrop{padding:6px 14px 14px}
+.updrop > p{margin:6px 0 10px; font-size:13px; color:var(--ink-2)}
+.upnote{font-size:12px; color:var(--ink-3); margin:10px 0 0; line-height:1.55}
+.upfile{display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; padding:8px 14px 14px}
+.upfile .fn{font-weight:600; font-size:13.5px; color:var(--ink)}
+.upfile .fm{font-family:var(--mono); font-size:11.5px; color:var(--ink-3)}
+.upfile .tbtn{margin-left:auto}
+.invchk{margin:12px 0}
+.invtrail{display:flex; flex-wrap:wrap; gap:6px 22px; margin:14px 0 0; padding:12px 14px;
+  border-radius:8px; background:var(--surface-3)}
+.invtrail .ts{display:flex; align-items:baseline; gap:7px; font-size:12px; color:var(--ink-3)}
+.invtrail .tsd{width:7px; height:7px; border-radius:50%; background:var(--border); flex:0 0 auto}
+.invtrail .ts.on .tsd{background:var(--good)}
+.invtrail .ts.on .tsl{color:var(--ink); font-weight:600}
+.invtrail .tsw{font-family:var(--mono); font-size:11px; opacity:.85}
+.mailcard{border:1px solid var(--border); border-radius:8px; background:var(--surface); margin:10px 0}
+.mailcard .mrow{display:flex; gap:10px; padding:7px 12px; border-bottom:1px solid var(--border); font-size:13px}
+.mailcard .ml{font-family:var(--mono); font-size:9.5px; letter-spacing:.1em; text-transform:uppercase;
+  font-weight:700; color:var(--ink-3); width:72px; flex:0 0 auto; padding-top:3px}
+.mailcard .mv{color:var(--ink); overflow-wrap:anywhere}
+.mailcard .mbody{padding:12px; font-size:13.5px; color:var(--ink); line-height:1.6}
+@media (max-width:620px){ .mailcard .mrow{flex-wrap:wrap} .mailcard .ml{width:100%} }
+
+/* Invoice upload outcomes */
+.upreject{padding:6px 14px 14px}
+.upreject > b{display:block; color:var(--bad); font-size:13.5px; margin-bottom:8px}
+.upreject p{margin:0 0 9px; font-size:13px; color:var(--ink-2); line-height:1.6}
+.uptotal{padding:0 14px 14px}
+.uptotal .fields{margin:0 0 8px}
+.linkbtn{background:none; border:0; padding:0; font:inherit; font-size:12px;
+  color:var(--navy-mid); text-decoration:underline; cursor:pointer}
+.linkbtn:hover{opacity:.8}
+.sentok{display:flex; gap:11px; align-items:flex-start; margin:0 0 16px;
+  padding:13px 15px; border-radius:9px; background:rgba(15,123,92,.09);
+  border:1px solid rgba(15,123,92,.28); font-size:13px; line-height:1.6; color:var(--ink-2)}
+.sentok svg{width:20px; height:20px; flex:0 0 auto; fill:none; stroke:var(--good);
+  stroke-width:2; stroke-linecap:round; stroke-linejoin:round; margin-top:1px}
+.sentok b{color:var(--ink)}
+:root:not([data-theme="light"]) .linkbtn{color:var(--sky)}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]) .linkbtn{color:var(--sky)} }
+:root[data-theme="dark"] .linkbtn{color:var(--sky)}
+.tbtn:disabled, .tbtn[disabled]{opacity:.42; cursor:not-allowed}
+.tbtn:disabled:hover, .tbtn[disabled]:hover{background:var(--navy)}
+:root[data-theme="dark"] .tbtn:disabled:hover{background:var(--sky)}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) .tbtn:disabled:hover{background:var(--sky)} }
+
+/* ---------- Matching Website Migration HQ ---------------------------------
+   The same panel, tiles, cards and rows as the other MISMO tools, so the three
+   read as one family rather than three drawings. */
+
+/* the panel widens, the way Summit HQ's does */
+.panel{transition:width .22s cubic-bezier(.4,0,.2,1)}
+.panel.wide{width:min(1320px, calc(100vw - var(--rail-w,240px) - 24px))}
+body.railmini .panel.wide{width:min(1320px, calc(100vw - var(--rail-mini,62px) - 24px))}
+@media (prefers-reduced-motion:reduce){ .panel{transition:none} }
+.panel-x.wide-b{margin-left:auto; display:inline-flex; align-items:center; justify-content:center;
+  padding:0; border-color:transparent; background:none; color:var(--ink-3)}
+.panel-x.wide-b:hover{color:var(--ink); background:var(--sky-wash,var(--surface-3)); border-color:var(--sky)}
+.panel-x.wide-b + .panel-x{margin-left:-6px}
+.panel-x.wide-b svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.9;
+  stroke-linecap:round;stroke-linejoin:round}
+.panel-x.wide-b .i-min{display:none}
+.panel.wide .panel-x.wide-b .i-max{display:none}
+.panel.wide .panel-x.wide-b .i-min{display:block}
+@media(max-width:820px){ .panel-x.wide-b{display:none} .panel-x.wide-b + .panel-x{margin-left:auto}
+  .panel.wide, body.railmini .panel.wide{width:100vw} }
+
+/* view header */
+.vhead{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 20px;margin:0 0 22px}
+.vhead h1{font-size:24px;font-weight:700;letter-spacing:-.012em;margin:0}
+.vhead p{margin:4px 0 0;color:var(--ink-2)}
+.vhead .grow{flex:1 1 320px}
+.sect-t{font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+  color:var(--ink-2);margin:26px 0 10px}
+
+/* the navy headline block with its tiles */
+.headline{background:var(--navy);color:#fff;border-radius:8px;padding:20px 22px;
+  display:flex;flex-direction:column;gap:14px;margin:0 0 22px}
+.headline .hl-date{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--sky-soft);margin-bottom:-6px}
+.headline .hl-say{font-size:18px;font-weight:600;letter-spacing:-.01em;line-height:1.35;margin:0}
+.headline .hl-say em{font-style:normal;color:var(--sky)}
+.headline .hl-say em.hl-late{color:#ffcf73}
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+@media(max-width:900px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile{background:rgba(255,255,255,.07);border:1px solid rgba(116,191,235,.28);
+  border-radius:6px;padding:12px 14px;text-align:left;color:inherit;font:inherit;cursor:pointer}
+.tile:hover{background:rgba(255,255,255,.13);border-color:rgba(116,191,235,.5)}
+.tile:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
+.tile b{display:block;font-size:28px;font-weight:700;line-height:1.1;color:#fff;
+  font-variant-numeric:tabular-nums}
+.tile span{display:block;font-size:12px;color:var(--sky-soft);margin-top:3px}
+.tile small{display:block;font-size:11.5px;color:rgba(255,255,255,.6);margin-top:2px}
+.tile.warn b{color:#ffcf73}
+
+/* cards */
+.cards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}
+@media(max-width:1100px){.cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:640px){.cards{grid-template-columns:1fr}}
+.hqcard{background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  padding:16px 18px;text-align:left;color:var(--ink);cursor:pointer;display:flex;
+  flex-direction:column;gap:10px;font:inherit;
+  box-shadow:0 1px 2px rgba(13,49,76,.06),0 6px 18px rgba(13,49,76,.06)}
+:root[data-theme="dark"] .hqcard{box-shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .hqcard{
+  box-shadow:0 1px 2px rgba(0,0,0,.3),0 6px 18px rgba(0,0,0,.25)} }
+.hqcard:hover{border-color:var(--border-strong)}
+.hqcard:focus-visible{outline:2px solid var(--navy-mid);outline-offset:2px}
+.hqcard h3{font-size:16px;font-weight:700;display:flex;align-items:center;
+  justify-content:space-between;gap:10px;margin:0}
+.hqcard h3 .arr{color:var(--ink-3);font-weight:500;font-size:18px}
+.hqcard p{margin:0;color:var(--ink-2);font-size:13px}
+.hqcard .big{font-size:26px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.hqcard .big small{font-size:13px;font-weight:500;color:var(--ink-2);margin-left:6px}
+.hqcard .next{font-size:12.5px;color:var(--ink-2);border-top:1px solid var(--rule,var(--border));
+  padding-top:9px;margin-top:auto}
+.hqcard .next b{color:var(--ink);font-weight:600}
+.hqcard .meta{display:flex;flex-wrap:wrap;gap:6px}
+
+/* rows that open in the panel */
+.hqrows{background:var(--surface);border:1px solid var(--border);border-radius:8px;overflow:hidden}
+.hqrow{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;width:100%;background:none;
+  border:0;border-bottom:1px solid var(--rule,var(--border));text-align:left;padding:10px 14px;
+  color:var(--ink);cursor:pointer;font:inherit;font-size:13.5px}
+.hqrows .hqrow:last-child{border-bottom:0}
+.hqrow:hover{background:var(--surface-2)}
+.hqrow:focus-visible{outline:2px solid var(--navy-mid);outline-offset:-2px}
+.hqrow .t{flex:1 1 260px;font-weight:600;min-width:0;overflow-wrap:anywhere}
+.hqrow .t small{display:block;font-weight:400;color:var(--ink-3);font-size:12px;margin-top:1px}
+.hqrow .r{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:flex-end}
+.hqrow .d{font-size:12.5px;color:var(--ink-2);white-space:nowrap;font-variant-numeric:tabular-nums}
+.hqrow .arr{color:var(--ink-3);font-size:16px;line-height:1}
+
+/* chips, the HQ set */
+.ch{display:inline-flex;align-items:center;gap:5px;border-radius:3px;padding:1px 7px;
+  font-size:11.5px;font-weight:600;white-space:nowrap;border:1px solid transparent;line-height:1.6}
+.ch-ns{background:var(--surface-3);color:var(--ink-2)}
+.ch-ip{background:var(--sky-wash,var(--surface-3));color:var(--navy-mid)}
+.ch-bl{background:rgba(179,55,44,.13);color:var(--bad)}
+.ch-dn{background:rgba(15,123,92,.13);color:var(--good)}
+.ch-od{background:rgba(179,55,44,.13);color:var(--bad)}
+.ch-soon{background:rgba(162,112,26,.14);color:var(--warn)}
+:root[data-theme="dark"] .ch-ip{color:var(--sky)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .ch-ip{color:var(--sky)} }
+
+/* callout */
+.callout{border-left:3px solid var(--navy-mid);background:var(--sky-wash,var(--surface-3));
+  padding:10px 14px;border-radius:0 6px 6px 0;font-size:13.5px;color:var(--ink-2);margin:0 0 18px}
+.callout b{color:var(--ink)}
+.callout.warn{border-color:var(--warn);background:rgba(162,112,26,.1)}
+.callout.bad{border-color:var(--bad);background:rgba(179,55,44,.09)}
+:root[data-theme="dark"] .callout{border-color:var(--sky)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .callout{border-color:var(--sky)} }
+/* Cards line their numbers and footers up across the row, the way the HQ does. */
+.cards > .hqcard{display:grid;grid-row:span 3;grid-template-rows:subgrid;row-gap:10px;align-content:start}
+.hqcard .cfoot{display:flex;flex-direction:column;gap:10px;align-self:start;min-width:0}
+.hqcard .cfoot .next{margin-top:0}
+
+.hqtop{position:sticky;top:env(safe-area-inset-top,0px);z-index:97;height:var(--hq-h);
+  background:var(--navy);color:#fff;display:flex;align-items:center;gap:0;
+  padding:0 22px;box-shadow:0 1px 0 rgba(80,164,219,.28);
+  margin-left:calc(0px - var(--rail-w));width:calc(100% + var(--rail-w));
+  transition:margin-left .2s cubic-bezier(.4,0,.2,1), width .2s cubic-bezier(.4,0,.2,1)}
+body.railmini .hqtop{margin-left:calc(0px - var(--rail-mini));width:calc(100% + var(--rail-mini))}
+@media (prefers-reduced-motion:reduce){ .hqtop{transition:none} }
+.hqtop .mastrule{display:block;width:2px;height:34px;flex:0 0 auto;margin-inline:20px;border-radius:1px;background:var(--sky)}
+.hqtop .hqname{font-family:var(--display);font-size:15.5px;font-weight:700;letter-spacing:-.005em;color:var(--sky);white-space:nowrap}
+.hqtop-r{margin-left:auto;display:flex;align-items:center;gap:13px}
+.hqtop .eyebrow-m{font-family:var(--display);font-size:10.5px;letter-spacing:.11em;
+  text-transform:uppercase;color:rgba(255,255,255,.62);font-weight:600;white-space:nowrap}
+@media(max-width:700px){.hqtop .eyebrow-m{display:none}}
+.logoplate{background:#fff;border-radius:7px;padding:8px 14px;display:flex;align-items:center;line-height:0;flex:0 0 auto;position:relative}
+.logoplate .wordmark{height:24px;width:auto;display:block}
+.santa{position:absolute;display:none;pointer-events:none;left:-9px;top:-12px;width:31px;height:31px}
+html[data-season="december"] .logoplate .santa{display:block}
+html[data-season="december"] .hqtop{padding-top:12px}
+
+.hq.rail{position:fixed;left:0;top:calc(var(--hq-h) + env(safe-area-inset-top,0px));bottom:0;width:var(--rail-w);z-index:95;
+  background:var(--navy);color:#fff;display:flex;flex-direction:column;gap:0;padding:0;overflow:hidden auto;
+  overscroll-behavior:contain;box-shadow:1px 0 0 rgba(80,164,219,.22), 4px 0 18px rgba(6,32,47,.14);
+  transition:width .2s cubic-bezier(.4,0,.2,1)}
+@media (prefers-reduced-motion:reduce){ .hq.rail,body{transition:none} }
+body.railmini{padding-left:var(--rail-mini)}
+body.railmini .hq.rail{width:var(--rail-mini)}
+body.railmini .rail-top{justify-content:center;padding:10px 0 9px}
+body.railmini .rail-lbl{display:none}
+body.railmini .railhide{margin:0}
+body.railmini .railhide svg{transform:scaleX(-1)}
+body.railmini .railfind{padding:9px 0 2px;display:flex;justify-content:center}
+body.railmini .railfind .fi,body.railmini .railfind input,body.railmini .railq-x,body.railmini .railhits{display:none}
+body.railmini .railfind-b{display:flex}
+body.railmini .hq nav{padding:6px 0 4px;align-items:center;gap:4px}
+body.railmini .hq nav button{width:42px;padding:10px 0;justify-content:center;border-radius:9px;box-shadow:none}
+body.railmini .hq nav button span{display:none}
+body.railmini .hq nav button svg{width:19px;height:19px}
+body.railmini .hq nav button[aria-current]{background:var(--sky);color:var(--navy-deep)}
+body.railmini .hq nav button[aria-current] svg{stroke:var(--navy-deep);opacity:1}
+body.railmini .railsum{display:none}
+body.railmini .hq .mast-right{gap:3px;padding:8px 0 11px;align-items:center}
+body.railmini .hq .mast-right .theme-btn{width:42px;padding:9px 0;font-size:0;justify-content:center;border-radius:9px}
+body.railmini .hq .mast-right .theme-btn .ti{width:19px;height:19px}
+body.railmini .hq .mast-right .theme-btn span{display:none}
+.railfind-b{display:none;width:34px;height:30px;border:1px solid rgba(255,255,255,.18);border-radius:7px;
+  background:rgba(255,255,255,.08);color:rgba(255,255,255,.8);align-items:center;justify-content:center;padding:0;cursor:pointer}
+.railfind-b svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+.railfind-b:hover{background:rgba(255,255,255,.18);color:#fff}
+.rail-top{display:flex;align-items:center;gap:8px;padding:11px 10px 9px;border-bottom:1px solid rgba(80,164,219,.2);flex:0 0 auto}
+.rail-lbl{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:rgba(255,255,255,.55);padding-left:3px}
+.railhide{margin-left:auto;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:5px;
+  color:rgba(255,255,255,.75);width:24px;height:24px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
+.railhide svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.railhide:hover{background:rgba(255,255,255,.14);color:#fff}
+.railfind{position:relative;padding:11px 12px 3px;flex:0 0 auto}
+.railfind .fi{position:absolute;left:21px;top:20px;width:14px;height:14px;fill:none;stroke:rgba(255,255,255,.5);stroke-width:2;stroke-linecap:round;pointer-events:none}
+.railfind input{width:100%;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);border-radius:6px;
+  color:#fff;font:inherit;font-size:12.5px;padding:6px 26px 6px 30px}
+.railfind input::placeholder{color:rgba(255,255,255,.5)}
+.railfind input:focus{outline:2px solid var(--sky);outline-offset:-1px;background:rgba(255,255,255,.16)}
+.railfind input::-webkit-search-cancel-button{display:none}
+.railq-x{position:absolute;right:17px;top:16px;width:20px;height:20px;border:0;border-radius:4px;background:transparent;
+  color:rgba(255,255,255,.6);font-size:15px;line-height:1;padding:0;cursor:pointer}
+.railq-x:hover{background:rgba(255,255,255,.16);color:#fff}
+.railhits{margin-top:7px;background:var(--surface);border:1px solid var(--border-strong);border-radius:6px;
+  box-shadow:0 10px 26px rgba(6,32,47,.3);overflow:hidden auto;max-height:min(52vh,420px)}
+.railhits .rh-g{font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;font-weight:700;
+  color:var(--ink-3);background:var(--sunk);padding:4px 10px;border-bottom:1px solid var(--line);position:sticky;top:0}
+.railhits .rh{display:block;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid var(--line);
+  padding:6px 10px;color:var(--ink);font-family:var(--ui);cursor:pointer}
+.railhits .rh:last-child{border-bottom:0}
+.railhits .rh:hover,.railhits .rh.on{background:var(--accent-soft)}
+.railhits .rh b{display:block;font-size:12.5px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
+.railhits .rh i{display:block;font-style:normal;font-family:var(--mono);font-size:9.5px;letter-spacing:.03em;color:var(--ink-3);margin-top:1px;overflow-wrap:anywhere}
+.railhits .rh-none{padding:10px;font-size:12px;color:var(--ink-3)}
+.hq nav{display:flex;flex-direction:column;gap:1px;padding:8px 8px 4px;flex:0 0 auto}
+.hq nav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;border-radius:6px;
+  color:rgba(255,255,255,.76);padding:8px 10px;font:inherit;font-family:var(--display);font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap}
+.hq nav button svg{width:17px;height:17px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
+.hq nav button:hover{color:#fff;background:rgba(255,255,255,.09)}
+.hq nav button[aria-current]{color:#fff;font-weight:600;background:var(--navy-mid);box-shadow:inset 3px 0 0 var(--sky)}
+.hq nav button[aria-current] svg{opacity:1;stroke:var(--sky)}
+.hq nav button:focus-visible{outline:2px solid var(--sky);outline-offset:-2px}
+.railsum{padding:6px 12px 10px;flex:0 0 auto;border-top:1px solid rgba(80,164,219,.16);margin-top:4px;padding-top:11px}
+.railsum label{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.52);font-weight:700;margin-bottom:4px}
+.hq .hq-pick{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.26);color:#fff;border-radius:5px;
+  padding:6px 9px;font:inherit;font-family:var(--display);font-size:12.5px;font-weight:600;cursor:pointer;width:100%;max-width:100%}
+.hq .hq-pick:hover{background:rgba(255,255,255,.2)}
+.hq .hq-pick:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
+.hq .hq-pick option{background:var(--surface);color:var(--ink);font-weight:500}
+.hq .mast-right{margin-top:auto;display:flex;flex-direction:column;align-items:stretch;gap:1px;padding:8px 8px 10px;
+  border-top:1px solid rgba(80,164,219,.2);flex:0 0 auto}
+.theme-btn{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;border-radius:6px;
+  color:rgba(255,255,255,.76);padding:8px 10px;font:inherit;font-family:var(--display);font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap}
+.theme-btn .ti{width:17px;height:17px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;opacity:.85}
+.theme-btn .ti-sun{display:none}
+:root[data-theme="dark"] .theme-btn .ti-moon{display:none}
+:root[data-theme="dark"] .theme-btn .ti-sun{display:block}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .theme-btn .ti-moon{display:none}
+  :root:not([data-theme="light"]) .theme-btn .ti-sun{display:block} }
+.theme-btn:hover{color:#fff;background:rgba(255,255,255,.09)}
+.theme-btn:focus-visible{outline:2px solid var(--sky);outline-offset:-2px}
+.railscrim{position:fixed;inset:0;z-index:94;background:rgba(6,32,47,.42);border:0;padding:0;display:none}
+@media(max-width:900px){
+  body:not(.railmini){padding-left:var(--rail-mini)}
+  body:not(.railmini) .hqtop{margin-left:calc(0px - var(--rail-mini));width:calc(100% + var(--rail-mini))}
+  body:not(.railmini) .hq.rail{box-shadow:4px 0 26px rgba(6,32,47,.4)}
+  body:not(.railmini) .railscrim{display:block} }
+
+/* the page name is longer than Summit HQ's — let it shrink rather than push the bar wide */
+.hqtop .hqname{min-width:0;overflow:hidden;text-overflow:ellipsis}
+@media(max-width:700px){
+  .hqtop{padding:0 14px}
+  .hqtop .mastrule{margin-inline:12px}
+  .hqtop .hqname{font-size:14px}
+}
+
+/* The count beside a rail item — the same number the section header carries. */
+.hq nav button .railn{margin-left:auto; font-style:normal;
+  font-family:"IBM Plex Mono",monospace; font-size:10.5px; font-weight:600;
+  color:var(--side-dim,rgba(255,255,255,.55)); padding-left:8px}
+.hq nav button[aria-current="page"] .railn{color:rgba(255,255,255,.85)}
+body.railmini .hq nav button .railn{display:none}
+
+/* Counts in the rail, the same shape and colours as Website Migration HQ.
+   GOLD is the default — it arrived and it is waiting on you.  RED (.late)
+   means nothing arrived and somebody is past a deadline.  Both are written out
+   rather than taken from --warn/--bad, which follow the theme; the rail is
+   navy in BOTH themes, so a badge that follows the theme changes colour
+   against a background that never did. */
+.hq nav button{position:relative}
+.hq nav button .railbadge{margin-left:auto; box-sizing:border-box; flex:0 0 auto;
+  width:20px; height:20px; padding:0; border-radius:10px;
+  display:inline-flex; align-items:center; justify-content:center; text-align:center;
+  background:#e0a83c; color:#0d314c;
+  font-family:var(--display); font-size:11.5px; font-weight:700; line-height:1;
+  font-variant-numeric:tabular-nums}
+.hq nav button .railbadge.w2{width:26px}
+.hq nav button .railbadge.w3{width:32px}
+.hq nav button .railbadge.late{background:#d8453a; color:#fff}
+.hq nav button .railbadge.slot1{margin-left:3px}
+body.railmini .hq nav button .railbadge{display:inline-flex; position:absolute; top:2px; right:0;
+  width:17px; height:17px; padding:0; font-size:10px; margin:0;
+  box-shadow:0 0 0 2px var(--navy,#0d314c)}
+body.railmini .hq nav button .railbadge.w2{width:22px; right:-3px}
+body.railmini .hq nav button .railbadge.w3{width:27px; right:-6px}
+body.railmini .hq nav button .railbadge.slot1{top:22px; margin-left:0}
+
+/* The platform page — resources.mismo.org/service-orders/
+   Sits on top of style.css so the portal, the Sponsorship Portal and Summit HQ
+   read as the same family. Only what is different lives here. */
+
+/* the portal has no rail — undo the offsets the shared masthead stylesheet
+   applies for one, and make sure nothing in the masthead can swallow a click */
+/* The rail's offset comes back.  These two lines zeroed it, from when this page
+   had no rail — it now carries the same one as Summit HQ and the review page,
+   so style.css's padding-left:var(--rail-w) is what should win. */
+/* The masthead spans the full width ABOVE the rail, which is what railcss.css
+   already arranges — so the override that used to flatten it is gone too. */
+/* the sticky masthead holds one control; nothing else in it takes a click, so it
+   can never sit on top of a button lower down the page */
+.hqtop{pointer-events:none}
+.hqtop .theme-btn{pointer-events:auto}
+/* and leave room under it when something is scrolled into view */
+.psec,.psec-h,.row,.row-h,.gobtn,.ghost{scroll-margin-top:84px}
+.wrap{padding:22px 30px 90px;max-width:1500px;margin:0 auto}
+@media(max-width:640px){ .wrap{padding:16px 16px 70px} }
+
+/* ── masthead ─────────────────────────────────────────────── */
+.hqtop{position:sticky;top:0;z-index:40}
+.hqtop .who{font-size:12.5px;color:var(--sky-soft);white-space:nowrap;overflow:hidden;
+ text-overflow:ellipsis;max-width:46vw;flex:0 0 auto}
+.hqtop .hqname{flex:0 1 auto;min-width:0}
+@media(max-width:1000px){ .hqtop .who{max-width:34vw} }
+.hqtop .who i{font-style:normal;opacity:.55;padding:0 4px}
+@media(max-width:640px){ .hqtop .who{display:none} }
+
+/* ── collapsible sections, Title Case, closed by default ──── */
+.psec{background:var(--surface);border:1px solid var(--border);border-radius:11px;
+ margin:0 0 18px;overflow:hidden;box-shadow:0 1px 2px rgba(6,32,47,.05)}
+.psec-h{display:flex;align-items:center;gap:11px;margin:0;padding:15px 18px;cursor:pointer;
+ font-size:15px;font-weight:600;background:var(--surface);user-select:none}
+.psec-h:hover{background:var(--surface-2)}
+.psec-h:focus-visible{outline:2px solid var(--sky);outline-offset:-2px}
+.psec.open .psec-h{background:var(--sky-wash);border-bottom:1px solid var(--rule)}
+:root[data-theme="dark"] .psec.open .psec-h{background:var(--surface-3)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .psec.open .psec-h{background:var(--surface-3)} }
+.psec-h .chev{width:16px;height:16px;flex:0 0 auto;stroke:var(--ink-3);fill:none;stroke-width:2;
+ stroke-linecap:round;stroke-linejoin:round;transition:transform .16s}
+.psec.open .psec-h .chev{transform:rotate(90deg)}
+.psec-h .cnt{margin-left:auto;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;
+ font-weight:600;color:var(--ink-3);background:var(--surface-3);border-radius:20px;padding:3px 10px}
+.psec-b{display:none;padding:16px 18px 20px}
+.psec.open .psec-b{display:block}
+.subh{font-size:12.5px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;
+ color:var(--ink-3);margin:22px 0 9px;font-weight:600}
+
+/* ── rows behave as they do everywhere else ───────────────── */
+.row-h{cursor:pointer}
+.docstack{margin-top:16px}
+.dochost{overflow-wrap:anywhere}
+
+/* ── status pills ─────────────────────────────────────────── */
+.pill{display:inline-flex;align-items:center;font-family:var(--mono);font-size:10px;
+ letter-spacing:.07em;text-transform:uppercase;font-weight:600;border-radius:20px;
+ padding:3px 9px;background:var(--surface-3);color:var(--ink-2);flex:0 0 auto;white-space:nowrap}
+.pill.good{background:rgba(15,123,92,.14);color:var(--good)}
+.pill.warn{background:rgba(162,112,26,.16);color:var(--warn)}
+.pill.quiet{background:transparent;border:1px solid var(--border);color:var(--ink-3)}
+:root[data-theme="dark"] .pill.good{background:rgba(79,199,155,.16)}
+:root[data-theme="dark"] .pill.warn{background:rgba(224,168,60,.18)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .pill.good{background:rgba(79,199,155,.16)}
+ :root:not([data-theme="light"]) .pill.warn{background:rgba(224,168,60,.18)} }
+
+/* ── tables ───────────────────────────────────────────────── */
+.tbl{margin:12px 0}
+.tbl table{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{text-align:left;font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;
+ text-transform:uppercase;color:var(--ink-3);font-weight:600;padding:9px 12px;
+ background:var(--surface-2);border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl td{padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+.tbl tr:last-child td{border-bottom:0}
+.tbl td.n,.tbl th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tbl td.bad{color:var(--bad);font-weight:600}
+.tbl td.tick,.tbl th.tick{width:34px;text-align:center;padding-right:0}
+.tbl input[type=checkbox]{width:16px;height:16px;accent-color:var(--navy-mid);cursor:pointer}
+.tbl tr.openrow{cursor:default}
+/* On a phone a table either side-scrolls or crushes its columns. Neither is
+   good, so the columns that are read rather than compared step out of the way
+   and the detail stays one tap below, on the order itself. */
+@media(max-width:700px){
+  .tbl .hide-narrow{display:none}
+  .tbl td,.tbl th{padding:9px 10px}
+}
+
+/* ── the acceptance bar ───────────────────────────────────── */
+.ackbar,.batchbar,.onebar,.askbox{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 16px;
+ margin:16px 0 6px;padding:14px 16px;background:var(--surface-2);border:1px solid var(--border);
+ border-radius:9px}
+.ackbar .f,.onebar .f,.askbox .f{min-width:200px;flex:1 1 220px}
+.gobtn{font:inherit;font-size:13px;font-weight:600;padding:9px 18px;border-radius:7px;
+ background:var(--navy);color:#fff;border:1px solid var(--navy);cursor:pointer;white-space:nowrap}
+.gobtn:hover:not(:disabled){background:var(--navy-mid);border-color:var(--navy-mid)}
+.gobtn:disabled{opacity:.45;cursor:not-allowed}
+.gobtn:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
+:root[data-theme="dark"] .gobtn{background:var(--sky);color:var(--navy-deep);border-color:var(--sky)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .gobtn{background:var(--sky);color:var(--navy-deep);border-color:var(--sky)} }
+.ghost{font:inherit;font-size:12.6px;padding:8px 14px;border-radius:7px;background:var(--surface);
+ color:var(--ink);border:1px solid var(--border-strong);cursor:pointer;white-space:nowrap}
+.ghost:hover{background:var(--surface-3)}
+.qc{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);align-self:center}
+.fineprint{font-size:12.3px;color:var(--ink-3);margin:8px 0 0;max-width:none}
+.dl{color:var(--navy-mid);font-weight:600}
+:root[data-theme="dark"] .dl{color:var(--sky)}
+
+/* ── what was signed ──────────────────────────────────────── */
+.signed{border-left:3px solid var(--good);background:rgba(15,123,92,.07);padding:10px 14px;
+ border-radius:0 7px 7px 0;margin:14px 0 0;font-size:13px}
+.signed .what{display:block;font-family:var(--mono);font-size:11.3px;color:var(--ink-3);margin-top:4px}
+.note.warn{border-left-color:var(--warn)}
+.upl{border:1px solid var(--border);border-radius:9px;padding:12px 14px;margin:12px 0;background:var(--surface)}
+.upl input[type=file]{font:inherit;font-size:12.4px;color:var(--ink-2)}
+
+/* ── the board ────────────────────────────────────────────── */
+.stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 20px}
+@media(max-width:900px){ .stats{grid-template-columns:repeat(2,minmax(0,1fr))} }
+.stat{background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:11px 13px}
+.stat.warn{border-color:var(--warn)}
+.stat .lab{display:block;font-size:9.5px;font-family:var(--mono);letter-spacing:.09em;
+ text-transform:uppercase;color:var(--ink-3);font-weight:600}
+.stat .val{display:block;font-family:var(--mono);font-variant-numeric:tabular-nums;
+ font-size:22px;font-weight:600;color:var(--ink);margin-top:2px}
+
+/* ── states ───────────────────────────────────────────────── */
+.loading{display:flex;align-items:center;gap:12px;color:var(--ink-2);padding:50px 0;font-size:14px}
+.spin{width:16px;height:16px;border:2px solid var(--border-strong);border-top-color:var(--navy-mid);
+ border-radius:50%;animation:sp .8s linear infinite;flex:0 0 auto}
+@keyframes sp{to{transform:rotate(360deg)}}
+.shut{max-width:620px;margin:60px auto;text-align:center;background:var(--surface);
+ border:1px solid var(--border);border-radius:12px;padding:34px 30px}
+.shut h2{font-size:19px;margin-bottom:10px}
+.shut p{color:var(--ink-2);font-size:14px;margin:0}
+.empty{color:var(--ink-3);font-size:13.4px;margin:4px 0}
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,16px);opacity:0;z-index:300;
+ background:var(--navy);color:#fff;font-size:13.2px;padding:11px 20px;border-radius:9px;
+ box-shadow:0 8px 26px rgba(6,32,47,.28);transition:opacity .2s,transform .2s;max-width:88vw}
+.toast.go{opacity:1;transform:translate(-50%,0)}
+.toast.good{background:var(--good)} .toast.warn{background:var(--bad)}
+
+/* ── print / save as PDF ──────────────────────────────────── */
+#printhost{display:none}
+@media print{
+  body{background:#fff;padding:0}
+  body.printing > *{display:none !important}
+  body.printing #printhost{display:block !important;padding:0}
+  body.printing .doc{border:0;margin:0;padding:0;background:#fff;color:#000;box-shadow:none}
+  body.printing .doc .sn{color:#000}
+  .psec,.tbl,.row{box-shadow:none}
+}
+
+/* ── narrow ───────────────────────────────────────────────── */
+@media(max-width:640px){
+  .psec-h{font-size:14px;padding:13px 14px}
+  .psec-b{padding:13px 14px 16px}
+  .ackbar,.batchbar,.onebar,.askbox{padding:12px}
+  .gobtn,.ghost{width:100%}
+  .row-h{flex-wrap:wrap;gap:7px 10px}
+  .row-h .rt{flex:1 1 100%}
+  .doc{padding:15px 16px}
+  .doc .sig{grid-template-columns:1fr;gap:16px}
+}
+
+/* ── Help ─────────────────────────────────────────────────── */
+.hblk{border-top:1px solid var(--rule);padding:14px 0 2px}
+.hblk:first-child{border-top:0;padding-top:0}
+.hblk h4{font-size:13px;font-weight:600;margin:0 0 6px}
+.hblk p{margin:0 0 8px;color:var(--ink-2);font-size:13.2px;max-width:none}
+/* .steps already has its numbered badges in the shared stylesheet — only the
+   colour and size of the text belong here, or the badges land on the words */
+ol.steps{color:var(--ink-2);font-size:13.2px;margin:0 0 10px}
+.hblk b{color:var(--ink)}
+.why{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-top:3px;white-space:normal}
+.note code{font-family:var(--mono);font-size:11.8px;background:var(--surface-3);
+ border-radius:4px;padding:1px 5px}
+
+/* ---- fee totals (decision 31) -------------------------------------------
+   One band, used by To Review and by My Service Orders, so the two read as the
+   same thing said about two different sets of orders. */
+.tot{display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 14px;
+  margin:0 0 14px; padding:11px 14px; border-radius:8px;
+  background:var(--surface-3); border:1px solid var(--border)}
+.tot-l{font-family:"IBM Plex Mono",monospace; font-size:9.5px; letter-spacing:.11em;
+  text-transform:uppercase; color:var(--ink-3); font-weight:700; white-space:nowrap}
+.tot-v{font-size:14px; color:var(--ink)}
+.tot-v .num{font-size:17px; font-weight:600; font-variant-numeric:tabular-nums}
+@media (max-width:560px){ .tot{gap:2px 10px} .tot-l{width:100%} }
+
+/* The fiscal-year picker sits INSIDE the totals band, so it takes the band's
+   own type and weight rather than arriving as raw browser chrome. */
+.tot select{font:inherit; font-size:14px; font-weight:600; color:var(--ink);
+  background:var(--surface); border:1px solid var(--border-strong); border-radius:6px;
+  padding:3px 26px 3px 9px; margin-right:4px; cursor:pointer; line-height:1.3;
+  -webkit-appearance:none; appearance:none;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237794aa' stroke-width='2.2' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>");
+  background-repeat:no-repeat; background-position:right 7px center; background-size:12px}
+.tot select:hover{border-color:var(--accent)}
+.tot select:focus-visible{outline:2px solid var(--sky); outline-offset:1px}
+:root[data-theme="dark"] .tot select,
+:root:not([data-theme="light"]) .tot select{
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237a9db4' stroke-width='2.2' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>")}
+@media (prefers-color-scheme: light){ :root:not([data-theme="dark"]) .tot select{
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237794aa' stroke-width='2.2' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>")} }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs><symbol id="mismo-logo" viewBox="0 0 708 108"><g transform="translate(0.000000,108.000000) scale(0.100000,-0.100000)" fill="var(--logo-body, #0f314c)"><path d="M5917 1065 c-169 -46 -279 -153 -335 -323 -21 -65 -25 -96 -25 -197
+0 -101 4 -132 25 -197 57 -172 168 -280 335 -323 84 -22 723 -22 808 0 222 58
+355 253 355 520 0 270 -132 459 -361 520 -74 20 -730 20 -802 0z m692 -320
+c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
+-297 0 -307 2 -346 83 -30 61 -31 198 -2 262 41 93 68 100 368 97 219 -2 243
+-4 274 -22z M0 545 l0 -515 225 0 225 0 2 296 3 296 116 -294 116 -293 197 0 198
+0 119 295 118 295 1 -297 0 -298 225 0 225 0 0 515 0 515 -337 -2 -338 -3
+-104 -264 c-80 -204 -107 -260 -113 -245 -5 10 -52 129 -106 264 l-98 245
+-337 3 -337 2 0 -515z M1892 1044 l-22 -15 0 -483 c0 -455 1 -484 18 -499 16 -15 48 -17
+246 -17 128 0 235 4 246 10 32 17 34 57 4 95 -33 44 -64 143 -64 206 l0 49
+203 0 c191 0 205 -1 222 -20 10 -11 34 -24 54 -30 49 -13 586 -13 612 0 22 12
+26 62 7 78 -8 6 -174 15 -413 21 -502 15 -549 23 -628 110 -43 48 -57 93 -57
+187 0 82 19 156 55 208 30 44 32 77 7 99 -27 25 -456 25 -490 1z M3716 1044 c-23 -22 -20 -31 19 -77 43 -49 78 -155 73 -218 l-3 -44
+-204 -3 c-194 -2 -205 -1 -218 17 -24 35 -78 41 -355 41 -255 0 -269 -1 -288
+-20 -27 -27 -26 -58 3 -70 12 -5 202 -14 422 -19 421 -12 476 -18 555 -62 92
+-51 132 -159 111 -299 -12 -77 -34 -129 -77 -179 -23 -28 -25 -36 -16 -57 l12
+-24 215 0 215 0 2 306 3 306 120 -303 120 -304 197 -3 196 -2 118 296 119 297
+3 -296 2 -297 225 0 225 0 0 515 0 515 -338 0 -337 0 -104 -265 c-58 -146
+-106 -263 -108 -261 -2 2 -50 120 -107 262 l-104 259 -340 3 c-300 2 -342 0
+-356 -14z"/></g><g transform="translate(0.000000,108.000000) scale(0.100000,-0.100000)" fill="var(--logo-s, #50a4db)"><path d="M2485 1046 c-44 -20 -111 -94 -136 -151 -27 -60 -37 -198 -20 -263
+13 -48 68 -115 114 -138 64 -34 162 -43 562 -55 239 -6 405 -15 413 -21 19
+-16 15 -66 -7 -78 -26 -13 -563 -13 -612 0 -20 6 -44 19 -54 30 -17 19 -31 20
+-222 20 l-203 0 0 -49 c0 -81 34 -172 86 -230 78 -87 31 -81 672 -81 l568 0
+46 29 c79 50 122 121 139 231 21 140 -19 248 -111 299 -79 44 -134 50 -555 62
+-220 5 -410 14 -422 19 -29 12 -30 43 -3 70 19 19 33 20 288 20 277 0 331 -6
+355 -41 13 -18 24 -19 218 -17 l204 3 3 44 c4 60 -31 168 -70 215 -17 21 -52
+52 -77 67 l-45 29 -550 0 c-440 -1 -557 -3 -581 -14z"/></g></symbol>
+<symbol id="mismo-hat" viewBox="0 0 100 100">
+  <path d="M17,73 C9,44 20,17 42,9 C59,3 72,10 80,22 C85,30 86,38 81,41
+           C76,44 70,40 65,32 C60,46 57,60 57,73 Z" fill="#c0392f"/>
+  <path d="M17,73 C9,44 20,17 42,9 C48,7 53,6 58,7 C41,19 30,45 30,73 Z"
+        fill="#0f314c" opacity=".17"/>
+  <rect x="10" y="65" width="56" height="20" rx="10" fill="#ffffff"/>
+  <rect x="10" y="75" width="56" height="10" rx="5" fill="#0f314c" opacity=".07"/>
+  <circle cx="86" cy="45" r="11.5" fill="#ffffff"/>
+</symbol>
+<symbol id="ico-search" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><circle cx="7.2" cy="7.2" r="4.6"/><path d="m11 11 3 3"/></g></symbol>
+<symbol id="ico-moon" viewBox="0 0 16 16"><path d="M13.6 9.5A6 6 0 0 1 6.5 2.4a6 6 0 1 0 7.1 7.1Z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/></symbol>
+<symbol id="ico-sun" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="8" cy="8" r="3.2"/><path d="M8 1.4v1.6M8 13v1.6M1.4 8h1.6M13 8h1.6M3.4 3.4l1.1 1.1M11.5 11.5l1.1 1.1M12.6 3.4l-1.1 1.1M4.5 11.5l-1.1 1.1"/></g></symbol>
+<symbol id="ico-grid" viewBox="0 0 16 16"><g fill="currentColor"><rect x="1.6" y="1.6" width="5.6" height="5.6" rx="1.4"/><rect x="8.8" y="1.6" width="5.6" height="5.6" rx="1.4"/><rect x="1.6" y="8.8" width="5.6" height="5.6" rx="1.4"/><rect x="8.8" y="8.8" width="5.6" height="5.6" rx="1.4"/></g></symbol>
+<symbol id="ico-cal" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"><rect x="1.9" y="3.2" width="12.2" height="11" rx="2"/><path d="M1.9 6.6h12.2M5.2 1.8v2.6M10.8 1.8v2.6"/></g></symbol>
+<symbol id="ico-chev" viewBox="0 0 16 16"><path d="M6 3.4 10.6 8 6 12.6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="ico-sys" viewBox="0 0 16 16"><g fill="none" stroke="currentColor" stroke-width="1.35" stroke-linecap="round"><rect x="1.9" y="2.4" width="12.2" height="11.2" rx="2"/><path d="M1.9 6.1h12.2M6.6 6.1v7.5M9.6 9h3.1M9.6 11.3h3.1"/></g></symbol>
+<symbol id="ico-menu" viewBox="0 0 16 16"><g stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 4h12"/><path d="M2 8h12"/><path d="M2 12h12"/></g></symbol>
+</defs></svg>
+<header class="hqtop">
+  <span class="logoplate"><svg class="wordmark" role="img" aria-label="MISMO" viewBox="0 0 708 108"><use href="#mismo-logo"/></svg><svg class="santa" viewBox="0 0 100 100" aria-hidden="true"><use href="#mismo-hat"/></svg></span>
+  <span class="mastrule"></span>
+  <span class="hqname">Service Orders and Agreements</span>
+  <span class="hqtop-r">
+    <span class="who" id="who"></span>
+    <span class="eyebrow-m">Programs &amp; Operations</span>
+  </span>
+</header>
+
+<aside class="hq rail" id="rail">
+  <div class="rail-top">
+    <span class="rail-lbl">Sections</span>
+    <button class="railhide" id="rail-hide" type="button" aria-label="Narrow the menu" title="Narrow the menu (backslash)">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
+  </div>
+  <div class="railfind">
+    <button class="railfind-b" id="rail-qb" type="button" aria-label="Search" title="Search" tabindex="-1">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg></button>
+    <svg class="fi" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.6-3.6"/></svg>
+    <input type="search" id="rail-q" autocomplete="off" spellcheck="false" placeholder="Search"
+           aria-label="Search your service orders and agreements">
+    <button class="railq-x" id="rail-qx" type="button" aria-label="Clear the search" hidden>&times;</button>
+    <div class="railhits" id="rail-hits" hidden></div>
+  </div>
+  <nav aria-label="Service Orders and Agreements" id="rail-nav"></nav>
+  <div class="railsum" id="railsum" hidden>
+    <label for="co-pick">Contracting Company</label>
+    <select id="co-pick" class="hq-pick" aria-label="Contracting Company"></select>
+  </div>
+  <div class="mast-right">
+    <button class="theme-btn" id="theme-btn" type="button">
+      <svg class="ti ti-moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a6.4 6.4 0 009 9 9 9 0 11-9-9z"/></svg>
+      <svg class="ti ti-sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4.1"/><path d="M12 2.4v2.3M12 19.3v2.3M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2.4 12h2.3M19.3 12h2.3M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7"/></svg>
+      <span id="theme-lab">Dark Mode</span></button>
+  </div>
+</aside>
+<div class="railscrim" id="rail-scrim"></div>
+
+<main class="wrap"><div id="view"></div></main>
+<div id="printhost"></div>
+
+<script>window.RELAY={"base": "/relay", "repos": {"orders": "mismo-service-orders-data", "certifications": "mismo-certifications-data"}, "note": "Repository names are configuration. Perry's final answer is a change HERE and nowhere else. The certifications repo is read-only and is not used until M11 Hours."};</script>
+<script>/* MISMO Service Orders — the relay module.
+ *
+ * Every credential and every relay call in this tool goes through this file and
+ * nowhere else.  Nothing else in the page builds a request, holds a token, or
+ * decides what somebody may see.
+ *
+ * REWRITTEN 27 September 2026 against the relay's own source — GitMISMO/
+ * initiative-hub, _dev/aws/index.mjs, 1,242 lines, sha256 39df37c9….  The
+ * session-12 version was written to a guessed contract and is kept beside this
+ * one as relay.js.session12 until the first live call succeeds.
+ *
+ * Four things changed from that guess, and they are the whole of the rewrite:
+ *
+ *   was                                    is
+ *   ---------------------------------      ------------------------------------
+ *   base /relay                            the Lambda function URL
+ *   X-Facilitator-Key on every request     POST /{project}/auth/login, then
+ *                                          Authorization: Bearer <token>
+ *   PUT /{repo}/file/{path}                POST /{project}/commit with
+ *                                          { message, parentSha, files: [...] }
+ *   parentSha is the blob sha              parentSha is the COMMIT sha, and a
+ *                                          read hands back a BLOB sha.  They are
+ *                                          different things and cannot be
+ *                                          swapped — see head() below.
+ *
+ * Rules this file exists to keep:
+ *   1. The relay decides what comes back.  The page never filters.
+ *   2. The token lives in sessionStorage, not localStorage: it dies with the tab
+ *      rather than sitting on disk for four hours.  Every tool on
+ *      resources.mismo.org shares one origin, so storage is only ever cleared
+ *      one named key at a time — never wholesale.
+ *   3. Nothing about who somebody is is inferred.  The access map comes from the
+ *      relay at sign-in and is re-read from it, never widened here.
+ *   4. Every save carries a parentSha wherever one can be had, so a save that
+ *      would overwrite somebody else's is refused rather than silently applied.
+ */
+(function (global) {
+  'use strict';
+
+  var CFG = global.RELAY || {};
+  var BASE = String(CFG.base || '').replace(/\/+$/, '');
+
+  var NS = 'resources:service-orders:';
+  var TOKEN = 'session';
+
+  /* ---- storage, namespaced, never cleared wholesale ---------------------- */
+  function sput(name, value) { try { sessionStorage.setItem(NS + name, value); } catch (e) {} }
+  function sget(name) { try { return sessionStorage.getItem(NS + name); } catch (e) { return null; } }
+  function sdrop(name) { try { sessionStorage.removeItem(NS + name); } catch (e) {} }
+
+  /* ---- the session ------------------------------------------------------- */
+  /* What the relay hands back at sign-in: token, name, email, access, expiresAt.
+     The token is NOT project-bound — signing in once covers every key the person
+     has — so the access map is what says which projects they may ask about. */
+  function session() {
+    var raw = sget(TOKEN);
+    if (!raw) return null;
+    var s;
+    try { s = JSON.parse(raw); } catch (e) { sdrop(TOKEN); return null; }
+    if (!s || !s.token) { sdrop(TOKEN); return null; }
+    /* A token lasts four hours.  Checking the clock here means an expired session
+       shows a sign-in rather than a wall of failed requests. */
+    if (s.expiresAt && new Date(s.expiresAt).getTime() <= Date.now()) { sdrop(TOKEN); return null; }
+    return s;
+  }
+  function signedIn() { return !!session(); }
+  function signOut() { sdrop(TOKEN); HEAD = {}; }
+
+  function login(project, email, password) {
+    return fetch(BASE + '/' + enc(project) + '/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: email, password: password })
+    }).then(readBody).then(function (r) {
+      if (!r.ok) throw fail(r.status, r.body);
+      sput(TOKEN, JSON.stringify(r.body));
+      HEAD = {};
+      return r.body;
+    });
+  }
+
+  /* ---- requests ---------------------------------------------------------- */
+  function enc(s) { return encodeURIComponent(String(s)); }
+  function encPath(p) { return String(p).split('/').map(encodeURIComponent).join('/'); }
+
+  function fail(status, body) {
+    var code = (body && body.error) || '';
+    var e = new Error((body && body.message) || code || ('relay ' + status));
+    e.status = status;
+    e.code = code;
+    e.body = body || null;
+    /* Fail closed: these mean "not you, not here, not any more" and the page
+       should say so rather than retry or show an empty screen as if it were
+       an empty folder. */
+    e.closed = status === 401 || status === 403;
+    e.missing = status === 404 || code === 'NOT_FOUND';
+    e.conflict = status === 409 || code === 'CONFLICT';
+    return e;
+  }
+
+  function readBody(r) {
+    return r.json().catch(function () { return {}; })
+      .then(function (j) { return { ok: r.ok, status: r.status, body: j }; });
+  }
+
+  function send(method, path, body) {
+    var s = session();
+    if (!s) return Promise.reject(fail(401, { error: 'NO_SESSION', message: 'Sign in again.' }));
+    var opts = { method: method, headers: { 'Authorization': 'Bearer ' + s.token } };
+    if (body) {
+      opts.headers['Content-Type'] = 'application/json';
+      opts.body = JSON.stringify(body);
+    }
+    return fetch(BASE + path, opts).then(readBody).then(function (r) {
+      if (r.status === 401) { sdrop(TOKEN); throw fail(401, r.body); }
+      if (!r.ok) throw fail(r.status, r.body);
+      return r.body;
+    });
+  }
+
+  /* ---- reading ----------------------------------------------------------- */
+  /* GET /{project}/file/{path} -> { path, size, sha, content }, content base64.
+     The sha is the BLOB sha.  It identifies the bytes and is useful for telling
+     whether a file changed; it is NOT what /commit wants for parentSha. */
+  function read(project, path) {
+    return send('GET', '/' + enc(project) + '/file/' + encPath(path), null)
+      .then(function (r) {
+        return { sha: r.sha, size: r.size, data: JSON.parse(fromB64(r.content)) };
+      });
+  }
+
+  /* Read a file that may not exist yet, without turning a 404 into an error. */
+  function readOr(project, path, fallback) {
+    return read(project, path).catch(function (e) {
+      if (e.missing) return { sha: null, size: 0, data: fallback, absent: true };
+      throw e;
+    });
+  }
+
+  function fromB64(b64) {
+    var bin = atob(String(b64).replace(/\s/g, ''));
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    /* TextDecoder, not escape/unescape: company names and the order wording carry
+       em-dashes and curly quotes, and a byte-wise read mangles every one of them. */
+    return new TextDecoder('utf-8').decode(bytes);
+  }
+
+  /* ---- the commit sha, and how to get one -------------------------------- */
+  /* No route returns the branch head.  But /commit checks parentSha against the
+     head BEFORE it creates a single blob, so a commit sent with a knowingly stale
+     parentSha is refused with 409 { error:'CONFLICT', head } and writes nothing.
+     That is a clean, side-effect-free way to learn the head once per project per
+     session, and it is why no write here has to go out unlocked. */
+  var HEAD = {};
+  var STALE = '0000000000000000000000000000000000000000';
+
+  function head(project) {
+    if (HEAD[project]) return Promise.resolve(HEAD[project]);
+    return send('POST', '/' + enc(project) + '/commit', {
+      message: 'head probe',
+      parentSha: STALE,
+      files: [{ path: 'notify/.head-probe', content: '{}' }]
+    }).then(function () {
+      /* Only reachable if the head really is forty zeros, which it never is.
+         If it somehow committed, the sha it returns is the new head. */
+      return null;
+    }).catch(function (e) {
+      if (e.conflict && e.body && e.body.head) { HEAD[project] = e.body.head; return e.body.head; }
+      /* The probe is refused for a reason of its own — no write access, say.
+         Fall back to an unlocked write rather than blocking the person. */
+      return null;
+    });
+  }
+
+  /* ---- writing ----------------------------------------------------------- */
+  /* POST /{project}/commit { message, parentSha, files:[{path, content, encoding}] }
+     -> { commit, savedBy }.  One to fifty files, one commit, all or nothing:
+     a single disallowed path rejects the whole thing before anything is written. */
+  function commit(project, files, message) {
+    if (!files || !files.length) return Promise.reject(fail(400, { error: 'BAD_CONTENT' }));
+    if (files.length > 50) return Promise.reject(fail(400, { error: 'TOO_MANY_FILES' }));
+    return head(project).then(function (parent) {
+      var body = { message: message || 'Service orders update', files: files };
+      if (parent) body.parentSha = parent;
+      return send('POST', '/' + enc(project) + '/commit', body);
+    }).then(function (r) {
+      HEAD[project] = r.commit;          // our own commit is the new head
+      return r;
+    }).catch(function (e) {
+      if (e.conflict) {
+        /* Somebody saved first.  Take the head the relay just told us — or forget
+           what we thought it was, if it did not — so the caller's retry re-reads
+           and applies the same change to the copy that is actually there. */
+        if (e.body && e.body.head) { HEAD[project] = e.body.head; } else { delete HEAD[project]; }
+      }
+      throw e;
+    });
+  }
+
+  function jsonFile(path, data) {
+    return { path: path, content: JSON.stringify(data, null, 1) };
+  }
+
+  /* A PDF or any other binary goes through untouched.  Treating it as text would
+     mangle every byte that is not valid UTF-8, and it would only show when
+     somebody tried to open the file. */
+  function binaryFile(path, base64) {
+    return { path: path, content: String(base64).replace(/\s/g, ''), encoding: 'base64' };
+  }
+
+  /* Read, change, save — and if somebody saved in between, read the copy that is
+     actually there, apply the same change to IT, and save again.  The change
+     function is handed a fresh copy every time, so a merge is never guessed at. */
+  function update(project, path, change, message, fallback, tries) {
+    tries = tries == null ? 3 : tries;
+    return readOr(project, path, fallback).then(function (cur) {
+      var next = change(cur.data);
+      return commit(project, [jsonFile(path, next)], message);
+    }).catch(function (e) {
+      if (e.conflict && tries > 1) return update(project, path, change, message, fallback, tries - 1);
+      throw e;
+    });
+  }
+
+  global.MISMO_RELAY = {
+    base: BASE,
+    login: login, signOut: signOut, signedIn: signedIn, session: session,
+    read: read, readOr: readOr,
+    commit: commit, update: update,
+    jsonFile: jsonFile, binaryFile: binaryFile,
+    limits: { filesPerCommit: 50, bodyBytes: 1000000 },
+    store: { put: sput, get: sget, drop: sdrop, prefix: NS }
+  };
+})(window);
+</script>
+<script>/* MISMO Service Orders and Agreements — the platform page.
+ *
+ * This file holds NO data.  Everything on screen arrives from the relay, which
+ * decides what this person may see before it sends anything.  There is no
+ * filtering here: a contracting company is not shown its own orders because the
+ * page hid the others, it is shown them because the relay refused the rest.
+ *
+ * Every credential and every request goes through relay.js.
+ */
+(function () {
+  'use strict';
+  var R = window.MISMO_RELAY;
+  var $ = function (s) { return document.querySelector(s); };
+
+  /* ---------- small helpers ---------------------------------------------- */
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) {
+      return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c];
+    });
+  }
+  function money(v) {
+    return v == null ? '—' : '$' + Number(v).toLocaleString('en-US',
+      { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function money0(v) {
+    return '$' + Number(v || 0).toLocaleString('en-US', { maximumFractionDigits: 0 });
+  }
+  /* ---------- fee totals (decision 31) -------------------------------------
+     An order with no maximum fee is NEVER summed as zero.  Falcon's
+     certification orders are paid per review and carry no maximum, so a total
+     that just added them up would read $0 and look broken.  The count of them
+     travels with the figure and is always said out loud. */
+  function feeTotal(orders) {
+    var sum = 0, counted = 0, noMax = 0;
+    (orders || []).forEach(function (o) {
+      if (o.maximumFee == null) { noMax++; return; }
+      sum += Number(o.maximumFee) || 0; counted++;
+    });
+    return { sum: sum, counted: counted, noMax: noMax, all: (orders || []).length };
+  }
+  function feeWords(t) {
+    if (!t.all) return 'Nothing here yet';
+    var bits = [];
+    if (t.counted) bits.push('<b class="num">' + money0(t.sum) + '</b> across ' +
+      t.counted + ' order' + (t.counted === 1 ? '' : 's'));
+    if (t.noMax) bits.push((t.counted ? 'and ' : '') + t.noMax + ' order' +
+      (t.noMax === 1 ? '' : 's') + ' paid per review, with no maximum');
+    return bits.join(', ');
+  }
+
+  function stamp(iso) {
+    var d = iso ? new Date(iso) : new Date();
+    return d.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', year: 'numeric' }) +
+      ' ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  }
+
+  /* ---------- the status model ------------------------------------------
+     Draft → Released to Send → Sent → Acknowledged → Approved → Executed.
+     "Released to Send" is what the status is CALLED on screen. The Signature
+     record's step stays "VP Product Decision", which is blueprint 4.8's own
+     wording and is not ours to change.
+     Nothing here is stored that can be worked out: the status is read off the
+     signatures plus the one thing the signatures cannot know, the date Jonna
+     sent it.  Approved and Executed are the same instant for a service order —
+     once the President approves, both signatures are in and it is executed.  */
+  var ORDER_OF = { draft: 0, vp: 1, sent: 2, acknowledged: 3, executed: 4 };
+  function statusOf(o, sigs) {
+    var mine = (sigs || []).filter(function (s) { return s.orderId === o.id; });
+    function last(step, decision) {
+      var hit = null;
+      mine.forEach(function (s) {
+        if (s.step === step && (!decision || s.decision === decision)) hit = s;
+      });
+      return hit;
+    }
+    var pres = last('MISMO Signer', 'Approved');
+    var ack = last('Consultant', 'Accepted');
+    var held = last('Consultant', 'Question');
+    var vp = last('VP Product Decision');
+
+    if (pres) return { key: 'executed', label: 'Executed', tone: 'good', sig: pres, ack: ack };
+    if (ack) {
+      /* Decision 33.  Only the BINDING terms bring an order back: rate, hours,
+         maximum fee, fee type, dates, Services, Deliverables, the MSA it is
+         written under, the parties, what MISMO provides, agreed modifications
+         and the standing text.  contentHash is the hash of exactly those. */
+      if (ack.contentHash !== o.contentHash) {
+        return { key: 'changed', label: 'Changed Since Acknowledged', tone: 'warn', sig: ack };
+      }
+      /* Something outside the binding terms moved — a retitle, a category, a
+         template name.  It is shown on the order and nobody is asked again. */
+      var amended = !!(ack.recordHash && o.recordHash && ack.recordHash !== o.recordHash);
+      return { key: 'acknowledged', label: 'Acknowledged', tone: 'good', sig: ack, amended: amended };
+    }
+    if (held && (!vp || true)) {
+      if (o.sentOn) return { key: 'question', label: 'Question Raised', tone: 'warn', sig: held };
+    }
+    if (o.sentOn) return { key: 'sent', label: 'Sent', tone: '' };
+    if (vp && vp.decision === 'Approved to Send') {
+      return { key: 'vp', label: 'Released to Send', tone: '', sig: vp };
+    }
+    if (vp && vp.decision === 'Held') return { key: 'vphold', label: 'Held by the VP', tone: 'warn', sig: vp };
+    return { key: 'draft', label: 'Draft', tone: '' };
+  }
+  function pill(st) {
+    return '<span class="pill ' + (st.tone || '') + ' s-' + st.key + '">' + esc(st.label) + '</span>';
+  }
+
+  /* ---------- collapsible section, closed by default ---------------------- */
+  var SEQ = 0;
+  function sect(title, count, body, openByDefault) {
+    var id = 'sec' + (++SEQ);
+    return '<section class="psec' + (openByDefault ? ' open' : '') + '" id="' + id + '">' +
+      '<h2 class="psec-h" tabindex="0" role="button" aria-expanded="' + (openByDefault ? 'true' : 'false') + '">' +
+      '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
+      '<span>' + esc(title) + '</span>' +
+      (count == null ? '' : '<span class="cnt">' + esc(String(count)) + '</span>') +
+      '</h2><div class="psec-b">' + body + '</div></section>';
+  }
+  function wireSections(root) {
+    (root || document).querySelectorAll('.psec-h').forEach(function (h) {
+      if (h.dataset.wired) return;
+      h.dataset.wired = '1';
+      var go = function () {
+        var s = h.parentElement;
+        s.classList.toggle('open');
+        h.setAttribute('aria-expanded', s.classList.contains('open') ? 'true' : 'false');
+      };
+      h.addEventListener('click', go);
+      h.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
+      });
+    });
+  }
+  /* a row opens and shuts on a click on the row itself — no Edit, no Close */
+  function wireRows(root) {
+    (root || document).querySelectorAll('.row-h').forEach(function (h) {
+      if (h.dataset.wired) return;
+      h.dataset.wired = '1';
+      h.addEventListener('click', function (e) {
+        if (e.target.closest('input,button,select,textarea,label,a')) return;
+        h.parentElement.classList.toggle('open');
+      });
+    });
+  }
+
+  /* ---------- the order, as it reads ------------------------------------- */
+  function orderDoc(F, o) {
+    var party = o.msaFlavour === 'General' ? 'Consultant' : o.msaFlavour;
+    var h = '<div class="doc"><div class="dt">SERVICE ORDER — ' + esc(o.subject) + '</div>';
+    h += '<p>This Order is entered into under the MISMO ' +
+      (o.msaFlavour === 'General' ? '' : esc(o.msaFlavour) + ' ') +
+      'Master Services Agreement (the &ldquo;Agreement&rdquo;) between <b>' + esc(F.company) +
+      '</b> (&ldquo;' + esc(party) + '&rdquo;) and the Mortgage Industry Standards Maintenance ' +
+      'Organization, Inc. (&ldquo;MISMO&rdquo;).</p>';
+    h += '<div class="sec"><div class="sn">Description</div><p>' + esc(o.description) + '</p></div>';
+    var n = 0, R_ = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
+    function s(title, body) { h += '<div class="sec"><div class="sn">' + R_[n++] + '. ' + title + '</div>' + body + '</div>'; }
+    function ul(a) { return '<ul>' + (a || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>'; }
+    s('Services', ul(o.services));
+    s('Deliverables', ul(o.deliverables));
+    if (o.source === 'certification') {
+      s('Delivery Schedule', '<p>' + esc(o.deliverySchedule) + '</p>');
+      s('Duration of Order', '<p>' + esc(o.startDate) + ' to ' + esc(o.endDate) + '</p>');
+      s('Payment Schedule', '<p>' + esc(o.paymentSchedule) + '</p>');
+    } else {
+      s('Duration of Order', '<p>' + esc(o.startDate) + ' to ' + esc(o.endDate) + '</p>');
+      s('Estimate of Total Fees for Time and Material / Maximum Fee',
+        '<p>Hourly Rate: ' + money(o.hourlyRate) + '<br>Estimated Hours: ' + esc(o.estimatedHours) +
+        '<br>Maximum Fee Allowed: ' + money(o.maximumFee) + '</p>');
+    }
+    s('Tasks or Resources Needed From MISMO', '<p>' + esc(o.tasksFromMismo) + '</p>');
+    s('Any Agreed Modifications to Master Agreement Terms', '<p>' + esc(o.modifications || 'None') + '</p>');
+    h += '<p class="standing">' + esc(F.standingText) + '</p>';
+    h += '<div class="sig"><div><b>' + esc(party) + '</b><span>' + esc(F.signers.order.name) +
+      '</span><span>' + esc(F.signers.order.title) + '</span><span>' + esc(F.company) + '</span></div>' +
+      '<div><b>MISMO</b><span>' + esc(F.mismoSigner.name) + '</span><span>' +
+      esc(F.mismoSigner.title) + '</span><span>MISMO</span></div></div></div>';
+    return h;
+  }
+  function letterDoc(F, l) {
+    return '<div class="doc"><p>' + (l.address || []).map(esc).join('<br>') + '</p>' +
+      '<p class="sal">' + esc(l.salutation) + '</p>' +
+      '<p>This letter is intended to formally document our agreement to extend the MISMO ' +
+      (l.msaFlavour === 'General' ? '' : esc(l.msaFlavour) + ' ') +
+      'Master Services Agreement with an effective date of <b>' + esc(l.msaEffectiveDate) +
+      '</b> between ' + esc(l.company) + ' (&ldquo;' + esc(l.partyLabel) + '&rdquo;) and the Mortgage ' +
+      'Industry Standards Maintenance Organization, Inc. (&ldquo;MISMO&rdquo;), to be referred to in this ' +
+      'extension letter as the &ldquo;Original Agreement&rdquo;. The Original Agreement will expire ' +
+      esc(l.extendFrom) + ' if not extended.</p>' +
+      '<p>Accordingly, the parties desire to document their agreement to extend the Original Agreement ' +
+      'for a renewal period of one year, from ' + esc(l.extendFrom) + ' extended to <b>' +
+      esc(l.extendTo) + '</b>. By signing below, you are confirming this extension.</p>' +
+      '<p>Except as expressly modified by this letter, the terms and conditions of the Original ' +
+      'Agreement will remain in full force and effect.</p>' +
+      '<div class="sig"><div><b>Sincerely Yours</b><span>' + esc(F.mismoSigner.name) + '</span>' +
+      '<span>' + esc(F.mismoSigner.title) + ', MISMO</span></div>' +
+      '<div><b>Read/Agreed for ' + esc(l.company) + '</b><span>Name: ' + esc(l.signer.name) + '</span>' +
+      '<span>Title: ' + esc(l.signer.title) + '</span><span>Date: ____________</span></div></div></div>';
+  }
+  function printBtn(hostId, title) {
+    return '<button class="printbtn" type="button" data-print="' + hostId + '" data-title="' +
+      esc(title) + '"><svg viewBox="0 0 24 24" aria-hidden="true">' +
+      '<path d="M6 9V3h12v6M6 18H4v-7h16v7h-2M8 14h8v7H8z"/></svg>Download as PDF</button>';
+  }
+
+  window.MISMO_PORTAL_PARTS = {
+    esc: esc, money: money, money0: money0, stamp: stamp, statusOf: statusOf, pill: pill,
+    feeTotal: feeTotal, feeWords: feeWords,
+    sect: sect, wireSections: wireSections, wireRows: wireRows,
+    orderDoc: orderDoc, letterDoc: letterDoc, printBtn: printBtn, ORDER_OF: ORDER_OF
+  };
+})();
+
+/* ---------------------------------------------------------------------------
+ * The views.
+ * ------------------------------------------------------------------------- */
+(function () {
+  'use strict';
+  var R = window.MISMO_RELAY, P = window.MISMO_PORTAL_PARTS;
+  var esc = P.esc, money = P.money, money0 = P.money0, stamp = P.stamp;
+  var statusOf = P.statusOf, pill = P.pill, sect = P.sect;
+  var feeTotal = P.feeTotal, feeWords = P.feeWords;
+  var ISS_YEAR = null;                // the fiscal year the company is looking at
+  var view = document.getElementById('view');
+  var whoEl = document.getElementById('who');
+  var ME = null;                      // never a permission — only a display name
+
+  function say(html) { view.innerHTML = html; P.wireSections(view); P.wireRows(view); buildRail(); }
+
+  /* ---------- the left rail -------------------------------------------------
+     The other MISMO pages carry a fixed list of sections.  This page cannot:
+     a contracting company sees four, the President three, Jonna five, and the
+     names differ.  So the rail is built from the sections that are ACTUALLY on
+     screen, every time the view is rendered — which also means a section added
+     later needs nothing doing here. */
+  var RAIL_ICONS = {
+    'to review':        '<path d="M6 3h9l5 5v13a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M14 3v6h6M9 13h6M9 17h4"/>',
+    'my service orders':'<path d="M6 3h9l5 5v13a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M14 3v6h6M9 13h6M9 17h4"/>',
+    'my agreements':    '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
+    'my hours':         '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/>',
+    'awaiting your approval':'<path d="M4 12.5l5 5L20 6.5"/>',
+    'awaiting your decision':'<path d="M4 12.5l5 5L20 6.5"/>',
+    'already approved': '<circle cx="12" cy="12" r="9"/><path d="M8 12.2l2.8 2.8L16.5 9"/>',
+    'already decided':  '<circle cx="12" cy="12" r="9"/><path d="M8 12.2l2.8 2.8L16.5 9"/>',
+    'status board':     '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 9v11"/>',
+    'needs you':        '<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.2v.1"/>',
+    'send orders':      '<path d="M4 12l16-8-6 16-2.5-6.2L4 12z"/>',
+    'executed documents':'<path d="M6 3h9l5 5v13a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M14 3v6h6M9 14.5l2 2 4-4.5"/>',
+    'help':             '<circle cx="12" cy="12" r="9"/><path d="M9.6 9.5a2.5 2.5 0 113.4 2.4c-.6.3-.9.8-.9 1.4v.5M12 17.2v.1"/>'
+  };
+  function railIcon(name) {
+    return RAIL_ICONS[String(name).toLowerCase()] ||
+      '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h10M7 17h6"/>';
+  }
+
+  function buildRail() {
+    var host = document.getElementById('rail-nav');
+    if (!host) return;
+    host.textContent = '';
+    var secs = view.querySelectorAll('.psec');
+    Array.prototype.forEach.call(secs, function (sec, i) {
+      var h = sec.querySelector('.psec-h');
+      if (!h) return;
+      var name = (h.querySelector('span') || {}).textContent || '';
+      var cntEl = h.querySelector('.cnt');
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('data-hq', sec.id);
+      b.title = name;
+      if (i === 0) b.setAttribute('aria-current', 'page');
+      b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + railIcon(name) + '</svg>' +
+        '<span>' + name.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</span>' +
+        (cntEl && cntEl.textContent ? '<i class="railn">' + cntEl.textContent + '</i>' : '');
+      b.addEventListener('click', function () {
+        if (!sec.classList.contains('open')) h.click();
+        Array.prototype.forEach.call(host.children, function (x) { x.removeAttribute('aria-current'); });
+        b.setAttribute('aria-current', 'page');
+        try { sec.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+        catch (e) { sec.scrollIntoView(); }
+      });
+      host.appendChild(b);
+    });
+  }
+
+  /* The rail's search box asks for this.  Nothing is indexed and nothing is
+     stored — the page is read each time the box is used, so it can never go
+     stale and nothing typed is kept. */
+  window.__search = function (needle) {
+    var out = [];
+    Array.prototype.forEach.call(view.querySelectorAll('.psec'), function (sec) {
+      var h = sec.querySelector('.psec-h');
+      var secName = h ? ((h.querySelector('span') || {}).textContent || '') : '';
+      if (secName.toLowerCase().indexOf(needle) !== -1) {
+        out.push({ label: secName, sub: 'Go to this section',
+                   go: function () { if (!sec.classList.contains('open')) h.click(); sec.scrollIntoView(); } });
+      }
+      Array.prototype.forEach.call(sec.querySelectorAll('.row'), function (row) {
+        var t = row.querySelector('.rt');
+        if (!t || t.textContent.toLowerCase().indexOf(needle) === -1) return;
+        out.push({ label: t.textContent.trim(), sub: secName, go: function () {
+          if (!sec.classList.contains('open')) h.click();
+          var rh = row.querySelector('.row-h');
+          if (rh && !row.classList.contains('open')) rh.click();
+          row.scrollIntoView({ block: 'center' });
+        }});
+      });
+    });
+    return out.slice(0, 40);
+  };
+  function busy(msg) {
+    say('<div class="loading"><span class="spin" aria-hidden="true"></span>' + esc(msg || 'Reading your documents…') + '</div>');
+  }
+  function shut(title, body) {
+    whoEl.textContent = '';
+    say('<div class="shut"><h2>' + esc(title) + '</h2><p>' + body + '</p></div>');
+  }
+  function toast(msg, tone) {
+    var t = document.createElement('div');
+    t.className = 'toast ' + (tone || '');
+    t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(function () { t.classList.add('go'); }, 20);
+    setTimeout(function () { t.remove(); }, 4200);
+  }
+
+  /* ---- loading ---------------------------------------------------------- */
+  function loadCompany(slug) {
+    return Promise.all([
+      R.read('orders', 'orders/' + slug + '.json'),
+      R.read('orders', 'signatures/' + slug + '.json')
+    ]).then(function (r) {
+      return { slug: slug, sha: r[0].sha, F: r[0].data, sigSha: r[1].sha, sigs: r[1].data.signatures || [] };
+    });
+  }
+  function loadAll(slugs) { return Promise.all(slugs.map(loadCompany)); }
+
+  /* ---- writing a signature ---------------------------------------------
+     One record per order.  Each carries the id AND the content it accepted, so
+     an order edited afterwards shows as changed rather than silently
+     re-accepted.  parentSha travels with every save; a 409 re-reads, applies
+     the same records to the fresh copy, and saves again.                    */
+  function addSignatures(slug, records, note) {
+    return R.update('orders', 'signatures/' + slug + '.json', function (cur) {
+      var next = JSON.parse(JSON.stringify(cur));
+      next.signatures = (next.signatures || []).concat(records);
+      return next;
+    }, note || 'signatures added');
+  }
+  /* ---- the nudge outbox -------------------------------------------------
+     Nothing on this page can send an email.  What it can do is write the
+     nudge somewhere small and precise that something else watches:
+     notify/<company>.json changes ONLY when an order stops — a question, a
+     hold, or an order that changed after it was accepted.  The signatures file
+     changes on every one of the 57 acceptances, so watching that would be
+     noise; watching this is not.
+
+     This is not storing something that can be worked out.  WHAT happened is
+     derivable from the signatures; whether it has been SENT is not, and that
+     is what `sent` is for.  See NOTIFY.md for what Perry wires to it. */
+  function notify(slug, notice) {
+    return R.update('orders', 'notify/' + slug + '.json', function (cur) {
+      var next = JSON.parse(JSON.stringify(cur || {}));
+      next.company = next.company || slug;
+      next.notices = (next.notices || []).concat([notice]);
+      return next;
+    }, 'nudge: ' + notice.kind).catch(function (e) {
+      // a nudge that cannot be filed must never lose the thing it is about —
+      // the question and the hold are already saved by this point
+      console.warn('notice not filed', e && e.status);
+    });
+  }
+  function notice(kind, o, company, who, said) {
+    return {
+      kind: kind, orderId: o.id, order: o.subject, company: company,
+      who: who, said: said, raisedOn: new Date().toISOString(),
+      forAttentionOf: 'jcritchley@mismo.org', sent: false, sentOn: null
+    };
+  }
+
+  /* Decision 33 (b).  The hash says WHETHER something changed; it cannot say
+     what was agreed.  So the whole order as it stood on the screen travels with
+     the signature, and "what did this company accept" is answered with the
+     document rather than with sixteen hex characters. */
+  function snapshotOf(o) {
+    var copy = {};
+    Object.keys(o).forEach(function (k) {
+      if (k === 'status' || k === 'monthly') return;   // volatile, and internal
+      copy[k] = o[k];
+    });
+    return copy;
+  }
+
+  function signature(step, decision, o, extra) {
+    var rec = {
+      orderId: o.id,
+      step: step,
+      decision: decision,
+      contentHash: o.contentHash,          // the binding terms
+      recordHash: o.recordHash,            // the whole order, for amendment detection
+      contentAccepted: o.contentSummary,   // the one line, for a list
+      orderAccepted: snapshotOf(o),        // the evidence
+      signedOn: new Date().toISOString()
+    };
+    Object.keys(extra || {}).forEach(function (k) { rec[k] = extra[k]; });
+    return rec;
+  }
+
+  /* =========================================================================
+   * The contracting company's view
+   * ======================================================================= */
+  function contractorView() {
+    busy();
+    loadCompany(ME.slug).then(function (C) {
+      var F = C.F, sigs = C.sigs;
+      var st = {};
+      F.orders.forEach(function (o) { st[o.id] = statusOf(o, sigs); });
+      var toReview = F.orders.filter(function (o) {
+        return st[o.id].key === 'sent' || st[o.id].key === 'changed';
+      });
+
+      /* ---- To Review ---------------------------------------------------- */
+      var review;
+      if (!toReview.length) {
+        review = '<p class="empty">Nothing is waiting for you. Everything MISMO has sent has been ' +
+          'dealt with — <b>My Service Orders</b> below has all of them with their status.</p>';
+      } else {
+        var toReviewTotal = feeTotal(toReview);
+        review =
+          '<p class="lede">Read each one, tick the ones you accept, and accept them together. ' +
+          'Set aside anything you have a question about — it is never swept up by the button.</p>' +
+          '<div class="tot"><span class="tot-l">Waiting for You</span>' +
+          '<span class="tot-v">' + feeWords(toReviewTotal) + '</span></div>' +
+          '<div class="tbl"><table><thead><tr>' +
+          '<th class="tick"><input type="checkbox" id="qall" aria-label="Tick every order"></th>' +
+          '<th>Service Order</th><th class="n hide-narrow">Rate</th>' +
+          '<th class="n hide-narrow">Hours</th>' +
+          '<th class="n">Maximum Fee</th><th class="hide-narrow">Status</th></tr></thead><tbody>' +
+          toReview.map(function (o) {
+            return '<tr><td class="tick"><input type="checkbox" class="qtick" data-id="' + esc(o.id) + '"></td>' +
+              '<td>' + esc(o.subject) + '</td>' +
+              '<td class="n hide-narrow">' + (o.hourlyRate ? money(o.hourlyRate) : '—') + '</td>' +
+              '<td class="n hide-narrow">' + (o.estimatedHours || '—') + '</td>' +
+              '<td class="n">' + (o.maximumFee != null ? money(o.maximumFee) : 'Per review') + '</td>' +
+              '<td class="hide-narrow">' + pill(st[o.id]) + '</td></tr>';
+          }).join('') + '</tbody></table></div>' +
+          '<div class="ackbar">' +
+          '<div class="f"><label for="ackname">Type Your Name to Accept</label>' +
+          '<input id="ackname" type="text" autocomplete="off" placeholder="' + esc(F.signers.order.name) + '"></div>' +
+          '<div class="f"><label for="acktitle">Title</label>' +
+          '<input id="acktitle" type="text" value="' + esc(F.signers.order.title) + '"></div>' +
+          '<button class="gobtn" type="button" id="qgo" disabled>Accept the Ticked Orders</button>' +
+          '<span class="qc" id="qc">Nothing ticked yet</span></div>' +
+          '<p class="fineprint">Accepting records your name, the date and time, and exactly what you ' +
+          'accepted. Once an order is accepted it is locked — a change after that is a Modification, ' +
+          'not an edit.</p>' +
+          '<h3 class="subh">Read Them Here</h3>' +
+          '<div class="rows">' + toReview.map(function (o) { return reviewRow(F, o, st[o.id]); }).join('') + '</div>';
+      }
+
+      /* ---- My Service Orders -------------------------------------------- */
+      /* Decision 31 — the fiscal-year picker.  FY 2027 is the first year the
+         system holds, so today there is nothing to choose between and the page
+         says so plainly instead of showing a dropdown with one entry in it.
+         The moment a second year is generated this becomes a chooser and the
+         total follows it. */
+      var years = {};
+      F.orders.forEach(function (o) { years[o.fiscalYear || F.fiscalYear] = 1; });
+      var yearList = Object.keys(years).sort();
+      /* Default to the year the file is FOR, not the last one in the list.
+         FY 2028 orders can exist long before FY 2028 starts, and a company
+         opening the page should land on the year it is working in. */
+      var pickedYear = ISS_YEAR
+        || (years[F.fiscalYear] ? F.fiscalYear : null)
+        || yearList[0] || F.fiscalYear;
+      var yearOrders = yearList.length > 1
+        ? F.orders.filter(function (o) { return (o.fiscalYear || F.fiscalYear) === pickedYear; })
+        : F.orders;
+      var yearTotal = feeTotal(yearOrders);
+      var all = '<p class="lede">Every service order MISMO has raised for you this fiscal year, ' +
+        'with its status, rate, hours and maximum fee. Open one to read it in full.</p>' +
+        '<div class="tot"><span class="tot-l">' +
+          (yearList.length > 1
+            ? 'Fiscal Year</span><span class="tot-v"><select id="fy-pick" aria-label="Which fiscal year">' +
+              yearList.map(function (y) {
+                return '<option' + (y === pickedYear ? ' selected' : '') + '>' + esc(y) + '</option>';
+              }).join('') + '</select> ' + feeWords(yearTotal)
+            : 'This Fiscal Year, ' + esc(pickedYear || '') + '</span><span class="tot-v">' + feeWords(yearTotal)) +
+        '</span></div>' +
+        '<p class="fineprint">Every order raised for you' +
+        (yearList.length > 1 ? ' in ' + esc(pickedYear) : ' this fiscal year') +
+        ', whatever its status. An order added later in the year lands in this figure too. ' +
+        'MISMO\u2019s fiscal year runs 1 October to 30 September.</p>' +
+        '<div class="rows">' + yearOrders.map(function (o) {
+          return '<div class="row"><div class="row-h">' +
+            '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
+            '<span class="rt">' + esc(o.subject) + '</span>' + pill(st[o.id]) +
+            '<span class="rs num">' + (o.maximumFee != null ? money(o.maximumFee) : 'Per review') + '</span>' +
+            '</div><div class="row-b">' +
+            '<div class="fields">' +
+            fld('Status', st[o.id].label) +
+            fld('Hourly Rate', o.hourlyRate ? money(o.hourlyRate) : 'Paid per review', 1) +
+            fld('Estimated Hours', o.estimatedHours || '—', 1) +
+            fld('Maximum Fee', o.maximumFee != null ? money(o.maximumFee) : 'No maximum — paid per review', 1) +
+            fld('Runs', o.startDate + ' to ' + o.endDate) +
+            fld('Master Services Agreement', o.msaFlavour) +
+            '</div>' + signedBlock(st[o.id]) +
+            '<div class="dochost" id="d-' + esc(o.id) + '">' + P.orderDoc(F, o) + '</div>' +
+            (st[o.id].key === 'executed' ? P.printBtn('d-' + o.id, o.subject) : '') +
+            '</div></div>';
+        }).join('') + '</div>';
+
+      /* ---- My Agreements ------------------------------------------------- */
+      var agreements = R.read('orders', 'agreements/' + ME.slug + '.json')
+        .then(function (a) { return a.data.agreements || []; })
+        .catch(function () { return []; });
+
+      agreements.then(function (exec) {
+        var byFlavour = {};
+        exec.forEach(function (e) { byFlavour[e.msaFlavour] = e; });
+        var ag = '<p class="lede">Your Master Services Agreement extensions. MISMO sends each one ' +
+          'through DocuSign; once it is executed the signed copy appears here and stays.</p>' +
+          '<div class="rows">' + F.letters.map(function (l) {
+            var e = byFlavour[l.msaFlavour];
+            return '<div class="row"><div class="row-h">' +
+              '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
+              '<span class="rt">' + esc(l.msaFlavour) + ' Master Services Agreement</span>' +
+              (e ? '<span class="pill good">Executed</span>' : '<span class="pill">Awaiting Signature</span>') +
+              '<span class="rs">Extends to ' + esc(l.extendTo) + '</span>' +
+              '</div><div class="row-b"><div class="fields">' +
+              fld('Agreement Signed', l.msaEffectiveDate) +
+              fld('Expires Without This Letter', l.extendFrom) +
+              fld('This Letter Extends It To', l.extendTo) +
+              fld('Signed for ' + l.company + ' by', l.signer.name + ' — ' + l.signer.title) +
+              fld('Signed for MISMO by', F.mismoSigner.name + ' — ' + F.mismoSigner.title) +
+              (e ? fld('Executed On', e.executedOn) + fld('DocuSign Envelope', e.envelopeId) : '') +
+              '</div>' +
+              (e ? '<p class="fineprint">The executed copy, with its Certificate of Completion, is ' +
+                'the record. <a class="dl" href="' + esc(e.href || '#') + '">Download the signed PDF</a></p>' : '') +
+              '<div class="dochost" id="l-' + esc(l.id) + '">' + P.letterDoc(F, l) + '</div>' +
+              P.printBtn('l-' + l.id, l.company + ' — ' + l.msaFlavour + ' MSA Extension') +
+              '</div></div>';
+          }).join('') + '</div>';
+
+        whoEl.innerHTML = esc(ME.name) + ' <i>·</i> ' + esc(F.company);
+        say(
+          sect('To Review', toReview.length, review) +
+          sect('My Service Orders', yearOrders.length, all) +
+          sect('My Agreements', F.letters.length, ag) +
+          sect('Help', null, helpFor('contractor', F))
+        );
+        wireReview(C, st, toReview);
+        var fyEl = document.getElementById('fy-pick');
+        if (fyEl) fyEl.addEventListener('change', function () {
+          ISS_YEAR = fyEl.value; contractorView();
+        });
+      });
+    }).catch(closed);
+  }
+
+  /* what the nudge outbox is holding, and whether anything has gone out */
+  function outboxLine(outbox) {
+    var waiting = (outbox || []).filter(function (n) { return !n.sent; });
+    var gone = (outbox || []).length - waiting.length;
+    if (!outbox || !outbox.length) {
+      return '<div class="note ok"><b>The nudge outbox is empty.</b> ' +
+        '<code>notify/&lt;company&gt;.json</code> changes only when an order stops, so whatever is ' +
+        'watching it has had nothing to send. See <b>NOTIFY.md</b> in the build package.</div>';
+    }
+    return '<div class="note' + (waiting.length ? '' : ' ok') + '"><b>' +
+      (waiting.length
+        ? waiting.length + ' ' + (waiting.length === 1 ? 'nudge is' : 'nudges are') + ' waiting to go out.'
+        : 'Every nudge has gone out.') +
+      '</b> ' + (gone ? gone + ' already sent. ' : '') +
+      'They are queued in <code>notify/&lt;company&gt;.json</code> — one line per stopped order. ' +
+      '<b>Until that file is wired to send mail, this list is the only place they appear.</b> ' +
+      'See <b>NOTIFY.md</b>.</div>';
+  }
+
+  function fld(label, v, mono) {
+    return '<div class="f"><label>' + esc(label) + '</label><div class="v' +
+      (mono ? ' num' : '') + '">' + esc(v == null || v === '' ? '—' : v) + '</div></div>';
+  }
+  function signedBlock(st) {
+    if (!st.sig) return '';
+    var s = st.sig;
+    var h = '<div class="signed"><b>' + esc(s.decision) + '</b> by ' + esc(s.signerName || '—') +
+      (s.signerTitle ? ', ' + esc(s.signerTitle) : '') + ' on ' + esc(stamp(s.signedOn)) +
+      '<span class="what">What was accepted: ' + esc(s.contentAccepted || '') + '</span></div>';
+    if (st.key === 'changed') {
+      h += '<div class="note warn"><b>A binding term has changed since this was accepted.</b> ' +
+        'Something that decides the deal moved — the rate, the hours, the maximum fee, the dates, ' +
+        'the Services, the Deliverables, the agreement it is written under or what MISMO provides. ' +
+        'The acceptance on record is for the earlier terms, so it is not treated as accepted. ' +
+        'MISMO has to send it again, or raise a Modification.</div>';
+    } else if (st.amended) {
+      /* Decision 33 (c).  Shown, never silent — and never a reason to re-ask. */
+      h += '<div class="note"><b>Amended after acceptance.</b> Something outside the binding terms ' +
+        'was changed — a title, a description or a template name. <b>Nothing that decides the deal ' +
+        'moved</b>, so this is still accepted and nobody has been asked again. The order as it was ' +
+        'accepted is kept with the signature.</div>';
+    }
+    return h;
+  }
+  function reviewRow(F, o, st) {
+    return '<div class="row"><div class="row-h">' +
+      '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
+      '<span class="rt">' + esc(o.subject) + '</span>' + pill(st) +
+      '<span class="rs num">' + (o.maximumFee != null ? money(o.maximumFee) : 'Per review') + '</span>' +
+      '</div><div class="row-b">' +
+      '<div class="dochost" id="r-' + esc(o.id) + '">' + P.orderDoc(F, o) + '</div>' +
+      '<div class="onebar">' +
+      '<div class="f"><label>Type Your Name to Accept This One</label>' +
+      '<input type="text" class="one-name" data-id="' + esc(o.id) + '" autocomplete="off"></div>' +
+      '<button class="gobtn one-go" type="button" data-id="' + esc(o.id) + '">Accept This Order</button>' +
+      '<button class="ghost one-ask" type="button" data-id="' + esc(o.id) + '">Set It Aside With a Question</button>' +
+      '</div>' +
+      '<div class="askbox" data-ask="' + esc(o.id) + '" hidden>' +
+      '<div class="f"><label>What Is the Question?</label>' +
+      '<input type="text" class="one-q" data-id="' + esc(o.id) + '" placeholder="It comes back to MISMO with the order"></div>' +
+      '<button class="ghost one-send" type="button" data-id="' + esc(o.id) + '">Send the Question</button></div>' +
+      '</div></div>';
+  }
+
+  function wireReview(C, st, toReview) {
+    var all = document.getElementById('qall');
+    var go = document.getElementById('qgo');
+    var nameEl = document.getElementById('ackname');
+    var titleEl = document.getElementById('acktitle');
+    var qc = document.getElementById('qc');
+    if (!go) return;
+
+    function ticked() {
+      return Array.prototype.slice.call(document.querySelectorAll('.qtick:checked'))
+        .map(function (b) { return b.dataset.id; });
+    }
+    /* What the ticked subset comes to, live.  A company accepts in batches, so
+       the figure that matters while they are ticking is what THEY are about to
+       commit to — not the total of everything waiting. */
+    var byId = {};
+    (toReview || []).forEach(function (o) { byId[o.id] = o; });
+
+    function paint() {
+      var ids = ticked(), n = ids.length, named = (nameEl.value || '').trim().length >= 2;
+      go.disabled = !(n && named);
+      if (!n) { qc.innerHTML = 'Nothing ticked yet'; return; }
+      var t = feeTotal(ids.map(function (id) { return byId[id]; }).filter(Boolean));
+      qc.innerHTML = n + ' ticked — ' + feeWords(t) +
+        (named ? ', ready to accept' : '. Type your name to accept them');
+    }
+    document.querySelectorAll('.qtick').forEach(function (b) { b.addEventListener('change', paint); });
+    if (all) all.addEventListener('change', function () {
+      document.querySelectorAll('.qtick').forEach(function (b) { b.checked = all.checked; });
+      paint();
+    });
+    nameEl.addEventListener('input', paint);
+    paint();
+
+    go.addEventListener('click', function () {
+      var ids = ticked();
+      var who = { signerName: nameEl.value.trim(), signerTitle: titleEl.value.trim(), signerEmail: ME.email };
+      var recs = ids.map(function (id) {
+        var o = C.F.orders.filter(function (x) { return x.id === id; })[0];
+        return signature('Consultant', 'Accepted', o, who);
+      });
+      go.disabled = true; go.textContent = 'Accepting…';
+      addSignatures(ME.slug, recs, 'accepted ' + recs.length + ' orders')
+        .then(function () {
+          toast(recs.length + (recs.length === 1 ? ' order accepted' : ' orders accepted'), 'good');
+          contractorView();
+        })
+        .catch(function (e) { go.disabled = false; go.textContent = 'Accept the Ticked Orders'; failed(e); });
+    });
+
+    document.querySelectorAll('.one-go').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var id = b.dataset.id;
+        var nm = document.querySelector('.one-name[data-id="' + id + '"]');
+        if (!nm || nm.value.trim().length < 2) { nm && nm.focus(); toast('Type your name first'); return; }
+        var o = C.F.orders.filter(function (x) { return x.id === id; })[0];
+        b.disabled = true;
+        addSignatures(ME.slug, [signature('Consultant', 'Accepted', o,
+          { signerName: nm.value.trim(), signerTitle: (titleEl && titleEl.value.trim()) || ME.title, signerEmail: ME.email })],
+          'accepted ' + o.subject)
+          .then(function () { toast('Accepted', 'good'); contractorView(); })
+          .catch(function (e) { b.disabled = false; failed(e); });
+      });
+    });
+    document.querySelectorAll('.one-ask').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var box = document.querySelector('.askbox[data-ask="' + b.dataset.id + '"]');
+        if (box) { box.hidden = !box.hidden; var i = box.querySelector('input'); if (i) i.focus(); }
+      });
+    });
+    document.querySelectorAll('.one-send').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var id = b.dataset.id;
+        var q = document.querySelector('.one-q[data-id="' + id + '"]');
+        var o = C.F.orders.filter(function (x) { return x.id === id; })[0];
+        if (!q || q.value.trim().length < 2) { if (q) q.focus(); toast('Type the question first'); return; }
+        b.disabled = true;
+        var asked = q.value.trim();
+        addSignatures(ME.slug, [signature('Consultant', 'Question', o,
+          { signerName: ME.name, signerEmail: ME.email, question: asked })],
+          'question raised on ' + o.subject)
+          .then(function () {
+            return notify(ME.slug, notice('Question Raised', o, C.F.company, ME.name, asked));
+          })
+          .then(function () { toast('Sent back to MISMO with your question'); contractorView(); })
+          .catch(function (e) { b.disabled = false; failed(e); });
+      });
+    });
+  }
+
+  /* =========================================================================
+   * The President's view — approve in bulk, or in batches by company
+   * ======================================================================= */
+  function presidentView() {
+    busy('Reading the orders waiting for you…');
+    loadAll(ME.slugs).then(function (list) {
+      var waiting = [], done = 0;
+      list.forEach(function (C) {
+        var mine = C.F.orders.filter(function (o) {
+          return statusOf(o, C.sigs).key === 'acknowledged';
+        });
+        C.waiting = mine;
+        done += C.F.orders.filter(function (o) { return statusOf(o, C.sigs).key === 'executed'; }).length;
+        if (mine.length) waiting.push(C);
+      });
+      var total = waiting.reduce(function (a, C) { return a + C.waiting.length; }, 0);
+
+      var body = total === 0
+        ? '<p class="empty">Nothing is waiting for your approval. An order reaches you once the ' +
+          'contracting company has accepted it.</p>'
+        : '<p class="lede">Each company is its own batch. Approving one company leaves every other ' +
+          'company exactly as it was — their orders are in separate files and are not touched.</p>' +
+          '<div class="batchbar"><button class="gobtn" type="button" id="approve-all">' +
+          'Approve All ' + total + ' Waiting</button>' +
+          '<span class="qc">' + waiting.length + ' ' + (waiting.length === 1 ? 'company' : 'companies') +
+          ' · signed in as ' + esc(ME.name) + ', ' + esc(ME.title) + '</span></div>' +
+          '<div class="rows">' + waiting.map(function (C) {
+            return '<div class="row" data-co="' + esc(C.slug) + '"><div class="row-h">' +
+              '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
+              '<span class="rt">' + esc(C.F.company) + '</span>' +
+              '<span class="pill">' + C.waiting.length + ' awaiting you</span>' +
+              '<span class="rs num">' + money0(C.waiting.reduce(function (a, o) {
+                return a + (o.maximumFee || 0);
+              }, 0)) + '</span></div><div class="row-b">' +
+              '<div class="tbl"><table><thead><tr><th>Service Order</th>' +
+              '<th class="n hide-narrow">Rate</th><th class="n hide-narrow">Hours</th>' +
+              '<th class="n">Maximum Fee</th><th class="hide-narrow">Accepted By</th></tr></thead><tbody>' +
+              C.waiting.map(function (o) {
+                var s = statusOf(o, C.sigs);
+                return '<tr class="openrow" data-open="' + esc(C.slug + '|' + o.id) + '">' +
+                  '<td>' + esc(o.subject) + '</td>' +
+                  '<td class="n hide-narrow">' + (o.hourlyRate ? money(o.hourlyRate) : '—') + '</td>' +
+                  '<td class="n hide-narrow">' + (o.estimatedHours || '—') + '</td>' +
+                  '<td class="n">' + (o.maximumFee != null ? money(o.maximumFee) : 'Per review') + '</td>' +
+                  '<td class="hide-narrow">' + esc(s.sig ? s.sig.signerName + ' · ' + stamp(s.sig.signedOn) : '—') + '</td></tr>';
+              }).join('') + '</tbody></table></div>' +
+              '<div class="batchbar"><button class="gobtn batch" type="button" data-slug="' + esc(C.slug) + '">' +
+              'Approve These ' + C.waiting.length + ' Orders for ' + esc(C.F.company) + '</button></div>' +
+              '<div class="docstack">' + C.waiting.map(function (o) {
+                return '<div class="row"><div class="row-h"><svg class="chev" viewBox="0 0 24 24" aria-hidden="true">' +
+                  '<path d="M9 6l6 6-6 6"/></svg><span class="rt">' + esc(o.subject) + '</span></div>' +
+                  '<div class="row-b"><div class="dochost">' + P.orderDoc(C.F, o) + '</div></div></div>';
+              }).join('') + '</div></div></div>';
+          }).join('') + '</div>';
+
+      whoEl.innerHTML = esc(ME.name) + ' <i>·</i> ' + esc(ME.title);
+      say(sect('Awaiting Your Approval', total, body, true) +
+        sect('Already Approved', done,
+          '<p class="lede">' + done + ' ' + (done === 1 ? 'order has' : 'orders have') +
+          ' both signatures and are executed.</p>' +
+          '<div class="tbl"><table><thead><tr><th>Company</th><th>Service Order</th>' +
+          '<th>Approved</th></tr></thead><tbody>' + list.map(function (C) {
+            return C.F.orders.filter(function (o) { return statusOf(o, C.sigs).key === 'executed'; })
+              .map(function (o) {
+                var s = statusOf(o, C.sigs);
+                return '<tr><td>' + esc(C.F.company) + '</td><td>' + esc(o.subject) + '</td><td>' +
+                  esc(stamp(s.sig.signedOn)) + '</td></tr>';
+              }).join('');
+          }).join('') + '</tbody></table></div>' +
+          '<p class="fineprint">The permanent archive of executed documents is Jonna’s and the ' +
+          'contracting company’s. You see an order in order to approve it; the relay does not ' +
+          'return the archive to this sign-in.</p>') +
+        sect('Help', null, helpFor('president', list[0] && list[0].F)));
+
+      function approveCompany(C) {
+        var recs = C.waiting.map(function (o) {
+          return signature('MISMO Signer', 'Approved', o, {
+            signerName: ME.name, signerTitle: ME.title, signerEmail: ME.email, via: 'single sign-on'
+          });
+        });
+        return addSignatures(C.slug, recs, 'approved ' + recs.length + ' orders for ' + C.F.company);
+      }
+      document.querySelectorAll('.batch').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var C = waiting.filter(function (x) { return x.slug === b.dataset.slug; })[0];
+          b.disabled = true; b.textContent = 'Approving…';
+          approveCompany(C).then(function () {
+            toast(C.waiting.length + ' approved for ' + C.F.company, 'good'); presidentView();
+          }).catch(function (e) { b.disabled = false; failed(e); });
+        });
+      });
+      var aa = document.getElementById('approve-all');
+      if (aa) aa.addEventListener('click', function () {
+        aa.disabled = true; aa.textContent = 'Approving…';
+        waiting.reduce(function (p, C) {
+          return p.then(function () { return approveCompany(C); });
+        }, Promise.resolve()).then(function () {
+          toast(total + ' orders approved', 'good'); presidentView();
+        }).catch(function (e) { aa.disabled = false; failed(e); });
+      });
+    }).catch(closed);
+  }
+
+  /* =========================================================================
+   * The VP of Programs and Operations — decides before an order is sent
+   * ======================================================================= */
+  function vpView() {
+    busy('Reading the orders waiting for your decision…');
+    loadAll(ME.slugs).then(function (list) {
+      var waiting = [], total = 0;
+      list.forEach(function (C) {
+        C.waiting = C.F.orders.filter(function (o) { return statusOf(o, C.sigs).key === 'draft'; });
+        total += C.waiting.length;
+        if (C.waiting.length) waiting.push(C);
+      });
+      var body = total === 0
+        ? '<p class="empty">Nothing is waiting for your decision.</p>'
+        : '<p class="lede">An order does not go to the contracting company until you have decided on ' +
+          'it. Approving one here releases it for MISMO to send.</p>' +
+          '<div class="batchbar"><button class="gobtn" type="button" id="vp-all">' +
+          'Approve All ' + total + ' to Send</button><span class="qc">Signed in as ' +
+          esc(ME.name) + ', ' + esc(ME.title) + '</span></div>' +
+          '<div class="rows">' + waiting.map(function (C) {
+            return '<div class="row" data-co="' + esc(C.slug) + '"><div class="row-h">' +
+              '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
+              '<span class="rt">' + esc(C.F.company) + '</span><span class="pill">' +
+              C.waiting.length + ' to decide</span><span class="rs num">' +
+              money0(C.waiting.reduce(function (a, o) { return a + (o.maximumFee || 0); }, 0)) +
+              '</span></div><div class="row-b">' +
+              '<div class="tbl"><table><thead><tr><th>Service Order</th>' +
+              '<th class="n hide-narrow">Rate</th><th class="n hide-narrow">Hours</th>' +
+              '<th class="n">Maximum Fee</th><th class="hide-narrow">Work</th></tr></thead><tbody>' +
+              C.waiting.map(function (o) {
+                return '<tr><td>' + esc(o.subject) + '</td><td class="n hide-narrow">' +
+                  (o.hourlyRate ? money(o.hourlyRate) : '—') + '</td><td class="n hide-narrow">' +
+                  (o.estimatedHours || '—') + '</td><td class="n">' +
+                  (o.maximumFee != null ? money(o.maximumFee) : 'Per review') + '</td><td class="hide-narrow">' +
+                  esc(o.category || '—') + '</td></tr>';
+              }).join('') + '</tbody></table></div>' +
+              '<div class="batchbar"><button class="gobtn vpbatch" type="button" data-slug="' +
+              esc(C.slug) + '">Approve ' + C.waiting.length + ' to Send for ' + esc(C.F.company) +
+              '</button></div>' +
+              '<div class="docstack">' + C.waiting.map(function (o) {
+                return '<div class="row"><div class="row-h"><svg class="chev" viewBox="0 0 24 24" aria-hidden="true">' +
+                  '<path d="M9 6l6 6-6 6"/></svg><span class="rt">' + esc(o.subject) + '</span></div>' +
+                  '<div class="row-b"><div class="dochost">' + P.orderDoc(C.F, o) + '</div>' +
+                  '<div class="onebar">' +
+                  '<div class="f"><label>Why Are You Holding It?</label>' +
+                  '<input type="text" class="holdwhy" data-id="' + esc(o.id) +
+                  '" placeholder="This comes back to Jonna with the order"></div>' +
+                  '<button class="ghost vphold" type="button" data-slug="' + esc(C.slug) +
+                  '" data-id="' + esc(o.id) + '">Hold This One</button></div></div></div>';
+              }).join('') + '</div></div></div>';
+          }).join('') + '</div>';
+
+      whoEl.innerHTML = esc(ME.name) + ' <i>·</i> ' + esc(ME.title);
+      say(sect('Awaiting Your Decision', total, body, true) +
+        sect('Already Decided', list.reduce(function (a, C) {
+          return a + C.F.orders.filter(function (o) {
+            return ['vp', 'sent', 'acknowledged', 'executed', 'changed', 'question'].indexOf(statusOf(o, C.sigs).key) >= 0;
+          }).length;
+        }, 0), '<div class="tbl"><table><thead><tr><th>Company</th><th>Service Order</th>' +
+        '<th class="n">Maximum Fee</th><th>Status</th></tr></thead><tbody>' +
+        list.map(function (C) {
+          return C.F.orders.map(function (o) {
+            var s = statusOf(o, C.sigs);
+            if (['vp', 'sent', 'acknowledged', 'executed', 'changed', 'question'].indexOf(s.key) < 0) return '';
+            return '<tr><td>' + esc(C.F.company) + '</td><td>' + esc(o.subject) +
+              (s.key === 'vphold' && s.sig && s.sig.note
+                ? '<div class="why">' + esc(s.sig.note) + '</div>' : '') +
+              '</td><td class="n">' +
+              (o.maximumFee != null ? money(o.maximumFee) : 'Per review') + '</td><td>' + pill(s) + '</td></tr>';
+          }).join('');
+        }).join('') + '</tbody></table></div>') +
+        sect('Help', null, helpFor('vp-product', list[0] && list[0].F)));
+
+      function decide(C, orders, decision, note) {
+        return addSignatures(C.slug, orders.map(function (o) {
+          return signature('VP Product Decision', decision, o, {
+            signerName: ME.name, signerTitle: ME.title, signerEmail: ME.email,
+            via: 'single sign-on', note: note || ''
+          });
+        }), decision + ' — ' + orders.length + ' orders for ' + C.F.company);
+      }
+      document.querySelectorAll('.vpbatch').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var C = waiting.filter(function (x) { return x.slug === b.dataset.slug; })[0];
+          b.disabled = true;
+          decide(C, C.waiting, 'Approved to Send')
+            .then(function () { toast('Released for MISMO to send', 'good'); vpView(); })
+            .catch(function (e) { b.disabled = false; failed(e); });
+        });
+      });
+      document.querySelectorAll('.vphold').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var C = waiting.filter(function (x) { return x.slug === b.dataset.slug; })[0];
+          var o = C.waiting.filter(function (x) { return x.id === b.dataset.id; })[0];
+          var why = document.querySelector('.holdwhy[data-id="' + b.dataset.id + '"]');
+          // a hold with no reason lands on Jonna's desk saying nothing, so ask for one
+          if (!why || why.value.trim().length < 2) {
+            if (why) why.focus();
+            toast('Say why you are holding it first');
+            return;
+          }
+          b.disabled = true;
+          var reason = why.value.trim();
+          decide(C, [o], 'Held', reason)
+            .then(function () {
+              return notify(C.slug, notice('Held by the VP', o, C.F.company, ME.name, reason));
+            })
+            .then(function () { toast('Held — it comes back to MISMO with your reason'); vpView(); })
+            .catch(function (e) { b.disabled = false; failed(e); });
+        });
+      });
+      var va = document.getElementById('vp-all');
+      if (va) va.addEventListener('click', function () {
+        va.disabled = true; va.textContent = 'Approving…';
+        waiting.reduce(function (p, C) {
+          return p.then(function () { return decide(C, C.waiting, 'Approved to Send'); });
+        }, Promise.resolve()).then(function () { toast(total + ' released to send', 'good'); vpView(); })
+          .catch(function (e) { va.disabled = false; failed(e); });
+      });
+    }).catch(closed);
+  }
+
+  /* =========================================================================
+   * Jonna — the status board, sending, and the executed-document archive
+   * ======================================================================= */
+  function adminView() {
+    busy('Reading every company…');
+    Promise.all([
+      loadAll(ME.slugs),
+      Promise.all(ME.slugs.map(function (s) {
+        return R.read('orders', 'notify/' + s + '.json')
+          .then(function (r) { return r.data.notices || []; })
+          .catch(function () { return []; });
+      }))
+    ]).then(function (both) {
+      var list = both[0];
+      var outbox = [].concat.apply([], both[1]);
+      var tally = { draft: 0, vp: 0, vphold: 0, sent: 0, question: 0, acknowledged: 0, changed: 0, executed: 0 };
+      list.forEach(function (C) {
+        C.st = {};
+        C.F.orders.forEach(function (o) {
+          var s = statusOf(o, C.sigs); C.st[o.id] = s; tally[s.key] = (tally[s.key] || 0) + 1;
+        });
+      });
+      var LABEL = { draft: 'Draft', vp: 'Released to Send', vphold: 'Held by the VP', sent: 'Sent',
+        question: 'Question Raised', acknowledged: 'Acknowledged', changed: 'Changed Since Acknowledged',
+        executed: 'Executed' };
+
+      var board = '<div class="stats">' + Object.keys(LABEL).map(function (k) {
+        return '<div class="stat' + (['question', 'changed', 'vphold'].indexOf(k) >= 0 && tally[k] ? ' warn' : '') +
+          '"><span class="lab">' + esc(LABEL[k]) + '</span><span class="val">' + (tally[k] || 0) + '</span></div>';
+      }).join('') + '</div>' +
+        '<div class="tbl"><table><thead><tr><th>Company</th><th class="n">Orders</th>' +
+        '<th class="n">Ready to Send</th><th class="n">Sent</th><th class="n">Acknowledged</th>' +
+        '<th class="n">Executed</th><th class="n">Needs You</th></tr></thead><tbody>' +
+        list.map(function (C) {
+          var c = function (k) { return C.F.orders.filter(function (o) { return C.st[o.id].key === k; }).length; };
+          var needs = c('question') + c('changed') + c('vphold');
+          return '<tr><td>' + esc(C.F.company) + '</td><td class="n">' + C.F.orders.length +
+            '</td><td class="n">' + c('vp') + '</td><td class="n">' + c('sent') +
+            '</td><td class="n">' + c('acknowledged') + '</td><td class="n">' + c('executed') +
+            '</td><td class="n' + (needs ? ' bad' : '') + '">' + needs + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+
+      /* Needs You — a question or a hold is no use as a number, so the words are
+         here, beside the order they are about. */
+      var needs = [];
+      list.forEach(function (C) {
+        C.F.orders.forEach(function (o) {
+          var s = C.st[o.id];
+          if (['question', 'vphold', 'changed'].indexOf(s.key) < 0) return;
+          needs.push({ company: C.F.company, order: o, st: s });
+        });
+      });
+      var needsBody = needs.length === 0
+        ? '<p class="empty">Nothing is waiting on you. No questions, no holds, and no order has ' +
+          'changed since it was accepted.</p>' + outboxLine(outbox)
+        : outboxLine(outbox) +
+          '<p class="lede">Every order that has stopped and is waiting on you, with what was said ' +
+          'about it. None of these moves on its own.</p>' +
+          '<div class="tbl"><table><thead><tr><th>Company</th><th>Service Order</th>' +
+          '<th class="hide-narrow">Who</th><th>What They Said</th><th>Status</th>' +
+          '</tr></thead><tbody>' + needs.map(function (n) {
+            var sig = n.st.sig || {};
+            var said = n.st.key === 'question' ? (sig.question || '')
+              : n.st.key === 'vphold' ? (sig.note || '')
+                : 'The order was edited after it was accepted, so the acceptance on record is for ' +
+                  'the earlier wording. Send it again, or raise a Modification.';
+            return '<tr><td>' + esc(n.company) + '</td><td>' + esc(n.order.subject) + '</td>' +
+              '<td class="hide-narrow">' + esc(sig.signerName || '—') +
+              (sig.signedOn ? '<div class="why">' + esc(stamp(sig.signedOn)) + '</div>' : '') + '</td>' +
+              '<td>' + esc(said) + '</td><td>' + pill(n.st) + '</td></tr>';
+          }).join('') + '</tbody></table></div>';
+
+      var sendBody = '<p class="lede">An order can be sent once ' + esc(list[0].F.vpProduct.name) +
+        ' has released it. Sending writes the date onto the order; the contracting company sees it ' +
+        'the next time they open their link.</p>' +
+        '<div class="rows">' + list.map(function (C) {
+          var ready = C.F.orders.filter(function (o) { return C.st[o.id].key === 'vp'; });
+          return '<div class="row" data-co="' + esc(C.slug) + '"><div class="row-h">' +
+            '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
+            '<span class="rt">' + esc(C.F.company) + '</span><span class="pill' +
+            (ready.length ? '' : ' quiet') + '">' + ready.length + ' ready to send</span></div>' +
+            '<div class="row-b">' + (ready.length
+              ? '<div class="tbl"><table><thead><tr><th>Service Order</th><th class="n">Maximum Fee</th>' +
+                '</tr></thead><tbody>' + ready.map(function (o) {
+                  return '<tr><td>' + esc(o.subject) + '</td><td class="n">' +
+                    (o.maximumFee != null ? money(o.maximumFee) : 'Per review') + '</td></tr>';
+                }).join('') + '</tbody></table></div>' +
+                '<div class="batchbar"><button class="gobtn sendco" type="button" data-slug="' +
+                esc(C.slug) + '">Send These ' + ready.length + ' to ' +
+                esc(C.F.signers.order.name) + '</button></div>'
+              : '<p class="empty">Nothing released for this company yet.</p>') +
+            '</div></div>';
+        }).join('') + '</div>';
+
+      var archive = '<p class="lede">The executed documents, kept permanently. This archive is yours ' +
+        'and the contracting company’s — it is not returned to the President’s sign-in.</p>' +
+        '<div class="rows">' + list.map(function (C) {
+          return '<div class="row" data-arch="' + esc(C.slug) + '"><div class="row-h">' +
+            '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
+            '<span class="rt">' + esc(C.F.company) + '</span><span class="pill quiet">' +
+            C.F.letters.length + ' agreement' + (C.F.letters.length === 1 ? '' : 's') + '</span></div>' +
+            '<div class="row-b">' + C.F.letters.map(function (l) {
+              return '<div class="upl"><div class="fields">' +
+                fld('Agreement', l.msaFlavour + ' Master Services Agreement') +
+                fld('Signed for the Company by', l.signer.name + ' — ' + l.signer.title) +
+                fld('Extends To', l.extendTo) + '</div>' +
+                '<div class="onebar"><div class="f"><label>Executed PDF From DocuSign</label>' +
+                '<input type="file" accept="application/pdf" class="exec-file" data-slug="' + esc(C.slug) +
+                '" data-flav="' + esc(l.msaFlavour) + '"></div>' +
+                '<div class="f"><label>DocuSign Envelope ID</label>' +
+                '<input type="text" class="exec-env" data-flav="' + esc(l.msaFlavour) + '"></div>' +
+                '<button class="gobtn exec-go" type="button" data-slug="' + esc(C.slug) +
+                '" data-flav="' + esc(l.msaFlavour) + '">File It</button></div>' +
+                '<p class="fineprint">Upload the whole DocuSign output, including the Certificate of ' +
+                'Completion — that certificate is the evidence of execution and the part an auditor ' +
+                'asks for.</p></div>';
+            }).join('') + '</div></div>';
+        }).join('') + '</div>';
+
+      whoEl.innerHTML = esc(ME.name) + ' <i>·</i> ' + esc(ME.title);
+      say(sect('Status Board', null, board, true) +
+        sect('Needs You', needs.length, needsBody, needs.length > 0) +
+        sect('Send Orders', tally.vp || 0, sendBody) +
+        sect('Executed Documents', null, archive) +
+        sect('Help', null, helpFor('admin', list[0] && list[0].F)));
+
+      document.querySelectorAll('.sendco').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var C = list.filter(function (x) { return x.slug === b.dataset.slug; })[0];
+          var when = new Date().toISOString();
+          b.disabled = true; b.textContent = 'Sending…';
+          R.update('orders', 'orders/' + C.slug + '.json', function (cur) {
+            var next = JSON.parse(JSON.stringify(cur));
+            next.orders.forEach(function (o) {
+              if (C.st[o.id] && C.st[o.id].key === 'vp') o.sentOn = when;
+            });
+            return next;
+          }, 'sent orders to ' + C.F.company)
+            .then(function () { toast('Sent to ' + C.F.signers.order.name, 'good'); adminView(); })
+            .catch(function (e) { b.disabled = false; failed(e); });
+        });
+      });
+      document.querySelectorAll('.exec-go').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var slug = b.dataset.slug, flav = b.dataset.flav;
+          var f = document.querySelector('.exec-file[data-slug="' + slug + '"][data-flav="' + flav + '"]');
+          var env = document.querySelector('.exec-env[data-flav="' + flav + '"]');
+          if (!f || !f.files || !f.files[0]) { toast('Choose the executed PDF first'); return; }
+          var file = f.files[0];
+          b.disabled = true; b.textContent = 'Filing…';
+          var fr = new FileReader();
+          fr.onload = function () {
+            var b64 = String(fr.result).split(',')[1];
+            var path = 'agreements/' + slug + '/' + flav.toLowerCase() + '-fy2027.pdf';
+            R.write('orders', path, { encoding: 'base64', content: b64 }, null, 'executed ' + flav + ' MSA')
+              .then(function () {
+                return R.update('orders', 'agreements/' + slug + '.json', function (cur) {
+                  var next = JSON.parse(JSON.stringify(cur));
+                  next.agreements = (next.agreements || []).filter(function (a) {
+                    return a.msaFlavour !== flav;
+                  }).concat([{
+                    msaFlavour: flav, executedOn: new Date().toISOString().slice(0, 10),
+                    envelopeId: (env && env.value.trim()) || '', file: path,
+                    filedBy: ME.name, filedOn: new Date().toISOString()
+                  }]);
+                  return next;
+                }, 'filed executed ' + flav + ' MSA');
+              })
+              .then(function () { toast('Filed — ' + flav + ' is now in their My Agreements', 'good'); adminView(); })
+              .catch(function (e) { b.disabled = false; b.textContent = 'File It'; failed(e); });
+          };
+          fr.readAsDataURL(file);
+        });
+      });
+    }).catch(closed);
+  }
+
+
+  /* =========================================================================
+   * Help — numbered steps, in the exact words on the screen
+   * ======================================================================= */
+  function steps(list) {
+    return '<ol class="steps">' + list.map(function (s) { return '<li>' + s + '</li>'; }).join('') + '</ol>';
+  }
+  function blk(title, body) {
+    return '<div class="hblk"><h4>' + esc(title) + '</h4>' + body + '</div>';
+  }
+  function helpFor(kind, F) {
+    var name = ME && ME.name ? ME.name : 'you';
+    if (kind === 'contractor') {
+      return blk('Opening Your Link', steps([
+        'Open the link MISMO emailed you. It is <b>yours</b>, not your company’s — do not forward it, because whoever holds it can accept orders as you.',
+        'The web address loses its long code as soon as the page opens. That is deliberate; the code is kept in this browser instead.',
+        'From then on, on this browser, <b>resources.mismo.org/service-orders/</b> on its own will open your page. On any other browser or device, use the link again.']))
+        + blk('Accepting Orders Together', steps([
+        'Open <b>To Review</b>.',
+        'Read the orders. Each one is listed under <b>Read Them Here</b> — click a row and it opens out into the order exactly as it will read.',
+        'Tick the box beside every order you accept. The box at the top of the <b>Service Order</b> column ticks them all at once.',
+        'In <b>Type Your Name to Accept</b>, type your name.',
+        'Check that <b>Title</b> says what you want printed.',
+        'Press <b>Accept the Ticked Orders</b>.']))
+        + blk('Accepting One Order on Its Own', steps([
+        'Under <b>Read Them Here</b>, click the row for that order.',
+        'Read it, then type your name in <b>Type Your Name to Accept This One</b>.',
+        'Press <b>Accept This Order</b>.']))
+        + blk('Setting One Aside With a Question', steps([
+        'Open the order under <b>Read Them Here</b>.',
+        'Press <b>Set It Aside With a Question</b>.',
+        'Type the question in <b>What Is the Question?</b> It is required \u2014 the question is the point.',
+        'Press <b>Send the Question</b>. It goes back to MISMO with the order. <b>An order you set aside is never swept up by Accept the Ticked Orders.</b>']))
+        + blk('What Accepting Records', '<p>Your name as you typed it, your title, the date and the time, and a record of ' +
+          'exactly what the order said when you accepted it. If MISMO changes that order afterwards, it does not ' +
+          'count as accepted any more — it comes back to <b>To Review</b> marked <b>Changed Since Acknowledged</b>, ' +
+          'so nothing is ever accepted on your behalf by accident.</p>' +
+          '<p><b>An accepted order is locked.</b> Changing one after that is a Modification, not an edit.</p>')
+        + blk('Saving an Order as a PDF', steps([
+        'Open <b>My Service Orders</b> and click the order.',
+        'Press <b>Download as PDF</b> at the foot of it.',
+        'Your browser’s print box opens. Choose <b>Save as PDF</b> as the destination, then <b>Save</b>.']))
+        + blk('My Agreements', '<p>Your Master Services Agreement extensions. MISMO sends each one through ' +
+          'DocuSign; the signed copy appears here once it is executed, with its Certificate of Completion, and ' +
+          'it stays. Until then it reads <b>Awaiting Signature</b>.</p>')
+        + blk('If the Page Says Your Link Is Not Active', '<p>The link has been withdrawn or replaced. ' +
+          'Nothing is wrong at your end. Email <b>Jonna Critchley, jcritchley@mismo.org</b> for a new one.</p>');
+    }
+    if (kind === 'president') {
+      return blk('Getting In', steps([
+        'Go to <b>resources.mismo.org/service-orders/</b>. Your MISMO sign-in is your way in — there is no link and no code to keep.',
+        'The page opens on <b>Awaiting Your Approval</b>.']))
+        + blk('Approving One Company', steps([
+        'Click the company’s row. It opens out into every order of theirs waiting for you, with who accepted it and when.',
+        'To read an order in full, click its name under the table.',
+        'Press <b>Approve These N Orders for &lt;company&gt;</b>.']))
+        + blk('Approving Everything at Once', steps([
+        'Press <b>Approve All N Waiting</b> at the top of the section.',
+        'Every company waiting is approved. <b>A company with nothing waiting is not touched</b>, and neither is any order that has not been accepted yet.']))
+        + blk('What Your Approval Records', '<p>Your name, your title, the date and the time, that it came from ' +
+          'your MISMO sign-in, and a record of exactly what the order said. Your approval is the second of the two ' +
+          'signatures an order needs, so <b>the moment you approve it the order is executed</b> and the contracting ' +
+          'company can download it.</p>')
+        + blk('What You Do Not See', '<p>The permanent archive of executed agreements is Jonna’s and the ' +
+          'contracting company’s. You see an order in order to approve it. That is not a setting on this page — ' +
+          'the archive is never sent to your sign-in at all.</p>');
+    }
+    if (kind === 'vp-product') {
+      return blk('Getting In', steps([
+        'Go to <b>resources.mismo.org/service-orders/</b>. Your MISMO sign-in is your way in.',
+        'The page opens on <b>Awaiting Your Decision</b>. <b>Nothing goes to a contracting company until you have decided on it.</b>']))
+        + blk('Releasing a Company’s Orders', steps([
+        'Click the company’s row to see every order, its rate, its hours and its maximum fee.',
+        'To read one in full, click its name under the table.',
+        'Press <b>Approve N to Send for &lt;company&gt;</b>. That releases them for MISMO to send.']))
+        + blk('Holding One Back', steps([
+        'Open the order under the company’s row.',
+        'Type the reason in <b>Why Are You Holding It?</b> — it is required, because a hold '+
+          'with no reason tells Jonna nothing.',
+        'Press <b>Hold This One</b>. It is not sent, and it appears on Jonna’s <b>Needs You</b> '+
+          'list with your words and your name against it.']))
+        + blk('Releasing Everything', steps([
+        'Press <b>Approve All N to Send</b> at the top.']));
+    }
+    return blk('The Order of Things', steps([
+      '<b>' + esc((F && F.vpProduct && F.vpProduct.name) || 'The VP') + '</b> decides on each order first. Until then it is a <b>Draft</b>.',
+      'You send the released ones from <b>Send Orders</b>. Open the company’s row and press <b>Send These N to &lt;their signer&gt;</b>.',
+      'The contracting company accepts them on their own link.',
+      '<b>Brian Vieaux</b> approves them. That is the second signature, so the order becomes <b>Executed</b> at that moment.']))
+      + blk('Filing an Executed MSA Extension', steps([
+      'Open <b>Executed Documents</b> and click the company.',
+      'Beside the agreement, press <b>Choose File</b> and pick the whole DocuSign output, <b>including the Certificate of Completion</b>.',
+      'Type the <b>DocuSign Envelope ID</b>.',
+      'Press <b>File It</b>. The company sees it under <b>My Agreements</b> from then on.']))
+      + blk('What Needs You', '<p>Three things stop an order and put it on your desk: a company has ' +
+        'set it aside with a question, the VP has held it, or it changed after it was accepted. ' +
+        '<b>None of them moves on its own.</b></p>' +
+        '<p>The <b>Needs You</b> section lists every one of them with <b>what was actually said</b> and ' +
+        'who said it \u2014 not just a count. The column of the same name on the status board is the same ' +
+        'three things, per company.</p>')
+      + blk('The Email Nudge', '<p>Each of those three also writes a line to ' +
+        '<code>notify/&lt;company&gt;.json</code> in the repository \u2014 a small file that changes ' +
+        '<b>only</b> when an order stops. That is what something else watches to email you, so you are ' +
+        'not mailed 57 times when a company accepts its orders.</p>' +
+        '<p><b>Nothing is emailed until Perry wires that file up</b>, and the line at the top of ' +
+        '<b>Needs You</b> tells you how many are waiting and whether any have gone. ' +
+        '<b>NOTIFY.md</b> in the build package is what he needs \u2014 it gives him three ways and the ' +
+        'exact path to watch.</p>');
+  }
+
+  /* =========================================================================
+   * Failure, and the closed door
+   * ======================================================================= */
+  function failed(e) {
+    if (e && e.closed) { closed(e); return; }
+    if (e && e.status === 409) { toast('Somebody else saved at the same moment — try again', 'warn'); return; }
+    toast('That did not save. Nothing has changed.', 'warn');
+  }
+  function closed(e) {
+    if (e && e.status === 409) { toast('Somebody else saved first — reloading'); return; }
+    shut('This Link Is Not Active',
+      'The relay did not recognise it, so nothing has been sent to this page — not an order, ' +
+      'not a rate, not a name. If this link used to work it has been withdrawn. ' +
+      '<b>Email Jonna Critchley at jcritchley@mismo.org for a new one.</b>');
+  }
+
+  /* =========================================================================
+   * Boot — read the key out of the fragment, ask the relay who this is,
+   * and show that person their own view.  No role is remembered.
+   * ======================================================================= */
+  function start() {
+    R.boot();
+    busy('Checking your link…');
+    R.whoami().then(function (me) {
+      ME = me;
+      if (me.kind === 'contractor') return contractorView();
+      if (me.kind === 'president') return presidentView();
+      if (me.kind === 'vp-product') return vpView();
+      if (me.kind === 'admin') return adminView();
+      shut('Nothing to Show You', 'This sign-in is recognised but has no service orders against it.');
+    }).catch(closed);
+  }
+
+  /* print / save as PDF — the platform has no build step, so the browser's own
+     print dialog over a print stylesheet is what makes the PDF */
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-print]');
+    if (!b) return;
+    e.preventDefault(); e.stopPropagation();
+    var src = document.getElementById(b.dataset.print);
+    if (!src) return;
+    var host = document.getElementById('printhost');
+    host.innerHTML = src.innerHTML;
+    var t = document.title;
+    document.title = b.dataset.title || t;
+    document.body.classList.add('printing');
+    var done = function () {
+      document.body.classList.remove('printing');
+      host.innerHTML = ''; document.title = t;
+      window.removeEventListener('afterprint', done);
+    };
+    window.addEventListener('afterprint', done);
+    requestAnimationFrame(function () {
+      requestAnimationFrame(function () { try { window.print(); } catch (err) { done(); } });
+    });
+  }, true);
+
+  window.MISMO_PORTAL = { start: start, refresh: function () { start(); } };
+  if (!window.MISMO_PORTAL_MANUAL) start();
+})();
+</script>
+<script>(function(){"use strict";
+const KEY='hq.rail.off';
+function set(off,remember){
+  document.body.classList.toggle('railmini',!!off);
+  const h=document.getElementById('rail-hide');
+  if(h){h.setAttribute('aria-expanded',off?'false':'true');
+    h.setAttribute('aria-label',off?'Open the menu':'Narrow the menu');
+    h.title=(off?'Open the menu':'Narrow the menu')+' (backslash)';}
+  if(off) close();
+  if(remember!==false){try{localStorage.setItem(KEY,off?'1':'0');}catch(e){}}
+  setTimeout(()=>{window.dispatchEvent(new Event('resize'));},230);
+}
+function toggle(){set(!document.body.classList.contains('railmini'));}
+document.addEventListener('keydown',e=>{
+  const t=e.target,typing=t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.isContentEditable);
+  if(e.key==='\\'&&!typing&&!e.metaKey&&!e.ctrlKey&&!e.altKey){e.preventDefault();toggle();}
+  if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();set(false);
+    setTimeout(()=>{const q=document.getElementById('rail-q');if(q){q.focus();q.select();}},230);}
+});
+const HITS=()=>document.getElementById('rail-hits');
+let picked=-1,rows=[];
+const norm=x=>String(x||'').replace(/\s+/g,' ').trim().toLowerCase();
+function gather(q){
+  const t=norm(q); if(t.length<2) return [];
+  let out=[]; try{ out=(window.__search?window.__search(t):[]); }catch(e){ out=[]; }
+  const score=n=>{const s=norm(n);return s===t?3:s.indexOf(t)===0?2:s.indexOf(t)>=0?1:0;};
+  out.forEach(h=>h.s=score(h.name));
+  const ORDER=['Service Orders','MSA Letters','Signers'];
+  const best={}; out.forEach(h=>{best[h.group]=Math.max(best[h.group]||0,h.s);});
+  out.sort((a,b)=>(best[b.group]-best[a.group])||(ORDER.indexOf(a.group)-ORDER.indexOf(b.group))||(b.s-a.s)||String(a.name).localeCompare(String(b.name)));
+  return out.slice(0,60);
+}
+function draw(list){
+  const box=HITS(); if(!box) return;
+  box.textContent=''; rows=[]; picked=-1;
+  if(!list.length){const n=document.createElement('div');n.className='rh-none';n.textContent='Nothing matches.';box.appendChild(n);box.hidden=false;return;}
+  let g=null;
+  list.slice(0,24).forEach(h=>{
+    if(h.group!==g){g=h.group;const hd=document.createElement('div');hd.className='rh-g';hd.textContent=g;box.appendChild(hd);}
+    const b=document.createElement('button');b.type='button';b.className='rh';
+    const nm=document.createElement('b');nm.textContent=h.name;b.appendChild(nm);
+    if(h.where){const w=document.createElement('i');w.textContent=h.where;b.appendChild(w);}
+    b.addEventListener('click',()=>{close();h.go();});
+    rows.push(b);box.appendChild(b);
+  });
+  box.hidden=false;
+}
+function close(){const b=HITS();if(b){b.hidden=true;b.textContent='';}rows=[];picked=-1;}
+function mark(){rows.forEach((r,i)=>r.classList.toggle('on',i===picked));
+  if(rows[picked])try{rows[picked].scrollIntoView({block:'nearest'});}catch(e){}}
+function wireFind(){
+  const q=document.getElementById('rail-q'),x=document.getElementById('rail-qx');
+  if(!q)return; let tmr=null;
+  const run=()=>{const v=q.value;if(x)x.hidden=!v;if(norm(v).length<2){close();return;}draw(gather(v));};
+  q.addEventListener('input',()=>{clearTimeout(tmr);tmr=setTimeout(run,150);});
+  q.addEventListener('focus',()=>{if(norm(q.value).length>=2)run();});
+  q.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){close();q.blur();return;}
+    if(!rows.length)return;
+    if(e.key==='ArrowDown'){e.preventDefault();picked=(picked+1)%rows.length;mark();}
+    else if(e.key==='ArrowUp'){e.preventDefault();picked=(picked-1+rows.length)%rows.length;mark();}
+    else if(e.key==='Enter'){e.preventDefault();(rows[picked]||rows[0]).click();}
+  });
+  if(x)x.addEventListener('click',()=>{q.value='';x.hidden=true;close();q.focus();});
+  document.addEventListener('click',e=>{if(!e.target.closest('.railfind'))close();});
+}
+function start(){
+  let off=null;
+  try{const v=localStorage.getItem(KEY);if(v!==null)off=(v==='1');}catch(e){}
+  if(off===null)off=window.matchMedia('(max-width:900px)').matches;
+  set(off,false);
+  const h=document.getElementById('rail-hide');if(h)h.addEventListener('click',toggle);
+  const sc=document.getElementById('rail-scrim');if(sc)sc.addEventListener('click',()=>set(true));
+  const qb=document.getElementById('rail-qb');
+  if(qb)qb.addEventListener('click',()=>{set(false);setTimeout(()=>{const q=document.getElementById('rail-q');if(q)q.focus();},230);});
+  document.querySelectorAll('.hq nav button[data-hq]').forEach(b=>{
+    b.addEventListener('click',()=>{if(window.matchMedia('(max-width:900px)').matches)set(true);});});
+  wireFind();
+}
+start();
+(function theme(){
+  var btn=document.getElementById("theme-btn"); if(!btn)return;
+  function cur(){var t=document.documentElement.getAttribute("data-theme");if(t)return t;
+    return window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches?"dark":"light";}
+  function paint(){const dark=cur()==="dark";const lab=document.getElementById("theme-lab");
+    if(lab)lab.textContent=dark?"Light Mode":"Dark Mode";
+    btn.title="Switch to "+(dark?"light":"dark")+" mode";}
+  btn.addEventListener("click",function(){
+    document.documentElement.setAttribute("data-theme",cur()==="dark"?"light":"dark");
+    paint();try{localStorage.setItem("mismo.portal.theme",cur());}catch(e){}
+    window.dispatchEvent(new Event("resize"));});
+  try{var saved=localStorage.getItem("mismo.portal.theme");if(saved)document.documentElement.setAttribute("data-theme",saved);}catch(e){}
+  paint();
+})();
+(function season(){ if(new Date().getMonth()===11) document.documentElement.setAttribute("data-season","december"); })();
+})();
+</script>
+</body>
+</html>
