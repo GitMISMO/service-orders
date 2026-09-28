@@ -2965,7 +2965,7 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
         'Reload the page. If it keeps happening, the page is not being opened from resources.mismo.org.');
       return;
     }
-    rs.signIn({ gated: true }).then(function () {
+    rs.signIn({ gated: true, toolName: 'Service Orders and Agreements' }).then(function () {
       document.body.classList.remove('signedout');
       start();
     }, function () {});
