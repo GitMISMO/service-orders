@@ -1278,6 +1278,9 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
 <main class="wrap"><div id="view"></div></main>
 <div id="printhost"></div>
 
+<!-- The shared sign-in every resources.mismo.org tool uses. It must load before the
+     relay module below, which reads the session from it. -->
+<script src="/assets/session.js"></script>
 <script>window.RELAY={"base": "https://rgvdi67cg27o5kcmiytcqbqnrm0hmztx.lambda-url.us-east-1.on.aws", "projects": ["so-phoenix", "so-actualize", "so-trex", "so-falcon", "so-trudigital"], "slugs": {"so-phoenix": "phoenixteam", "so-actualize": "actualize", "so-trex": "trex", "so-falcon": "falcon", "so-trudigital": "trudigital"}, "note": "base is the relay's Lambda function URL. projects is every key this page may sign in against, tried in turn; the token is not project-bound, so the first that works covers them all. slugs maps a project key to the filename its data uses. All three are configuration: a sixth company is a change HERE and nowhere else."};</script>
 <script>/* MISMO Service Orders — the relay module.
  *
@@ -1306,10 +1309,13 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
  *
  * Rules this file exists to keep:
  *   1. The relay decides what comes back.  The page never filters.
- *   2. The token lives in sessionStorage, not localStorage: it dies with the tab
- *      rather than sitting on disk for four hours.  Every tool on
- *      resources.mismo.org shares one origin, so storage is only ever cleared
- *      one named key at a time — never wholesale.
+ *   2. The session is the shared resources.mismo.org sign-in (session.js), the same
+ *      one every tool uses, so signing in here or anywhere else is one sign-in.
+ *      Until 28 September 2026 this page kept its own token in sessionStorage and
+ *      had its own sign-in form; every tool now uses one sign-in and one refusal
+ *      screen, decided that day.  The token lasts four hours, as everywhere.
+ *      Every tool on resources.mismo.org shares one origin, so storage is only
+ *      ever cleared one named key at a time — never wholesale.
  *   3. Nothing about who somebody is is inferred.  The access map comes from the
  *      relay at sign-in and is re-read from it, never widened here.
  *   4. Every save carries a parentSha wherever one can be had, so a save that
@@ -1332,33 +1338,16 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
   /* ---- the session ------------------------------------------------------- */
   /* What the relay hands back at sign-in: token, name, email, access, expiresAt.
      The token is NOT project-bound — signing in once covers every key the person
-     has — so the access map is what says which projects they may ask about. */
-  function session() {
-    var raw = sget(TOKEN);
-    if (!raw) return null;
-    var s;
-    try { s = JSON.parse(raw); } catch (e) { sdrop(TOKEN); return null; }
-    if (!s || !s.token) { sdrop(TOKEN); return null; }
-    /* A token lasts four hours.  Checking the clock here means an expired session
-       shows a sign-in rather than a wall of failed requests. */
-    if (s.expiresAt && new Date(s.expiresAt).getTime() <= Date.now()) { sdrop(TOKEN); return null; }
-    return s;
-  }
+     has — so the access map is what says which projects they may ask about.
+     It is read from the shared sign-in, which already treats an expired session as
+     none, so an expired one shows the sign-in rather than a wall of failed requests. */
+  function RS() { return global.ResourcesSession || null; }
+  function session() { var rs = RS(); return rs ? rs.current() : null; }
   function signedIn() { return !!session(); }
-  function signOut() { sdrop(TOKEN); HEAD = {}; }
+  function signOut() { var rs = RS(); if (rs) rs.signOut(); HEAD = {}; }
 
-  function login(project, email, password) {
-    return fetch(BASE + '/' + enc(project) + '/auth/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: email, password: password })
-    }).then(readBody).then(function (r) {
-      if (!r.ok) throw tag(fail(r.status, r.body), project);
-      sput(TOKEN, JSON.stringify(r.body));
-      HEAD = {};
-      return r.body;
-    });
-  }
+  /* Signing in is the shared window (session.js); this page no longer posts a
+     password itself.  POST /{project}/auth/login is global, so any key works. */
 
   /* ---- requests ---------------------------------------------------------- */
   function enc(s) { return encodeURIComponent(String(s)); }
@@ -1391,9 +1380,25 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
       .then(function (j) { return { ok: r.ok, status: r.status, body: j }; });
   }
 
-  function send(method, path, body) {
+  /* A save made after the four-hour session has run out asks the person to sign in
+     through the shared window ("Sign in to finish saving", email filled in) and then
+     sends the SAME request, so the change is not lost.  Reads are never prompted for.
+     Cancelling gives NOT_SAVED, which the page reports as not saved. */
+  function askToFinish() {
+    var rs = RS();
+    if (!rs) return Promise.reject(fail(401, { error: 'NO_SESSION', message: 'Sign in again.' }));
+    return rs.signIn({ reason: 'expired' }).then(null, function () {
+      throw fail(401, { error: 'NOT_SAVED', message: 'Not saved. Sign in to save it.' });
+    });
+  }
+
+  function send(method, path, body, retried) {
     var s = session();
-    if (!s) return Promise.reject(fail(401, { error: 'NO_SESSION', message: 'Sign in again.' }));
+    var write = method !== 'GET';
+    if (!s) {
+      if (write && !retried) return askToFinish().then(function () { return send(method, path, body, true); });
+      return Promise.reject(fail(401, { error: 'NO_SESSION', message: 'Sign in again.' }));
+    }
     var opts = { method: method, headers: { 'Authorization': 'Bearer ' + s.token } };
     if (body) {
       opts.headers['Content-Type'] = 'application/json';
@@ -1404,7 +1409,10 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
        instead of a bare code somebody then has to guess at. */
     var proj = decodeURIComponent(String(path).split('/')[1] || '');
     return fetch(BASE + path, opts).then(readBody).then(function (r) {
-      if (r.status === 401) { sdrop(TOKEN); throw tag(fail(401, r.body), proj); }
+      if (r.status === 401 && write && !retried) {
+        return askToFinish().then(function () { return send(method, path, body, true); });
+      }
+      if (r.status === 401) throw tag(fail(401, r.body), proj);
       if (!r.ok) throw tag(fail(r.status, r.body), proj);
       return r.body;
     });
@@ -1458,6 +1466,9 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
          If it somehow committed, the sha it returns is the new head. */
       return null;
     }).catch(function (e) {
+      /* The person was asked to sign in to finish a save and cancelled: stop here, or
+         the save itself would ask them a second time. */
+      if (e && e.code === 'NOT_SAVED') throw e;
       if (e.conflict && e.body && e.body.head) { HEAD[project] = e.body.head; return e.body.head; }
       /* The probe is refused for a reason of its own — no write access, say.
          Fall back to an unlocked write rather than blocking the person. */
@@ -1506,6 +1517,11 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
      function is handed a fresh copy every time, so a merge is never guessed at. */
   function update(project, path, change, message, fallback, tries) {
     tries = tries == null ? 3 : tries;
+    /* A read-then-save starts with a read, and reads never ask for a sign-in. So a save
+       begun after the session has run out asks here first, then carries on. */
+    if (!session()) {
+      return askToFinish().then(function () { return update(project, path, change, message, fallback, tries); });
+    }
     return readOr(project, path, fallback).then(function (cur) {
       var next = change(cur.data);
       return commit(project, [jsonFile(path, next)], message);
@@ -1513,56 +1529,6 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
       if (e.conflict && tries > 1) return update(project, path, change, message, fallback, tries - 1);
       throw e;
     });
-  }
-
-  /* ---- signing in without knowing the project first ----------------------
-     The relay's sign-in lives at POST /{project}/auth/login, so it wants a
-     project name before it will tell you which projects you have.  The token it
-     hands back is NOT project-bound, so signing in against any one key the
-     person holds covers all of them.  We therefore try the keys in turn and
-     keep the first that works.  A contractor succeeds on their own key; MISMO
-     staff succeed on the first.  Wrong password fails on every key and is
-     reported once, as one failure, not five. */
-  function loginAny(email, password) {
-    var keys = (CFG.projects || []).slice();
-    if (!keys.length) return Promise.reject(fail(0, { message: 'No project keys are configured for this page.' }));
-    var lastErr = null, unkErr = null, sawForbidden = false, sawUnknown = false;
-    function attempt(i) {
-      if (i >= keys.length) {
-        /* ⚠ Every key refused, and WHY matters — these three are different
-           things and only one of them is the person's fault.
-
-             403 on some key   the password is RIGHT; the relay authenticated
-                               them and then said they have no access to that
-                               project.  Their account simply has no service
-                               orders on it.  Never call this a bad password.
-             UNKNOWN_PROJECT   the relay has never heard of these projects.  A
-                               setup gap, and nothing the person can do.
-             401 everywhere    genuinely not recognised. */
-        /* ⚠ UNKNOWN_PROJECT is checked FIRST and on purpose.  A relay that has
-           never heard of a project cannot have an opinion about who may reach
-           it, so a 403 collected alongside one says nothing about the account.
-           Reporting the 403 first tells a perfectly good account that it has no
-           service orders, and points the person at an email that fixes
-           nothing. */
-        if (sawUnknown) throw (unkErr || lastErr);
-        if (sawForbidden) {
-          var ne = fail(403, { error: 'NO_SERVICE_ORDERS',
-            message: 'This account has no service orders on it.' });
-          ne.noServiceOrders = true;
-          throw ne;
-        }
-        throw lastErr || fail(401, { error: 'NO_ACCESS',
-          message: 'That email and password were not recognised.' });
-      }
-      return login(keys[i], email, password).catch(function (e) {
-        if (e.status === 403) { sawForbidden = true; lastErr = e; return attempt(i + 1); }
-        if (e.code === 'UNKNOWN_PROJECT') { sawUnknown = true; unkErr = unkErr || e; lastErr = e; return attempt(i + 1); }
-        if (e.closed) { lastErr = e; return attempt(i + 1); }
-        throw e;
-      });
-    }
-    return Promise.resolve().then(function () { return attempt(0); });
   }
 
   /* ---- who the signed-in person is --------------------------------------
@@ -1649,14 +1615,15 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
     });
   }
 
-  /* Kept so the page has one call to make at start-up.  There is nothing to
-     boot any more — the session either exists in this tab or it does not. */
-  function boot() { return session(); }
+  /* Kept so the page has one call to make at start-up.  It also drops the token this
+     page used to keep in its own tab storage before it used the shared sign-in, so no
+     second, stale session lingers. */
+  function boot() { sdrop(TOKEN); return session(); }
 
   global.MISMO_RELAY = {
     base: BASE,
-    boot: boot, whoami: whoami, loginAny: loginAny,
-    login: login, signOut: signOut, signedIn: signedIn, session: session,
+    boot: boot, whoami: whoami,
+    signOut: signOut, signedIn: signedIn, session: session,
     read: read, readOr: readOr,
     commit: commit, update: update,
     jsonFile: jsonFile, binaryFile: binaryFile,
@@ -2927,15 +2894,17 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
   function closed(e) {
     if (e && e.status === 409) { toast('Somebody else saved first — reloading'); return; }
     if (e && e.needsLogin) { signInView(); return; }
-    /* A session that has run out, or been withdrawn, is not an error the person
-       can do anything about except sign in again — so say that, and show the
-       form rather than a dead end. */
-    if (e && e.closed) {
-      R.signOut();
-      signInView('<b>Your session has ended.</b> Sessions last four hours. ' +
-        'Sign in again to carry on \u2014 nothing you saved has been lost.');
-      return;
-    }
+    /* A save that needed a sign-in the person then cancelled. Nothing was sent. */
+    if (e && e.code === 'NOT_SAVED') { toast('That did not save. Sign in to save it.', 'warn'); return; }
+    /* A session that has run out, or been withdrawn: sign in again, through the
+       shared window. */
+    if (e && e.status === 401) { R.signOut(); signInView(); return; }
+    /* 403 is NOT a session problem, and before 28 September 2026 this page signed the
+       person out for any 403. With one sign-in across every tool, that would have signed
+       them out of everything for a refusal about one file. Only NO_ACCESS is a refusal
+       of the person; the rest are about the request. */
+    if (e && e.status === 403 && e.code === 'NO_ACCESS') { refuse(); return; }
+    if (e && e.code === 'VIEW_ONLY') { toast('Your account can view this but not change it.', 'warn'); return; }
     /* Anything else is this page going wrong, not the person. Say so plainly and
        keep them signed in \u2014 signing them out here would hide the fault and
        waste their time on a password they never got wrong. */
@@ -2980,91 +2949,24 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
      is decided here: the relay hands back an access map and the page draws what
      that map allows.  Passwords are never stored, never logged and never put
      anywhere but the one request that checks them. */
-  function signInView(note) {
-    /* Signed out there is nothing to navigate to, so the rail and its search box
-       go away entirely rather than sitting there empty. The masthead stays,
-       because the one thing this screen must do is say whose tool it is. */
+  function signInView() {
+    /* Signed out there is nothing to navigate to, so the rail and its search box go
+       away, and the masthead stays to say whose tool this is. Signing in itself is the
+       shared window every resources.mismo.org tool uses (session.js). This page had its
+       own form until 28 September 2026. Cancelling goes back to the home page. */
     document.body.classList.add('signedout');
     whoEl.textContent = '';
-    say(
-      '<div class="signwrap"><div class="signcard">' +
-        '<div class="signmark">' +
-          '<svg class="wordmark" role="img" aria-label="MISMO" viewBox="0 0 708 108"><use href="#mismo-logo"/></svg>' +
-        '</div>' +
-        '<h2>Service Orders and Agreements</h2>' +
-        '<p class="signsub">Your FY 2027 service orders, your Master Services Agreement extensions, ' +
-        'and the hours logged against each one.</p>' +
-        '<div id="si-note" class="signnote">' + (note ? '<div class="note warn">' + note + '</div>' : '') + '</div>' +
-        '<div class="signfields">' +
-          '<div class="f"><label for="si-email">Email</label>' +
-            '<input type="email" id="si-email" autocomplete="username" spellcheck="false" ' +
-            'autocapitalize="off" placeholder="you@yourcompany.com"></div>' +
-          '<div class="f"><label for="si-pass">Password</label>' +
-            '<input type="password" id="si-pass" autocomplete="current-password" ' +
-            'placeholder="paste the password you were sent"></div>' +
-        '</div>' +
-        '<button class="signgo" type="button" id="si-go">Sign In</button>' +
-        '<p class="signfine">Your session lasts four hours and ends when you close this tab.<br>' +
-        'No password? Email <a href="mailto:jcritchley@mismo.org">Jonna Critchley</a>.</p>' +
-      '</div></div>');
-
-    var emailEl = document.getElementById('si-email');
-    var passEl  = document.getElementById('si-pass');
-    var goEl    = document.getElementById('si-go');
-    var noteEl  = document.getElementById('si-note');
-    if (emailEl) emailEl.focus();
-
-    function warn(html) {
-      if (noteEl) noteEl.innerHTML = '<div class="note warn">' + html + '</div>';
-      goEl.disabled = false;
-      goEl.textContent = 'Sign In';
+    say('');
+    var rs = window.ResourcesSession;
+    if (!rs) {
+      shut('The Sign-In Could Not Load',
+        'Reload the page. If it keeps happening, the page is not being opened from resources.mismo.org.');
+      return;
     }
-    function go() {
-      var email = (emailEl.value || '').trim();
-      var pass  = passEl.value || '';
-      if (!email || !pass) {
-        warn('<b>Both are needed.</b> Type the email your account was set up with and the ' +
-             'password you were sent.');
-        (email ? passEl : emailEl).focus();
-        return;
-      }
-      goEl.disabled = true;
-      goEl.textContent = 'Checking…';
-      if (noteEl) noteEl.innerHTML = '';
-      R.loginAny(email, pass).then(function () {
-        document.body.classList.remove('signedout');
-        start();
-      }).catch(function (e) {
-        if (e && e.noServiceOrders) {
-          warn('<b>Your password is fine.</b> This account is recognised, but it has no service ' +
-               'orders on it yet \u2014 service orders are a separate permission from MISMO\u2019s ' +
-               'other tools. <b>Email Jonna Critchley</b> at ' +
-               '<a href="mailto:jcritchley@mismo.org">jcritchley@mismo.org</a> and she can add it.');
-          return;
-        }
-        if (e && e.code === 'UNKNOWN_PROJECT') {
-          warn('<b>This is not your password.</b> The relay does not yet have the service order ' +
-               'projects set up, so there is nothing to sign in to. Nothing you can do will fix ' +
-               'this from here \u2014 tell Jonna the relay answered <b>UNKNOWN_PROJECT</b>' +
-               (e.project ? ' for <b>' + esc(e.project) + '</b>' : '') + '.');
-          return;
-        }
-        if (e && e.closed) {
-          warn('<b>That email and password were not recognised.</b> Check the address is the one ' +
-               'MISMO set up, and that the password was pasted whole — they are long on purpose. ' +
-               'Nothing is locked; you can try again.');
-          passEl.value = ''; passEl.focus();
-          return;
-        }
-        warn('<b>The sign-in service did not answer.</b> This is not your password. ' +
-             'Try again in a moment, and tell Jonna if it keeps happening.' +
-             (e && e.message ? '<br><span class="signerr">' + esc(e.message) + '</span>' : ''));
-      });
-    }
-    goEl.addEventListener('click', go);
-    [emailEl, passEl].forEach(function (el) {
-      el.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') go(); });
-    });
+    rs.signIn({ gated: true }).then(function () {
+      document.body.classList.remove('signedout');
+      start();
+    }, function () {});
   }
 
   /* Signed in, recognised, but this account carries no service-orders key.  The
@@ -3073,16 +2975,36 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
      say that, and name what it does carry, rather than leaving somebody
      wondering whether they typed their password wrong. */
   function noKeys(me) {
-    var other = (me && me.otherKeys) || [];
-    shut('Your Account Is Not Set Up for This Yet',
-      'You are signed in as <b>' + esc(me.email || '') + '</b> and your password is fine. ' +
-      'The account just has no service orders against it yet.' +
-      (other.length
-        ? '<br><br>It does reach ' + (other.length === 1 ? 'one other MISMO tool' :
-            other.length + ' other MISMO tools') + ': <b>' + esc(other.join(', ')) + '</b>. ' +
-          'Service orders are a separate permission and have to be added to it.'
-        : '') +
-      '<br><br><b>Email Jonna Critchley at jcritchley@mismo.org</b> and she can add it.');
+    /* The browser's copy of this account's access is taken at sign-in, so a company key
+       granted since then is missing from it. Ask the relay about every key once before
+       refusing; if any comes back, carry on as that person. */
+    var rs = window.ResourcesSession;
+    var keys = (window.RELAY || {}).projects || [];
+    if (refreshed || !rs) { refuse(); return; }
+    refreshed = true;
+    busy('Checking your access…');
+    rs.refreshAccess(keys).then(function (sess) {
+      var acc = (sess && sess.access) || {};
+      if (keys.some(function (k) { return acc[k]; })) start(); else refuse();
+    }, function (e) {
+      shut('The Sign-In Service Did Not Answer',
+        'This is not your password or your account. Check your connection and reload the page.' +
+        (e && e.message ? '<br><br><span class="fineprint">' + esc(e.message) + '</span>' : ''));
+    });
+  }
+  var refreshed = false;
+  /* The standard refusal every tool uses. "Sign in as someone else" in it leads back
+     here, and that person gets their own check. */
+  function refuse() {
+    var rs = window.ResourcesSession;
+    if (!rs) return;
+    /* Behind the refusal, the same bare page as signed out: no rail to navigate, and no
+       "Checking your access…" left on screen. start() puts the rail back. */
+    document.body.classList.add('signedout');
+    whoEl.textContent = '';
+    say('');
+    rs.signIn({ reason: 'no-access', toolName: 'Service Orders and Agreements', gated: true })
+      .then(function () { refreshed = false; start(); }, function () {});
   }
 
   function start() {
