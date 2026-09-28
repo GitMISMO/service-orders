@@ -1110,6 +1110,84 @@ ol.steps{color:var(--ink-2);font-size:13.2px;margin:0 0 10px}
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237a9db4' stroke-width='2.2' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>")}
 @media (prefers-color-scheme: light){ :root:not([data-theme="dark"]) .tot select{
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%237794aa' stroke-width='2.2' stroke-linecap='round'><path d='M6 9l6 6 6-6'/></svg>")} }
+
+/* ---------- signing in ----------------------------------------------------
+   The first screen anybody sees. Signed out there is nothing to navigate, so
+   the rail goes entirely and the card sits centred in the page on its own. */
+body.signedout{padding-left:0}
+body.signedout .hq.rail{display:none}
+body.signedout .railscrim{display:none}
+body.signedout .hqtop{margin-left:0;width:100%}
+body.signedout main,body.signedout #view{padding:0}
+
+.signwrap{min-height:calc(100vh - var(--hq-h, 64px));display:flex;align-items:center;
+  justify-content:center;padding:32px 20px 64px}
+.signcard{width:100%;max-width:420px;background:var(--surface);border:1px solid var(--border);
+  border-radius:12px;padding:38px 36px 30px;
+  box-shadow:0 1px 2px rgba(13,49,76,.06),0 12px 34px rgba(13,49,76,.10)}
+:root[data-theme="dark"] .signcard{box-shadow:0 1px 2px rgba(0,0,0,.4),0 12px 34px rgba(0,0,0,.34)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .signcard{
+  box-shadow:0 1px 2px rgba(0,0,0,.4),0 12px 34px rgba(0,0,0,.34)} }
+
+/* The wordmark's body is navy by design, so on a navy plate it has to be
+   inverted or it vanishes and only the sky S shows. */
+.signmark{background:var(--navy);border-radius:8px;padding:12px 18px;display:flex;
+  align-items:center;justify-content:center;margin:0 0 24px;
+  --logo-body:#ffffff; --logo-s:var(--sky)}
+.signmark .wordmark{height:22px;width:auto;display:block}
+.signcard h2{font-size:19px;font-weight:700;letter-spacing:-.012em;margin:0 0 6px;color:var(--ink)}
+.signsub{margin:0 0 22px;font-size:13.5px;line-height:1.55;color:var(--ink-2)}
+.signnote:empty{display:none}
+.signnote{margin:0 0 18px}
+.signnote .note{margin:0}
+
+.signfields{display:flex;flex-direction:column;gap:15px;margin:0 0 20px}
+.signfields .f{display:flex;flex-direction:column;gap:6px}
+.signfields label{font-family:var(--mono);font-size:9.5px;letter-spacing:.11em;
+  text-transform:uppercase;font-weight:700;color:var(--ink-3)}
+.signfields input{width:100%;box-sizing:border-box;font:inherit;font-size:14.5px;
+  padding:11px 13px;border:1px solid var(--border-strong);border-radius:7px;
+  background:var(--surface-2);color:var(--ink)}
+.signfields input::placeholder{color:var(--ink-3);opacity:.85}
+.signfields input:focus{outline:none;border-color:var(--navy-mid);
+  background:var(--surface);box-shadow:0 0 0 3px rgba(20,72,110,.16)}
+:root[data-theme="dark"] .signfields input:focus{border-color:var(--sky);
+  box-shadow:0 0 0 3px rgba(116,191,235,.22)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .signfields input:focus{
+  border-color:var(--sky);box-shadow:0 0 0 3px rgba(116,191,235,.22)} }
+
+.signgo{display:block;width:100%;background:var(--navy);color:#fff;border:1px solid var(--navy);
+  border-radius:7px;padding:12px 16px;font:inherit;font-family:var(--display);font-size:14.5px;
+  font-weight:600;cursor:pointer}
+.signgo:hover:not(:disabled){background:var(--navy-mid)}
+.signgo:disabled{opacity:.6;cursor:wait}
+.signgo:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
+:root[data-theme="dark"] .signgo{background:var(--sky);color:var(--navy-deep);border-color:var(--sky)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .signgo{
+  background:var(--sky);color:var(--navy-deep);border-color:var(--sky)} }
+
+.signfine{margin:18px 0 0;font-size:12px;line-height:1.6;color:var(--ink-3);text-align:center}
+.signfine a{color:var(--navy-mid);font-weight:600}
+:root[data-theme="dark"] .signfine a{color:var(--sky)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .signfine a{color:var(--sky)} }
+.signerr{display:block;margin-top:6px;font-family:var(--mono);font-size:11px;opacity:.8}
+
+@media(max-width:480px){
+  .signwrap{padding:18px 14px 48px;align-items:flex-start}
+  .signcard{padding:28px 22px 24px;border-radius:10px}
+}
+
+/* sign out, at the foot of the rail */
+.railout{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;
+  border:0;border-top:1px solid rgba(80,164,219,.2);border-radius:0;margin-top:8px;padding:11px 10px 8px;
+  color:rgba(255,255,255,.62);font:inherit;font-family:var(--display);font-size:12.5px;
+  font-weight:500;cursor:pointer;white-space:nowrap}
+.railout svg{width:16px;height:16px;flex:0 0 auto;fill:none;stroke:currentColor;stroke-width:1.7;
+  stroke-linecap:round;stroke-linejoin:round;opacity:.8}
+.railout:hover{color:#fff;background:rgba(255,255,255,.07)}
+.railout:focus-visible{outline:2px solid var(--sky);outline-offset:-2px}
+body.railmini .railout span{display:none}
+body.railmini .railout{justify-content:center;padding:11px 0 8px}
 </style>
 </head>
 <body>
@@ -1200,7 +1278,7 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
 <main class="wrap"><div id="view"></div></main>
 <div id="printhost"></div>
 
-<script>window.RELAY={"base": "/relay", "repos": {"orders": "mismo-service-orders-data", "certifications": "mismo-certifications-data"}, "note": "Repository names are configuration. Perry's final answer is a change HERE and nowhere else. The certifications repo is read-only and is not used until M11 Hours."};</script>
+<script>window.RELAY={"base": "https://rgvdi67cg27o5kcmiytcqbqnrm0hmztx.lambda-url.us-east-1.on.aws", "projects": ["so-phoenix", "so-actualize", "so-trex", "so-falcon", "so-trudigital"], "slugs": {"so-phoenix": "phoenixteam", "so-actualize": "actualize", "so-trex": "trex", "so-falcon": "falcon", "so-trudigital": "trudigital"}, "note": "base is the relay's Lambda function URL. projects is every key this page may sign in against, tried in turn; the token is not project-bound, so the first that works covers them all. slugs maps a project key to the filename its data uses. All three are configuration: a sixth company is a change HERE and nowhere else."};</script>
 <script>/* MISMO Service Orders — the relay module.
  *
  * Every credential and every relay call in this tool goes through this file and
@@ -1426,8 +1504,110 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
     });
   }
 
+  /* ---- signing in without knowing the project first ----------------------
+     The relay's sign-in lives at POST /{project}/auth/login, so it wants a
+     project name before it will tell you which projects you have.  The token it
+     hands back is NOT project-bound, so signing in against any one key the
+     person holds covers all of them.  We therefore try the keys in turn and
+     keep the first that works.  A contractor succeeds on their own key; MISMO
+     staff succeed on the first.  Wrong password fails on every key and is
+     reported once, as one failure, not five. */
+  function loginAny(email, password) {
+    var keys = (CFG.projects || []).slice();
+    if (!keys.length) return Promise.reject(fail(0, { message: 'No project keys are configured for this page.' }));
+    var lastClosed = null;
+    function attempt(i) {
+      if (i >= keys.length) {
+        throw lastClosed || fail(401, { error: 'NO_ACCESS',
+          message: 'That email and password were not recognised.' });
+      }
+      return login(keys[i], email, password).catch(function (e) {
+        /* 401/403 here means "not this key" — which for a contractor is true of
+           four of the five.  Keep going.  Anything else is a real failure and
+           stops the loop, so a relay that is down does not read as a bad
+           password. */
+        if (e.closed) { lastClosed = e; return attempt(i + 1); }
+        throw e;
+      });
+    }
+    return Promise.resolve().then(function () { return attempt(0); });
+  }
+
+  /* ---- who the signed-in person is --------------------------------------
+     The old relay had a /whoami.  This one does not, so the answer is worked
+     out from the access map the sign-in returns — which comes FROM the relay
+     and is never widened here.
+
+       one key, staff   a contracting company
+       every key, admin Jonna
+       every key, staff the VP or the President — told apart by reading the
+                        names off a company's own orders file, which is in a
+                        private repository and needs the sign-in to read.
+
+     Nothing about a person is inferred from their email address by this page. */
+  function keysOf(sess) {
+    var acc = (sess && sess.access) || {};
+    return Object.keys(acc);
+  }
+  function whoami() {
+    var sess = session();
+    if (!sess) {
+      var e = new Error('Not signed in');
+      e.needsLogin = true;
+      return Promise.reject(e);
+    }
+    var keys = keysOf(sess);
+    var slugs = CFG.slugs || {};
+    var me = { name: sess.name || sess.email, email: sess.email, access: sess.access || {}, keys: keys };
+
+    /* Every slug the person may reach, in the order the keys are configured, so
+       a view that spans companies always gets them in the same order. */
+    me.slugs = keys.map(function (k) { return slugs[k] || k.replace(/^so-/, ''); });
+    me.slug = me.slugs[0];
+    me.project = keys[0];
+    me.title = '';
+
+    if (!keys.length) { me.kind = 'none'; return Promise.resolve(me); }
+
+    if (keys.length === 1) {
+      me.kind = 'contractor';
+      return Promise.resolve(me);
+    }
+
+    /* Several keys: read one company's file to pick up the MISMO names and
+       titles.  The titles print on approvals, so they come from the data rather
+       than being typed into this page.  One extra read, once, at sign-in. */
+    return read(me.project, 'orders/' + me.slug + '.json').then(function (r) {
+      var F = r.data || {};
+      var vp = F.vpProduct || {}, pres = F.mismoSigner || {};
+      var mine = String(sess.email || '').toLowerCase();
+      if (mine && mine === String(vp.email || '').toLowerCase()) {
+        me.kind = 'vp-product';
+        me.name = me.name || vp.name; me.title = vp.title || '';
+      } else if (mine && mine === String(pres.email || '').toLowerCase()) {
+        me.kind = 'president';
+        me.name = me.name || pres.name; me.title = pres.title || '';
+      } else {
+        me.kind = 'admin';
+        me.title = 'Director of Programs & Operations';
+      }
+      return me;
+    }).catch(function () {
+      /* The name-matching read failed. The access map is still trustworthy, so
+         fall back on it rather than refusing to show anything. */
+      me.kind = keys.some(function (k) { return (sess.access || {})[k] === 'admin'; })
+        ? 'admin' : 'president';
+      return me;
+    });
+  }
+
+  /* Kept so the page has one call to make at start-up.  There is nothing to
+     boot any more — the session either exists in this tab or it does not. */
+  function boot() { return session(); }
+
   global.MISMO_RELAY = {
     base: BASE,
+    boot: boot, whoami: whoami, loginAny: loginAny,
     login: login, signOut: signOut, signedIn: signedIn, session: session,
     read: read, readOr: readOr,
     commit: commit, update: update,
@@ -1720,6 +1900,20 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
       });
       host.appendChild(b);
     });
+    /* Signing out belongs where the person can always see it, and it should say
+       whose session it is ending. */
+    var sess = R.session();
+    if (sess) {
+      var out = document.createElement('button');
+      out.type = 'button';
+      out.className = 'railout';
+      out.title = 'Sign out of ' + (sess.email || '');
+      out.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+        '<path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4"/><path d="M10 17l-5-5 5-5M5 12h12"/></svg>' +
+        '<span>Sign Out</span>';
+      out.addEventListener('click', function () { R.signOut(); start(); });
+      host.appendChild(out);
+    }
   }
 
   /* The rail's search box asks for this.  Nothing is indexed and nothing is
@@ -1763,11 +1957,22 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
     setTimeout(function () { t.remove(); }, 4200);
   }
 
-  /* ---- loading ---------------------------------------------------------- */
+  /* ---- loading ----------------------------------------------------------
+     Each contracting company has its own project key and its own private
+     repository, so every read and every save names the key for the company it
+     concerns.  The map is configuration, baked in at build time; it carries
+     nothing confidential, only which folder belongs to which name. */
+  var SLUG_TO_KEY = (function () {
+    var m = {}, slugs = (window.RELAY || {}).slugs || {};
+    Object.keys(slugs).forEach(function (k) { m[slugs[k]] = k; });
+    return m;
+  })();
+  function keyFor(slug) { return SLUG_TO_KEY[slug] || ('so-' + slug); }
+
   function loadCompany(slug) {
     return Promise.all([
-      R.read('orders', 'orders/' + slug + '.json'),
-      R.read('orders', 'signatures/' + slug + '.json')
+      R.read(keyFor(slug), 'orders/' + slug + '.json'),
+      R.read(keyFor(slug), 'signatures/' + slug + '.json')
     ]).then(function (r) {
       return { slug: slug, sha: r[0].sha, F: r[0].data, sigSha: r[1].sha, sigs: r[1].data.signatures || [] };
     });
@@ -1780,7 +1985,7 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
      re-accepted.  parentSha travels with every save; a 409 re-reads, applies
      the same records to the fresh copy, and saves again.                    */
   function addSignatures(slug, records, note) {
-    return R.update('orders', 'signatures/' + slug + '.json', function (cur) {
+    return R.update(keyFor(slug), 'signatures/' + slug + '.json', function (cur) {
       var next = JSON.parse(JSON.stringify(cur));
       next.signatures = (next.signatures || []).concat(records);
       return next;
@@ -1798,7 +2003,7 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
      derivable from the signatures; whether it has been SENT is not, and that
      is what `sent` is for.  See NOTIFY.md for what Perry wires to it. */
   function notify(slug, notice) {
-    return R.update('orders', 'notify/' + slug + '.json', function (cur) {
+    return R.update(keyFor(slug), 'notify/' + slug + '.json', function (cur) {
       var next = JSON.parse(JSON.stringify(cur || {}));
       next.company = next.company || slug;
       next.notices = (next.notices || []).concat([notice]);
@@ -1950,7 +2155,7 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
         }).join('') + '</div>';
 
       /* ---- My Agreements ------------------------------------------------- */
-      var agreements = R.read('orders', 'agreements/' + ME.slug + '.json')
+      var agreements = R.read(keyFor(ME.slug), 'agreements/' + ME.slug + '.json')
         .then(function (a) { return a.data.agreements || []; })
         .catch(function () { return []; });
 
@@ -2384,7 +2589,7 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
     Promise.all([
       loadAll(ME.slugs),
       Promise.all(ME.slugs.map(function (s) {
-        return R.read('orders', 'notify/' + s + '.json')
+        return R.read(keyFor(s), 'notify/' + s + '.json')
           .then(function (r) { return r.data.notices || []; })
           .catch(function () { return []; });
       }))
@@ -2507,7 +2712,7 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
           var C = list.filter(function (x) { return x.slug === b.dataset.slug; })[0];
           var when = new Date().toISOString();
           b.disabled = true; b.textContent = 'Sending…';
-          R.update('orders', 'orders/' + C.slug + '.json', function (cur) {
+          R.update(keyFor(C.slug), 'orders/' + C.slug + '.json', function (cur) {
             var next = JSON.parse(JSON.stringify(cur));
             next.orders.forEach(function (o) {
               if (C.st[o.id] && C.st[o.id].key === 'vp') o.sentOn = when;
@@ -2532,7 +2737,7 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
             var path = 'agreements/' + slug + '/' + flav.toLowerCase() + '-fy2027.pdf';
             R.write('orders', path, { encoding: 'base64', content: b64 }, null, 'executed ' + flav + ' MSA')
               .then(function () {
-                return R.update('orders', 'agreements/' + slug + '.json', function (cur) {
+                return R.update(keyFor(slug), 'agreements/' + slug + '.json', function (cur) {
                   var next = JSON.parse(JSON.stringify(cur));
                   next.agreements = (next.agreements || []).filter(function (a) {
                     return a.msaFlavour !== flav;
@@ -2673,26 +2878,124 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
   }
   function closed(e) {
     if (e && e.status === 409) { toast('Somebody else saved first — reloading'); return; }
-    shut('This Link Is Not Active',
-      'The relay did not recognise it, so nothing has been sent to this page — not an order, ' +
-      'not a rate, not a name. If this link used to work it has been withdrawn. ' +
-      '<b>Email Jonna Critchley at jcritchley@mismo.org for a new one.</b>');
+    if (e && e.needsLogin) { signInView(); return; }
+    /* A session that has run out, or been withdrawn, is not an error the person
+       can do anything about except sign in again — so say that, and show the
+       form rather than a dead end. */
+    if (e && e.closed) {
+      R.signOut();
+      signInView('<b>Your session has ended.</b> Sessions last four hours. ' +
+        'Sign in again to carry on \u2014 nothing you saved has been lost.');
+      return;
+    }
+    /* Anything else is this page going wrong, not the person. Say so plainly and
+       keep them signed in \u2014 signing them out here would hide the fault and
+       waste their time on a password they never got wrong. */
+    if (window.console && console.error) console.error('service orders:', e);
+    shut('Something Went Wrong at Our End',
+      'You are signed in and your account is fine \u2014 this page failed to build your view. ' +
+      'Nothing has been changed and nothing has been sent.' +
+      (e && e.message ? '<br><br><span class="fineprint">' + esc(e.message) + '</span>' : '') +
+      '<br><br><b>Email Jonna Critchley at jcritchley@mismo.org</b> and quote that line.');
   }
 
   /* =========================================================================
    * Boot — read the key out of the fragment, ask the relay who this is,
    * and show that person their own view.  No role is remembered.
    * ======================================================================= */
+  /* ---- signing in --------------------------------------------------------
+     Email and password, which the relay checks.  Nothing about who somebody is
+     is decided here: the relay hands back an access map and the page draws what
+     that map allows.  Passwords are never stored, never logged and never put
+     anywhere but the one request that checks them. */
+  function signInView(note) {
+    /* Signed out there is nothing to navigate to, so the rail and its search box
+       go away entirely rather than sitting there empty. The masthead stays,
+       because the one thing this screen must do is say whose tool it is. */
+    document.body.classList.add('signedout');
+    whoEl.textContent = '';
+    say(
+      '<div class="signwrap"><div class="signcard">' +
+        '<div class="signmark">' +
+          '<svg class="wordmark" role="img" aria-label="MISMO" viewBox="0 0 708 108"><use href="#mismo-logo"/></svg>' +
+        '</div>' +
+        '<h2>Service Orders and Agreements</h2>' +
+        '<p class="signsub">Your FY 2027 service orders, your Master Services Agreement extensions, ' +
+        'and the hours logged against each one.</p>' +
+        '<div id="si-note" class="signnote">' + (note ? '<div class="note warn">' + note + '</div>' : '') + '</div>' +
+        '<div class="signfields">' +
+          '<div class="f"><label for="si-email">Email</label>' +
+            '<input type="email" id="si-email" autocomplete="username" spellcheck="false" ' +
+            'autocapitalize="off" placeholder="you@yourcompany.com"></div>' +
+          '<div class="f"><label for="si-pass">Password</label>' +
+            '<input type="password" id="si-pass" autocomplete="current-password" ' +
+            'placeholder="paste the password you were sent"></div>' +
+        '</div>' +
+        '<button class="signgo" type="button" id="si-go">Sign In</button>' +
+        '<p class="signfine">Your session lasts four hours and ends when you close this tab.<br>' +
+        'No password? Email <a href="mailto:jcritchley@mismo.org">Jonna Critchley</a>.</p>' +
+      '</div></div>');
+
+    var emailEl = document.getElementById('si-email');
+    var passEl  = document.getElementById('si-pass');
+    var goEl    = document.getElementById('si-go');
+    var noteEl  = document.getElementById('si-note');
+    if (emailEl) emailEl.focus();
+
+    function warn(html) {
+      if (noteEl) noteEl.innerHTML = '<div class="note warn">' + html + '</div>';
+      goEl.disabled = false;
+      goEl.textContent = 'Sign In';
+    }
+    function go() {
+      var email = (emailEl.value || '').trim();
+      var pass  = passEl.value || '';
+      if (!email || !pass) {
+        warn('<b>Both are needed.</b> Type the email your account was set up with and the ' +
+             'password you were sent.');
+        (email ? passEl : emailEl).focus();
+        return;
+      }
+      goEl.disabled = true;
+      goEl.textContent = 'Checking…';
+      if (noteEl) noteEl.innerHTML = '';
+      R.loginAny(email, pass).then(function () {
+        document.body.classList.remove('signedout');
+        start();
+      }).catch(function (e) {
+        if (e && e.closed) {
+          warn('<b>That email and password were not recognised.</b> Check the address is the one ' +
+               'MISMO set up, and that the password was pasted whole — they are long on purpose. ' +
+               'Nothing is locked; you can try again.');
+          passEl.value = ''; passEl.focus();
+          return;
+        }
+        warn('<b>The sign-in service did not answer.</b> This is not your password. ' +
+             'Try again in a moment, and tell Jonna if it keeps happening.' +
+             (e && e.message ? '<br><span class="signerr">' + esc(e.message) + '</span>' : ''));
+      });
+    }
+    goEl.addEventListener('click', go);
+    [emailEl, passEl].forEach(function (el) {
+      el.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') go(); });
+    });
+  }
+
   function start() {
     R.boot();
-    busy('Checking your link…');
+    if (!R.signedIn()) { signInView(); return; }
+    document.body.classList.remove('signedout');
+    busy('Reading your documents…');
     R.whoami().then(function (me) {
       ME = me;
       if (me.kind === 'contractor') return contractorView();
       if (me.kind === 'president') return presidentView();
       if (me.kind === 'vp-product') return vpView();
       if (me.kind === 'admin') return adminView();
-      shut('Nothing to Show You', 'This sign-in is recognised but has no service orders against it.');
+      shut('Nothing to Show You',
+        'You are signed in as <b>' + esc(me.email || '') + '</b>, and the relay recognises the ' +
+        'account \u2014 but it carries no service order keys, so there is nothing for this page to ' +
+        'show you. <b>Email Jonna Critchley at jcritchley@mismo.org</b> and she can put that right.');
     }).catch(closed);
   }
 
