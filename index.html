@@ -2587,7 +2587,7 @@ window.H = (function () {
            against which orders.  ⚠ An account with no record is NOT quietly
            attached to somebody else's hours — it simply sees no hours
            sections, and Help says who to ask. */
-        var person = personFor(F, ME);
+        var person = loggingPerson(F, ME);
         var fy = F.fiscalYear || 'FY 2027';
         HCTX = person ? { C: C, person: person, fy: fy } : null;
         var hoursBits = Promise.resolve('');
@@ -2668,6 +2668,16 @@ window.H = (function () {
     }
     return null;
   }
+  /* ⚠ A matched record that has been retired is NOT treated as a live person.
+     Their history stays readable; what stops is logging new time against it. */
+  function loggingPerson(F, me) {
+    var p = personFor(F, me);
+    if (!p) return null;
+    /* Judged against the week they would be logging, for the reason in
+       colleagues() above — today can be before the fiscal year starts. */
+    var wk = H.parse(H.weekFor(F.fiscalYear || 'FY 2027', new Date()));
+    return active(p, wk) ? p : null;
+  }
 
   /* Everybody's file for one company.  ⚠ Needed even by a person logging only
      their own time, because an order's REMAINING hours is everyone's total —
@@ -2680,6 +2690,33 @@ window.H = (function () {
       return R.readOr(keyFor(slug), hoursPath(p, fy), null)
         .then(function (r) { return r.data || H.emptyFile(p, fy); });
     }));
+  }
+
+  /* Somebody who has left.  ⚠ Their record is RETIRED, never deleted — their
+     name is on historic orders and weekly rows, and removing it would orphan
+     every one of them.  What retiring does is take them out of the lists the
+     page offers TODAY: they are not a colleague hours can be split to, and
+     they are not expected to submit a week. */
+  function active(p, on) {
+    if (!p) return false;
+    var when = on || new Date();
+    var end = p.activeTo && H.parse(p.activeTo);
+    if (end && when > end) return false;
+    /* Somebody added mid-year does not become a colleague until they start —
+       the same mechanism, run the other way. */
+    var start = p.activeFrom && H.parse(p.activeFrom);
+    if (start && when < start) return false;
+    return true;
+  }
+  /* ⚠ Active is judged against the WEEK BEING LOGGED, never against today.
+     Everybody's activeFrom is the first day of the fiscal year, so judging by
+     today would make every person inactive for the whole of the run-up to
+     1 October — the page would empty itself and look broken on exactly the
+     days Jonna is handing the accounts out. */
+  function colleagues(F, me, on) {
+    return (F.people || []).filter(function (p) {
+      return p.name !== me && active(p, on);
+    });
   }
 
   function orderById(F, id) {
@@ -2765,7 +2802,7 @@ window.H = (function () {
       var pct = tot ? Math.min(100, 100 * used / tot) : 0;
       var cls = pct > 90 ? 'over' : pct > 70 ? 'hot' : '';
       var fors = r['for'] || [];
-      var mates = (F.people || []).filter(function (p) { return p.name !== person.name; });
+      var mates = colleagues(F, person.name, H.parse(ending));
       return '<div class="row"><div class="row-h">' +
         '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
         '<span class="rt">' + esc(o.subject) + '</span>' +
@@ -3054,6 +3091,7 @@ window.H = (function () {
         var s = H.print(d);
         if (H.monthOf(s) !== month) return;
         if (d > today) return;
+        if (!active(p, d)) return;     // not yet started, or already left
         if (!sentWeeks[s] && !covered[s]) owed.push(s);
       });
       if (owed.length) out.push({ person: p.name, weeks: owed });
@@ -3289,7 +3327,7 @@ window.H = (function () {
         var id = b.dataset.covadd;
         var host = $('#view [data-covrows="' + id + '"]');
         if (!host) return;
-        var mates = (C.F.people || []).filter(function (p) { return p.name !== person.name; });
+        var mates = colleagues(C.F, person.name, H.parse(HRS.week || H.weekFor(fy, new Date())));
         var wrap = document.createElement('div');
         wrap.innerHTML = covRow(id, mates, null);
         var row = wrap.firstChild;
@@ -3306,7 +3344,7 @@ window.H = (function () {
         var host = row.parentElement;
         row.parentElement.removeChild(row);
         if (host && !host.children.length) {
-          var mates = (C.F.people || []).filter(function (p) { return p.name !== person.name; });
+          var mates = colleagues(C.F, person.name, H.parse(HRS.week || H.weekFor(fy, new Date())));
           var w = document.createElement('div');
           w.innerHTML = covRow(host.dataset.covrows, mates, null);
           host.appendChild(w.firstChild);
