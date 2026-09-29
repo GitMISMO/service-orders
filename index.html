@@ -1188,6 +1188,62 @@ body.signedout main,body.signedout #view{padding:0}
 .railout:focus-visible{outline:2px solid var(--sky);outline-offset:-2px}
 body.railmini .railout span{display:none}
 body.railmini .railout{justify-content:center;padding:11px 0 8px}
+
+/* ===== Hours ==============================================================
+   My Hours, the cover split and the month view.  Everything here builds on
+   the shared .fields / .f / .note / .meter rules in style.css rather than
+   restating them, so the hours screens read as the same page as the rest. */
+
+/* A note that is saying nothing is wrong, rather than warning. */
+.note.ok{border-left-color:var(--good);background:rgba(30,110,70,.07)}
+.note.ok b{color:var(--good)}
+
+/* A field that wants the whole row — the two note lines, which are sentences
+   rather than values and look wrong squeezed into a 190px column. */
+.fields .f.wide{grid-column:1/-1}
+
+/* The hours box itself: narrow, monospaced, and lined up with the figures it
+   is compared against. */
+.f input.hnum,.f input.covhrs{font-family:var(--mono);font-variant-numeric:tabular-nums;max-width:120px}
+
+.meterwrap{display:flex;align-items:center;gap:8px;margin:10px 0 2px}
+
+/* ---- the cover split ----------------------------------------------------
+   Folded away by default and opened by a plain text link, because on a normal
+   week there is nothing to say here and it must not read like a required
+   field. */
+.covwrap{margin:12px 0 4px;padding:10px 0 0;border-top:1px dashed var(--border)}
+.covbody{display:none;margin-top:8px}
+.covbody.open{display:block}
+.covrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 0}
+.covrow select.covwho{font:inherit;font-size:13.2px;font-family:var(--display);color:var(--ink);
+  background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 8px;
+  min-width:190px;flex:1 1 190px}
+.covrow input.covhrs{font-size:13.2px;font-family:var(--mono);font-variant-numeric:tabular-nums;
+  color:var(--ink);background:var(--surface);border:1px solid var(--border);border-radius:6px;
+  padding:6px 8px;width:100px}
+.covrow select.covwho:focus,.covrow input.covhrs:focus{outline:2px solid var(--sky);outline-offset:-1px}
+
+/* A text link that does something on the page, as distinct from a button that
+   sends something to MISMO. */
+.lnk{background:none;border:0;padding:0;font:inherit;font-size:12.4px;color:var(--navy-mid);
+  text-decoration:underline;text-underline-offset:2px;cursor:pointer;text-align:left}
+.lnk:hover{color:var(--navy)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .lnk{color:var(--sky)}
+  :root:not([data-theme="light"]) .lnk:hover{color:var(--sky-soft)}
+}
+:root[data-theme="dark"] .lnk{color:var(--sky)}
+:root[data-theme="dark"] .lnk:hover{color:var(--sky-soft)}
+.covdel{font-size:11.6px;color:var(--ink-3)}
+
+/* The pre-send check. */
+.checks{margin:8px 0 10px;padding-left:18px}
+.checks li{margin:4px 0;font-size:13px;line-height:1.5}
+
+@media(max-width:560px){
+  .covrow select.covwho,.covrow input.covhrs{flex:1 1 100%;width:100%;max-width:none}
+}
 </style>
 </head>
 <body>
@@ -1665,6 +1721,283 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
   };
 })(window);
 </script>
+<script>/* =========================================================================
+ * hours.js — everything about a week of time that is ARITHMETIC rather than
+ * screen.  Kept apart from the views on purpose: the same week endings, the
+ * same weekly pace and the same totals have to come out identical for the
+ * person logging, the time manager reconciling and Jonna approving, or the
+ * three of them argue over an invoice.
+ *
+ * ⚠ The governing rule (blueprint, and Jonna's standing instruction):
+ *    NOTHING IS STORED THAT CAN BE WORKED OUT.
+ * So a stored row carries hours, the notes, the health flag and — only where
+ * somebody covered for a colleague — the split.  It does NOT carry the order's
+ * name, its weekly pace, a balance or any total.  Every one of those is
+ * derived here, from the order itself, every time it is shown.
+ * ======================================================================= */
+window.H = (function () {
+  'use strict';
+
+  /* ---- dates -------------------------------------------------------------
+     Dates on this page are the ones MISMO already uses: MM/DD/YY, because that
+     is what the service orders, the forecast and the weekly sheet all carry.
+     Parsing and printing both go through here so nothing drifts. */
+  function parse(mdy) {
+    var m = /^(\d{2})\/(\d{2})\/(\d{2})$/.exec(String(mdy || '').trim());
+    if (!m) return null;
+    return new Date(2000 + (+m[3]), (+m[1]) - 1, +m[2]);
+  }
+  function print(d) {
+    if (!d) return '';
+    function two(n) { return (n < 10 ? '0' : '') + n; }
+    return two(d.getMonth() + 1) + '/' + two(d.getDate()) + '/' + String(d.getFullYear()).slice(2);
+  }
+  function addDays(d, n) { var c = new Date(d.getTime()); c.setDate(c.getDate() + n); return c; }
+  function sameDay(a, b) {
+    return a && b && a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth()
+      && a.getDate() === b.getDate();
+  }
+  /* A long date, for the one place a week is announced rather than listed. */
+  var MONTHS = ['January','February','March','April','May','June','July',
+                'August','September','October','November','December'];
+  function longDate(d) { return d ? MONTHS[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear() : ''; }
+
+  /* ---- the fiscal year ---------------------------------------------------
+     MISMO's runs 1 October to 30 September.  "FY 2027" is the year it ENDS in,
+     so FY 2027 begins 1 October 2026. */
+  function fyBounds(fy) {
+    var y = parseInt(String(fy).replace(/\D+/g, ''), 10);
+    if (!y) return null;
+    return { start: new Date(y - 1, 9, 1), end: new Date(y, 8, 30), year: y };
+  }
+  function fyOf(d) {
+    /* October onward belongs to the NEXT fiscal year. */
+    return 'FY ' + (d.getMonth() >= 9 ? d.getFullYear() + 1 : d.getFullYear());
+  }
+
+  /* ---- week endings ------------------------------------------------------
+     Weeks end on a Friday, AND on the last day of a month when that is not
+     already a Friday.  ⚠ The month-end stub is not tidiness: invoices are
+     monthly, so a week that straddles a month end would put hours from two
+     months on one invoice line and there would be no honest way to split them
+     afterwards.  The Smartsheet sheet already works this way — August 2026 ran
+     ... 08/28 (Friday), 08/31 (month end), 09/04 (Friday) — so this matches
+     what the contractors are used to rather than introducing anything. */
+  var WE_CACHE = {};
+  function weekEndings(fy) {
+    if (WE_CACHE[fy]) return WE_CACHE[fy];
+    var b = fyBounds(fy);
+    if (!b) return [];
+    var out = [], d = new Date(b.start.getTime());
+    while (d <= b.end) {
+      var isFri = d.getDay() === 5;
+      var nxt = addDays(d, 1);
+      var isMonthEnd = nxt.getMonth() !== d.getMonth();
+      if (isFri || isMonthEnd) out.push(new Date(d.getTime()));
+      d = nxt;
+    }
+    if (!out.length || !sameDay(out[out.length - 1], b.end)) out.push(new Date(b.end.getTime()));
+    WE_CACHE[fy] = out;
+    return out;
+  }
+  /* The first day a week covers: the day after the week before it ended, or
+     the first day of the fiscal year for the very first week. */
+  function weekStart(fy, ending) {
+    var ends = weekEndings(fy), b = fyBounds(fy);
+    for (var i = 0; i < ends.length; i++) {
+      if (sameDay(ends[i], ending)) return i === 0 ? b.start : addDays(ends[i - 1], 1);
+    }
+    return null;
+  }
+  function weekSpan(fy, endingStr) {
+    var e = parse(endingStr), s = e && weekStart(fy, e);
+    if (!s || !e) return '';
+    return longDate(s) + ' to ' + longDate(e);
+  }
+  /* The week a given day falls in — the first ending on or after it. */
+  function weekFor(fy, d) {
+    var ends = weekEndings(fy);
+    for (var i = 0; i < ends.length; i++) if (ends[i] >= d) return print(ends[i]);
+    return ends.length ? print(ends[ends.length - 1]) : '';
+  }
+  /* Every week ending that has already passed, newest first — the weeks a
+     person could have something to show for. */
+  function weeksTo(fy, today) {
+    var ends = weekEndings(fy), out = [];
+    for (var i = 0; i < ends.length; i++) if (ends[i] <= today) out.push(print(ends[i]));
+    return out.reverse();
+  }
+
+  /* ---- the weekly pace, derived --------------------------------------------
+     ⚠ `Est. Time Per Week` in the Smartsheet sheet carries long decimals
+     (5.1666080013736) because it was never typed — it is the order's hours
+     spread across the weeks the order runs.  So it is worked out here and
+     never stored.  An order with no hours (Falcon's certification work, which
+     is paid per review) has no pace and logs no time. */
+  function orderWeeks(fy, o) {
+    var s = parse(o.startDate), e = parse(o.endDate);
+    var ends = weekEndings(fy), n = 0;
+    for (var i = 0; i < ends.length; i++) {
+      if ((!s || ends[i] >= s) && (!e || ends[i] <= e)) n++;
+    }
+    return n || ends.length || 1;
+  }
+  function perWeek(fy, o) {
+    var t = Number(o.estimatedHours) || 0;
+    if (!t) return 0;
+    return t / orderWeeks(fy, o);
+  }
+
+  /* ---- reading a stored week ----------------------------------------------
+     A file holds { person, slug, fiscalYear, draft, weeks[] }.  A row is keyed
+     by ORDER ID, never by name, so renaming an order never orphans time. */
+  function emptyFile(person, fy) {
+    return { person: person.name, slug: person.slug, email: person.email || null,
+             fiscalYear: fy, draft: null, weeks: [] };
+  }
+  function weekIn(file, ending) {
+    var w = (file && file.weeks) || [];
+    for (var i = 0; i < w.length; i++) if (w[i].weekEnding === ending) return w[i];
+    return null;
+  }
+  function rowsOf(wk) { return (wk && wk.rows) || {}; }
+  function hoursIn(wk) {
+    var r = rowsOf(wk), t = 0;
+    for (var k in r) if (r.hasOwnProperty(k)) t += Number(r[k].hours) || 0;
+    return t;
+  }
+
+  /* ---- who the hours were FOR ---------------------------------------------
+     Jonna, 29 Sep: a row may name colleagues who did some of the work.  The
+     submitter keeps whatever is left.  ⚠ This is the ONLY thing that makes a
+     per-person figure trustworthy where several people work the same admin-time
+     order and one of them submits it — and it is what
+     catches the case the hours agree and the money does not, because a company
+     can bill two different rates against the same order.
+
+     ⚠ No rate, and no figure a rate could be worked out from, belongs in this
+     file: it is served from a PUBLIC repository and anybody can read it. */
+  function splitOf(row, submitter) {
+    var total = Number(row.hours) || 0;
+    var named = (row['for'] || []).filter(function (f) { return f && f.person && Number(f.hours); });
+    var given = named.reduce(function (a, f) { return a + (Number(f.hours) || 0); }, 0);
+    var out = named.map(function (f) { return { person: f.person, hours: Number(f.hours) || 0 }; });
+    var keeps = Math.round((total - given) * 100) / 100;
+    if (keeps > 0 || !out.length) out.unshift({ person: submitter, hours: keeps });
+    return out;
+  }
+  /* More hours given away than were logged is the one thing a split can get
+     wrong, and it has to be caught before the week is sent rather than on an
+     invoice six weeks later. */
+  function splitOver(row) {
+    var total = Number(row.hours) || 0;
+    var given = (row['for'] || []).reduce(function (a, f) { return a + (Number(f.hours) || 0); }, 0);
+    return given > total + 0.001 ? Math.round((given - total) * 100) / 100 : 0;
+  }
+
+  /* ---- totals across a company --------------------------------------------
+     ⚠ Per the August 2026 reconciliation: an order's used hours is EVERY
+     person's logged time against it, not the submitter's.  A contractor who
+     sees only their own contribution cannot tell whether the order is close to
+     its maximum, and that is how an overrun reaches an invoice. */
+  function usedOnOrder(files, orderId, upTo) {
+    var t = 0;
+    (files || []).forEach(function (f) {
+      ((f && f.weeks) || []).forEach(function (wk) {
+        if (upTo && wk.weekEnding && parse(wk.weekEnding) > upTo) return;
+        var r = rowsOf(wk)[orderId];
+        if (r) t += Number(r.hours) || 0;
+      });
+    });
+    return Math.round(t * 100) / 100;
+  }
+  /* The same, attributed — who the hours were for rather than who sent them. */
+  function usedByPerson(files, orderId) {
+    var by = {};
+    (files || []).forEach(function (f) {
+      ((f && f.weeks) || []).forEach(function (wk) {
+        var r = rowsOf(wk)[orderId];
+        if (!r) return;
+        splitOf(r, f.person).forEach(function (s) {
+          by[s.person] = Math.round(((by[s.person] || 0) + s.hours) * 100) / 100;
+        });
+      });
+    });
+    return by;
+  }
+  /* Everything in one month, for the time manager reconciling before an
+     invoice goes out and for Jonna reconciling after it arrives. */
+  function monthOf(ending) { var d = parse(ending); return d ? (d.getMonth() + 1) + '/' + d.getFullYear() : ''; }
+  function monthLabel(m) {
+    var p = String(m).split('/');
+    return p.length === 2 ? MONTHS[(+p[0]) - 1] + ' ' + p[1] : '';
+  }
+  function monthsIn(files) {
+    var seen = {};
+    (files || []).forEach(function (f) {
+      ((f && f.weeks) || []).forEach(function (wk) { var m = monthOf(wk.weekEnding); if (m) seen[m] = 1; });
+    });
+    return Object.keys(seen).sort(function (a, b) {
+      var A = a.split('/'), B = b.split('/');
+      return (+B[1]) - (+A[1]) || (+B[0]) - (+A[0]);
+    });
+  }
+  function monthRows(files, month) {
+    /* order id -> { hours, byPerson{} } for one month, from every person. */
+    var out = {};
+    (files || []).forEach(function (f) {
+      ((f && f.weeks) || []).forEach(function (wk) {
+        if (monthOf(wk.weekEnding) !== month) return;
+        var r = rowsOf(wk);
+        for (var id in r) {
+          if (!r.hasOwnProperty(id)) continue;
+          if (!out[id]) out[id] = { hours: 0, byPerson: {} };
+          out[id].hours = Math.round((out[id].hours + (Number(r[id].hours) || 0)) * 100) / 100;
+          splitOf(r[id], f.person).forEach(function (s) {
+            out[id].byPerson[s.person] =
+              Math.round(((out[id].byPerson[s.person] || 0) + s.hours) * 100) / 100;
+          });
+        }
+      });
+    });
+    return out;
+  }
+
+  /* ---- the four states a submitted week can be in -------------------------
+     Jonna, 27 Sep: the line is drawn at PAYMENT, not at invoicing.  An unpaid
+     invoice can still be credited and reissued; a paid one cannot. */
+  var STATES = {
+    submitted: { label: 'Submitted', tone: 'warn',
+      said: 'Sent to MISMO and not yet approved. It is still yours — you can take it back and correct it.' },
+    approved: { label: 'Approved', tone: 'good',
+      said: 'Approved by MISMO. Locked, and not yet on an invoice — it can still be returned if something is wrong.' },
+    invoiced: { label: 'Invoiced, Awaiting Payment', tone: 'warn',
+      said: 'On an invoice that has gone out and has not been paid. It does not reopen on your word — but MISMO can override, because an unpaid invoice can still be credited and reissued.' },
+    paid: { label: 'Invoiced and Paid', tone: '',
+      said: 'On an invoice that has been paid. This week does not reopen for anyone — a correction goes on the next period.' },
+    /* ⚠ A week MISMO has sent back is not a week that never happened.  It
+       keeps its place in the record, carries the reason it came back, and is
+       editable again — so the person can see what was asked for while they
+       correct it, and the earlier submission survives as a version. */
+    returned: { label: 'Sent Back to You', tone: 'bad',
+      said: 'MISMO has sent this week back for you to correct. The reason is below. Fix it and send it again — what you first submitted is kept.' }
+  };
+  function stateOf(wk) { return STATES[(wk && wk.state) || 'submitted'] || STATES.submitted; }
+
+  return {
+    parse: parse, print: print, longDate: longDate, addDays: addDays, sameDay: sameDay,
+    fyBounds: fyBounds, fyOf: fyOf,
+    weekEndings: weekEndings, weekStart: weekStart, weekSpan: weekSpan,
+    weekFor: weekFor, weeksTo: weeksTo,
+    orderWeeks: orderWeeks, perWeek: perWeek,
+    emptyFile: emptyFile, weekIn: weekIn, rowsOf: rowsOf, hoursIn: hoursIn,
+    splitOf: splitOf, splitOver: splitOver,
+    usedOnOrder: usedOnOrder, usedByPerson: usedByPerson,
+    monthOf: monthOf, monthLabel: monthLabel, monthsIn: monthsIn, monthRows: monthRows,
+    STATES: STATES, stateOf: stateOf
+  };
+})();
+</script>
 <script>/* MISMO Service Orders and Agreements — the platform page.
  *
  * This file holds NO data.  Everything on screen arrives from the relay, which
@@ -1677,7 +2010,10 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
 (function () {
   'use strict';
   var R = window.MISMO_RELAY;
-  var $ = function (s) { return document.querySelector(s); };
+  var $ = function (s, root) { return (root || document).querySelector(s); };
+  var $$ = function (s, root) {
+    return Array.prototype.slice.call((root || document).querySelectorAll(s));
+  };
 
   /* ---------- small helpers ---------------------------------------------- */
   function esc(s) {
@@ -1889,6 +2225,14 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
   var statusOf = P.statusOf, pill = P.pill, sect = P.sect;
   var feeTotal = P.feeTotal, feeWords = P.feeWords;
   var ISS_YEAR = null;                // the fiscal year the company is looking at
+  /* ⚠ This file is two separate closures — the parts above and the views
+     below — so the DOM helpers have to exist in both.  They are not shared
+     through P on purpose: P is what a view is BUILT from, not how it reads
+     itself back. */
+  var $ = function (q, root) { return (root || document).querySelector(q); };
+  var $$ = function (q, root) {
+    return Array.prototype.slice.call((root || document).querySelectorAll(q));
+  };
   var view = document.getElementById('view');
   var whoEl = document.getElementById('who');
   var ME = null;                      // never a permission — only a display name
@@ -1906,6 +2250,9 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
     'my service orders':'<path d="M6 3h9l5 5v13a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M14 3v6h6M9 13h6M9 17h4"/>',
     'my agreements':    '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/>',
     'my hours':         '<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.2 2"/>',
+    'my submitted time':'<rect x="4" y="4" width="16" height="16" rx="2"/><path d="M8 9h8M8 13h8M8 17h4"/>',
+    'the company\u2019s month':'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',
+    'time to approve':  '<circle cx="12" cy="12" r="9"/><path d="M12 7.2v5l3.2 2"/><path d="M8.4 12.4l2.4 2.4"/>',
     'awaiting your approval':'<path d="M4 12.5l5 5L20 6.5"/>',
     'awaiting your decision':'<path d="M4 12.5l5 5L20 6.5"/>',
     'already approved': '<circle cx="12" cy="12" r="9"/><path d="M8 12.2l2.8 2.8L16.5 9"/>',
@@ -2235,19 +2582,993 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
           }).join('') + '</div>';
 
         whoEl.innerHTML = esc(ME.name) + ' <i>·</i> ' + esc(F.company);
-        say(
-          sect('To Review', toReview.length, review) +
-          sect('My Service Orders', yearOrders.length, all) +
-          sect('My Agreements', F.letters.length, ag) +
-          sect('Help', null, helpFor('contractor', F))
-        );
-        wireReview(C, st, toReview);
-        var fyEl = document.getElementById('fy-pick');
-        if (fyEl) fyEl.addEventListener('change', function () {
-          ISS_YEAR = fyEl.value; contractorView();
+        /* ---- hours -------------------------------------------------------
+           The person record is what says whether this account logs time and
+           against which orders.  ⚠ An account with no record is NOT quietly
+           attached to somebody else's hours — it simply sees no hours
+           sections, and Help says who to ask. */
+        var person = personFor(F, ME);
+        var fy = F.fiscalYear || 'FY 2027';
+        HCTX = person ? { C: C, person: person, fy: fy } : null;
+        var hoursBits = Promise.resolve('');
+        if (person) {
+          hoursBits = loadHours(C.slug, F, fy).then(function (files) {
+            var mine = null;
+            files.forEach(function (f) { if (f && f.slug === person.slug) mine = f; });
+            if (!mine) { mine = H.emptyFile(person, fy); files = files.concat([mine]); }
+            HRS.files = files; HRS.mine = mine; HRS.person = person;
+            return sect('My Hours', null, hoursSection(C, person, fy, mine, files), true) +
+              sect('My Submitted Time', (mine.weeks || []).length,
+                   submittedSection(C, person, fy, mine)) +
+              (person.timeManager
+                ? sect('The Company\u2019s Month', null, monthSection(C, fy, files)) : '');
+          }).catch(function (e) {
+            if (window.console && console.warn) console.warn('hours', e);
+            return sect('My Hours', null,
+              '<div class="note"><b>Your hours could not be read just now.</b> Nothing has been lost ' +
+              '\u2014 this is the page failing to fetch them, not your time going missing. Reload, and ' +
+              'tell Jonna if it keeps happening.</div>');
+          });
+        }
+
+        hoursBits.then(function (hb) {
+          say(
+            sect('To Review', toReview.length, review) +
+            hb +
+            sect('My Service Orders', yearOrders.length, all) +
+            sect('My Agreements', F.letters.length, ag) +
+            sect('Help', null, helpFor('contractor', F))
+          );
+          wireReview(C, st, toReview);
+          if (person) wireHours(C, person, fy);
+          var fyEl2 = document.getElementById('fy-pick');
+          if (fyEl2) fyEl2.addEventListener('change', function () {
+            ISS_YEAR = fyEl2.value; contractorView();
+          });
         });
       });
     }).catch(closed);
+  }
+
+  /* =========================================================================
+   * HOURS — My Hours, My Submitted Time, and the company's month
+   *
+   * Storage: hours/<person>-fy2027.json inside the company's own private
+   * repository, one file per person per fiscal year.  ⚠ Records go in
+   * BUNDLES, never one document per record: a year of weeks is one file, read
+   * in one request and saved in one commit.
+   *
+   * What a stored row carries: hours, the two notes, the health flag, and —
+   * only where somebody covered for a colleague — the split.  It does NOT
+   * carry the order's name, its weekly pace, a balance or any total.  Every
+   * one of those is worked out in hours.js from the order itself.
+   * ======================================================================= */
+  var HRS = { files: null, mine: null, sha: null, person: null, month: null, week: null };
+  /* Who the hours screens are for, kept so a save can redraw them without
+     working the answer out a second time. */
+  var HCTX = null;
+
+  function fyKey(fy) { return 'fy' + String(fy).replace(/\D+/g, ''); }
+  function hoursPath(person, fy) { return 'hours/' + person.slug + '-' + fyKey(fy) + '.json'; }
+
+  /* Which person record belongs to the signed-in account.  Email is the key
+     where MISMO has set one; where it has not, the name the relay returns at
+     sign-in is matched exactly.  ⚠ Nothing is guessed from an address: an
+     account with no matching record logs no time and is told so plainly,
+     rather than being quietly attached to somebody else's hours. */
+  function personFor(F, me) {
+    var list = F.people || [];
+    var email = String(me.email || '').toLowerCase();
+    var i;
+    for (i = 0; i < list.length; i++) {
+      if (list[i].email && String(list[i].email).toLowerCase() === email) return list[i];
+    }
+    for (i = 0; i < list.length; i++) {
+      if (String(list[i].name).toLowerCase() === String(me.name || '').toLowerCase()) return list[i];
+    }
+    return null;
+  }
+
+  /* Everybody's file for one company.  ⚠ Needed even by a person logging only
+     their own time, because an order's REMAINING hours is everyone's total —
+     and a contractor who sees only their own contribution cannot tell whether
+     the order is close to its maximum.  That is how an overrun first shows up
+     on an invoice instead of on this page. */
+  function loadHours(slug, F, fy) {
+    var people = (F.people || []).filter(function (p) { return (p.orders || []).length; });
+    return Promise.all(people.map(function (p) {
+      return R.readOr(keyFor(slug), hoursPath(p, fy), null)
+        .then(function (r) { return r.data || H.emptyFile(p, fy); });
+    }));
+  }
+
+  function orderById(F, id) {
+    for (var i = 0; i < F.orders.length; i++) if (F.orders[i].id === id) return F.orders[i];
+    return null;
+  }
+  function hrs(v) { return (Math.round((Number(v) || 0) * 100) / 100).toFixed(2); }
+
+  /* ---- My Hours ----------------------------------------------------------
+     The week you are in, one row per service order you log against.  The row
+     header carries the hours so a week can be read at a glance; the notes,
+     the health flag and the cover split are inside, where they have room. */
+  function hoursSection(C, person, fy, mine, files) {
+    var F = C.F;
+    var today = new Date();
+    /* Normally the week you are in.  ⚠ But a week MISMO has sent back has to
+       be editable too, or a correction it asked for would have nowhere to be
+       made.  HRS.week is what My Submitted Time sets when somebody chooses to
+       correct one, and it falls back to this week. */
+    var ending = HRS.week || H.weekFor(fy, today);
+    var wk = H.weekIn(mine, ending);
+    if (wk && wk.state === 'returned') wk = null;   // editable again
+    var back = H.weekIn(mine, ending);
+    back = back && back.state === 'returned' ? back : null;
+    var draft = (mine.draft && mine.draft.weekEnding === ending) ? mine.draft : null;
+    /* A sent-back week opens with what was submitted still in it, so the
+       correction is made TO the week rather than typed out again from memory. */
+    var rows = wk ? H.rowsOf(wk)
+      : back ? H.rowsOf(back)
+      : (draft ? draft.rows || {} : {});
+    var sent = !!wk;
+    var st = wk ? H.stateOf(wk) : null;
+
+    var orders = (person.orders || []).map(function (id) { return orderById(F, id); })
+      .filter(function (o) { return o; });
+
+    if (!orders.length) {
+      return '<p class="empty"><b>No service order is set up for you to log time against.</b> ' +
+        'Falcon’s work is paid per review rather than by the hour, and some people are set up to ' +
+        'see the company’s hours without logging their own. If that is wrong, ' +
+        '<b>email Jonna Critchley</b> at <a href="mailto:jcritchley@mismo.org">jcritchley@mismo.org</a>.</p>';
+    }
+
+    var total = orders.reduce(function (a, o) {
+      return a + (Number((rows[o.id] || {}).hours) || 0); }, 0);
+
+    var head = '<p class="lede">The week you are in. One row per service order you work on — ' +
+      'open a row to write the notes and set the health flag.</p>' +
+      '<div class="tot"><span class="tot-l">Week Ending ' + esc(ending) + '</span>' +
+      '<span class="tot-v">' + hrs(total) + ' hours</span></div>' +
+      (HRS.week && HRS.week !== H.weekFor(fy, today)
+        ? '<p class="fineprint"><b>This is not the week you are in.</b> You are correcting an earlier ' +
+          'week. <button class="lnk" type="button" id="h-now">Go back to this week</button></p>' : '') +
+      '<p class="fineprint">' + esc(H.weekSpan(fy, ending)) + '. ' +
+      'MISMO’s weeks end on a Friday, and on the last day of a month when that is not a Friday — ' +
+      'so no week straddles two invoices.</p>';
+
+    var state = back
+      ? '<div class="wkstate bad"><span class="wk-l">Sent Back to You</span>' +
+        '<span class="wk-d">MISMO has sent this week back for you to correct.</span></div>' +
+        '<div class="note"><b>Why it came back.</b> ' + esc(back.returnedWhy || 'No reason was given.') +
+        '<br><span class="fineprint">Sent back ' + esc(stamp(back.returnedAt)) +
+        '. What you first submitted is kept \u2014 correcting it here does not erase it.</span></div>'
+      : sent
+      ? '<div class="wkstate ' + st.tone + '"><span class="wk-l">' + st.label + '</span>' +
+        '<span class="wk-d">' + st.said + '</span></div>' +
+        (wk.state === 'submitted'
+          ? '<div class="issacts"><button class="tbtn" type="button" id="h-back">Take It Back to Correct</button></div>' +
+            '<p class="fineprint">It has not been approved yet, so it is still yours. Taking it back needs ' +
+            'nobody’s permission — what you first sent is kept as its own version.</p>'
+          : '<p class="fineprint">This week has been ' + esc(st.label.toLowerCase()) +
+            '. To change it, open <b>My Submitted Time</b> below and ask for it to be returned.</p>')
+      : '<div class="wkstate open"><span class="wk-l">Open</span>' +
+        '<span class="wk-d">Not submitted yet. Nothing here has gone to MISMO and you can change any of it.</span></div>';
+
+    var body = orders.map(function (o) {
+      var r = rows[o.id] || {};
+      var pace = H.perWeek(fy, o);
+      var logged = Number(r.hours) || 0;
+      var bal = pace - logged;
+      var used = H.usedOnOrder(files, o.id);
+      var tot = Number(o.estimatedHours) || 0;
+      var pct = tot ? Math.min(100, 100 * used / tot) : 0;
+      var cls = pct > 90 ? 'over' : pct > 70 ? 'hot' : '';
+      var fors = r['for'] || [];
+      var mates = (F.people || []).filter(function (p) { return p.name !== person.name; });
+      return '<div class="row"><div class="row-h">' +
+        '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
+        '<span class="rt">' + esc(o.subject) + '</span>' +
+        (r.health ? '<span class="pill ' + ({ Green: 'good', Yellow: 'warn', Red: 'bad' }[r.health] || '') +
+          '">' + esc(r.health) + '</span>' : '') +
+        '<span class="rs num">' + hrs(logged) + ' hours</span>' +
+        '</div><div class="row-b">' +
+        '<div class="fields">' +
+        '<div class="f"><label for="h-' + esc(o.id) + '">Hours This Week</label>' +
+        '<input id="h-' + esc(o.id) + '" class="hnum" type="number" min="0" step="0.25" ' +
+        'data-hid="' + esc(o.id) + '" value="' + (logged ? hrs(logged) : '') + '"' +
+        (sent ? ' disabled' : '') + '></div>' +
+        '<div class="f"><label for="hh-' + esc(o.id) + '">Health</label>' +
+        '<select id="hh-' + esc(o.id) + '" class="hsel" data-hid="' + esc(o.id) + '"' +
+        (sent ? ' disabled' : '') + '>' +
+        ['', 'Green', 'Yellow', 'Red', 'N/A'].map(function (v) {
+          return '<option value="' + v + '"' + (r.health === v ? ' selected' : '') + '>' +
+            (v || 'Not set') + '</option>'; }).join('') + '</select></div>' +
+        '</div>' +
+        '<div class="fields">' +
+        '<div class="f wide"><label for="hn-' + esc(o.id) + '">This Week</label>' +
+        '<input id="hn-' + esc(o.id) + '" class="hnote" type="text" data-hid="' + esc(o.id) + '" ' +
+        'placeholder="What you did — one line" value="' + esc(r.thisWeek || '') + '"' +
+        (sent ? ' disabled' : '') + '></div>' +
+        '</div>' +
+        '<div class="fields">' +
+        '<div class="f wide"><label for="hu-' + esc(o.id) + '">Upcoming</label>' +
+        '<input id="hu-' + esc(o.id) + '" class="hup" type="text" data-hid="' + esc(o.id) + '" ' +
+        'placeholder="What is next — one line" value="' + esc(r.upcoming || '') + '"' +
+        (sent ? ' disabled' : '') + '></div>' +
+        '</div>' +
+        /* ---- the cover split (Jonna, 29 Sep) ------------------------------
+           Defaults to whoever is typing and stays out of the way.  It earns
+           its place on the one row a month where somebody covered: a company can
+           bill two different rates against the same order, so hours logged
+           under the wrong person can agree while the money does not. */
+        (mates.length && !sent
+          ? '<div class="covwrap" data-cov="' + esc(o.id) + '">' +
+            '<button class="lnk" type="button" data-covtog="' + esc(o.id) + '">' +
+            (fors.length ? 'Some of these hours were a colleague’s — edit the split'
+                         : 'Did somebody else do some of these hours?') + '</button>' +
+            '<div class="covbody' + (fors.length ? ' open' : '') + '">' +
+            '<p class="fineprint">Name the colleague and how many of the hours were theirs. ' +
+            'Whatever is left stays with you. Leave this alone on a normal week.</p>' +
+            '<div class="covrows" data-covrows="' + esc(o.id) + '">' +
+            (fors.length ? fors.map(function (f) { return covRow(o.id, mates, f); }).join('')
+                         : covRow(o.id, mates, null)) +
+            '</div>' +
+            '<button class="lnk" type="button" data-covadd="' + esc(o.id) + '">Add Another Colleague</button>' +
+            '</div></div>'
+          : (fors.length
+            ? '<div class="fields">' + fld('Hours Logged For',
+                H.splitOf(r, person.name).map(function (s) {
+                  return s.person + ' ' + hrs(s.hours); }).join(' · ')) + '</div>'
+            : '')) +
+        '<div class="fields">' +
+        fld('This Order’s Pace', pace ? hrs(pace) + ' hours a week' : 'No hours on this order', 1) +
+        fld('Balance This Week', pace ? (bal >= 0 ? hrs(bal) + ' under' : hrs(-bal) + ' over') : '—', 1) +
+        fld('Used by Everyone', tot ? hrs(used) + ' of ' + hrs(tot) + ' (' + pct.toFixed(0) + '%)' : '—', 1) +
+        fld('Remaining on the Order', tot ? hrs(tot - used) + ' hours' : '—', 1) +
+        '</div>' +
+        '<div class="meterwrap"><span class="meter"><i class="' + cls +
+        '" style="width:' + pct.toFixed(0) + '%"></i></span></div>' +
+        '<p class="fineprint"><b>The bar is the whole order, not your share.</b> When several people ' +
+        'cover the same order, each of you needs to see how much of it is left — that is what stops ' +
+        'an overrun turning up on an invoice.</p>' +
+        '</div></div>';
+    }).join('');
+
+    var acts = sent ? '' :
+      '<div id="h-check"></div>' +
+      '<div class="ackbar"><button class="gobtn ghost" type="button" id="h-save">Save Without Sending</button>' +
+      '<button class="gobtn" type="button" id="h-send">Submit This Week</button>' +
+      '<span class="qc" id="h-msg">' + (draft ? 'Saved, not sent' : 'Nothing entered yet') + '</span></div>' +
+      '<p class="fineprint"><b>Saving keeps it here for you; submitting sends it to MISMO.</b> ' +
+      'A week is never quietly edited — every submission, take-back and return is its own version, ' +
+      'so what an invoice was raised against can always be shown.</p>';
+
+    return head + state + '<div class="rows">' + body + '</div>' + acts;
+  }
+
+  function covRow(oid, mates, f) {
+    return '<div class="covrow">' +
+      '<select class="covwho" data-hid="' + esc(oid) + '">' +
+      '<option value="">Choose a colleague</option>' +
+      mates.map(function (m) {
+        return '<option value="' + esc(m.name) + '"' +
+          (f && f.person === m.name ? ' selected' : '') + '>' + esc(m.name) + '</option>'; }).join('') +
+      '</select>' +
+      '<input class="covhrs" type="number" min="0" step="0.25" data-hid="' + esc(oid) + '" ' +
+      'placeholder="Hours" value="' + (f && f.hours ? hrs(f.hours) : '') + '">' +
+      '<button class="lnk covdel" type="button" aria-label="Remove this line">Remove</button>' +
+      '</div>';
+  }
+
+  /* ---- My Submitted Time --------------------------------------------------
+     A person's own record of what they actually sent, week by week, newest
+     first.  ⚠ It carries what they TYPED — the notes and the health flag —
+     because the weekly report is a status report, and a history that keeps the
+     hours and drops the notes is a downgrade on what Smartsheet already does. */
+  function submittedSection(C, person, fy, mine) {
+    var F = C.F;
+    var weeks = (mine.weeks || []).slice().sort(function (a, b) {
+      return (H.parse(b.weekEnding) || 0) - (H.parse(a.weekEnding) || 0); });
+    if (!weeks.length) {
+      return '<p class="empty">Nothing submitted yet. Your weeks appear here the moment you send ' +
+        'one, and they stay — this is your own record, not a summary of it.</p>';
+    }
+    return '<p class="lede">Every week you have submitted this fiscal year, newest first. ' +
+      'Open one to see the orders, the hours and your notes exactly as they were sent.</p>' +
+      '<div class="rows">' + weeks.map(function (wk) {
+        var st = H.stateOf(wk);
+        var rows = H.rowsOf(wk);
+        var ids = Object.keys(rows);
+        var ask = wk.returnRequest;
+        return '<div class="row"><div class="row-h">' +
+          '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
+          '<span class="rt">Week Ending ' + esc(wk.weekEnding) + '</span>' +
+          '<span class="pill ' + st.tone + '">' + esc(st.label) + '</span>' +
+          '<span class="rs num">' + hrs(H.hoursIn(wk)) + ' hours</span>' +
+          '</div><div class="row-b">' +
+          '<div class="tbl"><table><thead><tr><th>Service Order</th><th class="n">Hours</th>' +
+          '<th class="hide-narrow">What You Wrote</th><th class="hide-narrow">Health</th></tr></thead><tbody>' +
+          ids.map(function (id) {
+            var r = rows[id], o = orderById(F, id);
+            var split = H.splitOf(r, person.name);
+            return '<tr><td>' + esc(o ? o.subject : id) +
+              (split.length > 1
+                ? '<br><span class="fineprint">Logged for ' + esc(split.map(function (s) {
+                    return s.person + ' ' + hrs(s.hours); }).join(' · ')) + '</span>' : '') +
+              '</td><td class="n">' + hrs(r.hours) + '</td>' +
+              '<td class="hide-narrow">' + (r.thisWeek ? esc(r.thisWeek) :
+                '<span class="fineprint">No note written</span>') +
+              (r.upcoming ? '<br><span class="fineprint">Upcoming: ' + esc(r.upcoming) + '</span>' : '') +
+              '</td><td class="hide-narrow">' + esc(r.health || '—') + '</td></tr>';
+          }).join('') + '</tbody></table></div>' +
+          '<div class="wkstate ' + st.tone + '"><span class="wk-l">' + esc(st.label) + '</span>' +
+          '<span class="wk-d">' + st.said + '</span></div>' +
+          (ask
+            ? '<div class="note"><b>You have asked for this week back.</b> ' + esc(ask.why) +
+              '<br><span class="fineprint">Asked ' + esc(stamp(ask.at)) + '. MISMO decides, and the ' +
+              'answer appears here.</span></div>'
+            : wk.state === 'submitted'
+            ? '<div class="issacts"><button class="tbtn" type="button" data-wkback="' +
+                esc(wk.weekEnding) + '">Take It Back to Correct</button></div>' +
+              '<p class="fineprint">It has not been approved yet, so it is still yours. Taking it back ' +
+              'needs nobody’s permission — what you first sent is kept as its own version.</p>'
+            : wk.state === 'returned'
+            ? '<div class="note"><b>Why it came back.</b> ' + esc(wk.returnedWhy || 'No reason was given.') +
+              '<br><span class="fineprint">Sent back ' + esc(stamp(wk.returnedAt)) + '.</span></div>' +
+              '<div class="issacts"><button class="tbtn" type="button" data-wkfix="' +
+                esc(wk.weekEnding) + '">Correct This Week</button></div>' +
+              '<p class="fineprint">This opens the week in <b>My Hours</b> with what you sent still in ' +
+              'it, so you correct it rather than type it out again. What you first submitted is kept.</p>'
+            : wk.state === 'paid'
+            ? '<p class="fineprint"><b>These hours have been invoiced and paid, so the week does not ' +
+              'reopen — for anyone.</b> A correction goes on the next period, the same way a closed ' +
+              'month works in the financial system. If something here is wrong, ' +
+              '<b>email Jonna Critchley</b> at <a href="mailto:jcritchley@mismo.org">jcritchley@mismo.org</a>.</p>'
+            : '<div class="fields"><div class="f wide">' +
+              '<label for="wy-' + esc(wk.weekEnding).replace(/\//g, '') + '">What Is Wrong With This Week</label>' +
+              '<input id="wy-' + esc(wk.weekEnding).replace(/\//g, '') + '" type="text" ' +
+              'data-wkwhy="' + esc(wk.weekEnding) + '" placeholder="One line — what needs changing">' +
+              '</div></div>' +
+              '<div class="issacts"><button class="tbtn" type="button" data-wkask="' +
+                esc(wk.weekEnding) + '">Ask for It to Be Returned</button></div>' +
+              '<p class="fineprint">Once MISMO has approved a week you cannot take it back yourself, so ' +
+              'the request goes to them. <b>A reason is required</b> — it is what they read before ' +
+              'deciding.' +
+              (wk.state === 'invoiced' ? ' These hours are already on an invoice that has gone out and ' +
+                'has not been paid, so returning the week means crediting and reissuing it.' : '') + '</p>') +
+          (wk.versions && wk.versions.length
+            ? '<p class="fineprint"><b>' + wk.versions.length + ' earlier version' +
+              (wk.versions.length === 1 ? '' : 's') + ' of this week ' +
+              (wk.versions.length === 1 ? 'is' : 'are') + ' kept.</b> Nothing is overwritten, so what an ' +
+              'invoice was raised against can always be shown.</p>' : '') +
+          '</div></div>';
+      }).join('') + '</div>';
+  }
+
+  /* ---- The Company's Month ------------------------------------------------
+     For the company's time manager.  ⚠ The reconciliation is PER SERVICE ORDER
+     PER MONTH, never per person: people at the same company cover for each
+     other, and reconciling by person produced eleven differences in one proven
+     month that all offset one another exactly.  Person figures sit beside it as attribution,
+     labelled as such. */
+  function monthSection(C, fy, files) {
+    var F = C.F;
+    var months = H.monthsIn(files);
+    if (!months.length) {
+      return '<p class="empty">Nothing has been submitted yet this fiscal year. Once your team starts ' +
+        'logging time, the month appears here — by service order, with who it was for beside it.</p>';
+    }
+    var month = HRS.month && months.indexOf(HRS.month) >= 0 ? HRS.month : months[0];
+    var rows = H.monthRows(files, month);
+    var ids = Object.keys(rows).sort(function (a, b) { return rows[b].hours - rows[a].hours; });
+    var total = ids.reduce(function (a, id) { return a + rows[id].hours; }, 0);
+    var missing = whoOwes(F, files, month);
+
+    return '<p class="lede">Your whole company’s time for the month, by service order — ' +
+      'the figures MISMO reconciles your invoice against. Check it here before you invoice and most ' +
+      'differences never reach one.</p>' +
+      '<div class="tot"><span class="tot-l">Month</span><span class="tot-v">' +
+      '<select id="m-pick" aria-label="Which month">' + months.map(function (m) {
+        return '<option value="' + esc(m) + '"' + (m === month ? ' selected' : '') + '>' +
+          esc(H.monthLabel(m)) + '</option>'; }).join('') + '</select> ' +
+      hrs(total) + ' hours</span></div>' +
+      (missing.length
+        ? '<div class="note"><b>' + missing.length + ' ' +
+          (missing.length === 1 ? 'person has' : 'people have') + ' not submitted every week of this ' +
+          'month.</b> ' + esc(missing.map(function (m) {
+            return m.person + ' (' + m.weeks.join(', ') + ')'; }).join('; ')) +
+          '<br><span class="fineprint">A week somebody covered for them is not missing — this ' +
+          'counts weeks with nothing sent at all.</span></div>'
+        : '<div class="note ok"><b>Every week of this month has been submitted.</b></div>') +
+      '<div class="rows">' + ids.map(function (id) {
+        var o = orderById(F, id);
+        var rec = rows[id];
+        var tot = o ? (Number(o.estimatedHours) || 0) : 0;
+        var used = H.usedOnOrder(files, id);
+        var pct = tot ? Math.min(100, 100 * used / tot) : 0;
+        var cls = pct > 90 ? 'over' : pct > 70 ? 'hot' : '';
+        var by = Object.keys(rec.byPerson).sort(function (a, b) {
+          return rec.byPerson[b] - rec.byPerson[a]; });
+        return '<div class="row"><div class="row-h">' +
+          '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
+          '<span class="rt">' + esc(o ? o.subject : id) + '</span>' +
+          (pct > 90 ? '<span class="pill bad">' + pct.toFixed(0) + '% used</span>' :
+           pct > 70 ? '<span class="pill warn">' + pct.toFixed(0) + '% used</span>' : '') +
+          '<span class="rs num">' + hrs(rec.hours) + ' hours</span>' +
+          '</div><div class="row-b">' +
+          '<div class="fields">' +
+          fld('This Month', hrs(rec.hours) + ' hours', 1) +
+          fld('This Fiscal Year', hrs(used) + ' of ' + (tot ? hrs(tot) : '—'), 1) +
+          fld('Remaining', tot ? hrs(tot - used) + ' hours' : 'No hours on this order', 1) +
+          fld('Maximum Fee', o && o.maximumFee != null ? money(o.maximumFee) : 'Paid per review', 1) +
+          '</div>' +
+          '<div class="meterwrap"><span class="meter"><i class="' + cls +
+          '" style="width:' + pct.toFixed(0) + '%"></i></span></div>' +
+          '<h4 class="subh">Who the Hours Were For</h4>' +
+          '<div class="tbl"><table><thead><tr><th>Person</th><th class="n">Hours</th>' +
+          '</tr></thead><tbody>' + by.map(function (p) {
+            return '<tr><td>' + esc(p) + '</td><td class="n">' + hrs(rec.byPerson[p]) + '</td></tr>';
+          }).join('') + '</tbody></table></div>' +
+          '<p class="fineprint"><b>This is attribution, not a difference.</b> Hours book under whoever ' +
+          'submits the week; the split says who actually did the work. The order’s total above is ' +
+          'what MISMO reconciles your invoice against.</p>' +
+          '</div></div>';
+      }).join('') + '</div>' +
+      /* ⚠ This used to cite another company's August invoice by name. The
+         time manager reading this page is not that company, and how well
+         somebody else's invoice reconciles is none of their business. The
+         point stands without it. */
+      '<p class="fineprint"><b>Reconcile per service order, never per person.</b> Where people cover ' +
+      'for each other, the order totals tie exactly while the same month checked person by person ' +
+      'throws up differences that all offset one another — that is the cover, not an error.</p>';
+  }
+
+  /* Who has a week of this month with nothing sent at all.  ⚠ A person whose
+     work was covered by a colleague's split entry is NOT missing — that was
+     what made the Smartsheet alert fire every month and train everyone to
+     ignore it. */
+  function whoOwes(F, files, month) {
+    var today = new Date();
+    var out = [];
+    (F.people || []).forEach(function (p) {
+      if (!(p.orders || []).length) return;
+      var f = null;
+      files.forEach(function (x) { if (x && x.slug === p.slug) f = x; });
+      var sentWeeks = {};
+      ((f && f.weeks) || []).forEach(function (w) { sentWeeks[w.weekEnding] = 1; });
+      var covered = {};
+      files.forEach(function (x) {
+        ((x && x.weeks) || []).forEach(function (w) {
+          var r = H.rowsOf(w);
+          for (var id in r) {
+            if (!r.hasOwnProperty(id)) continue;
+            (r[id]['for'] || []).forEach(function (s) {
+              if (s.person === p.name && Number(s.hours)) covered[w.weekEnding] = 1;
+            });
+          }
+        });
+      });
+      var owed = [];
+      H.weekEndings(f && f.fiscalYear ? f.fiscalYear : 'FY 2027').forEach(function (d) {
+        var s = H.print(d);
+        if (H.monthOf(s) !== month) return;
+        if (d > today) return;
+        if (!sentWeeks[s] && !covered[s]) owed.push(s);
+      });
+      if (owed.length) out.push({ person: p.name, weeks: owed });
+    });
+    return out;
+  }
+
+  /* ---- reading the screen back -------------------------------------------- */
+  function readRows(person) {
+    var rows = {};
+    $$('#view .hnum').forEach(function (el) {
+      var id = el.dataset.hid, v = Number(el.value);
+      if (!v) return;
+      rows[id] = { hours: Math.round(v * 100) / 100 };
+    });
+    /* Notes and health are kept even on a row with no hours yet — somebody who
+       writes the note first and the number second should not lose the note. */
+    ['hnote:thisWeek', 'hup:upcoming', 'hsel:health'].forEach(function (pair) {
+      var p = pair.split(':');
+      $$('#view .' + p[0]).forEach(function (el) {
+        var id = el.dataset.hid, v = String(el.value || '').trim();
+        if (!v) return;
+        if (!rows[id]) rows[id] = { hours: 0 };
+        rows[id][p[1]] = v;
+      });
+    });
+    $$('#view .covrows').forEach(function (host) {
+      var id = host.dataset.covrows, list = [];
+      $$('.covrow', host).forEach(function (r) {
+        var who = $('.covwho', r), h = $('.covhrs', r);
+        var n = Number(h && h.value);
+        if (who && who.value && n) list.push({ person: who.value, hours: Math.round(n * 100) / 100 });
+      });
+      if (list.length && rows[id]) rows[id]['for'] = list;
+    });
+    return rows;
+  }
+
+  /* Everything that must be true before a week can go to MISMO.  ⚠ Each of
+     these is a thing that is cheap to fix now and expensive to fix once it is
+     on an invoice. */
+  function weekProblems(F, person, rows) {
+    var out = [];
+    var ids = Object.keys(rows).filter(function (id) { return Number(rows[id].hours); });
+    if (!ids.length) out.push('Nothing is entered yet — put hours against at least one service order.');
+    ids.forEach(function (id) {
+      var o = orderById(F, id);
+      var name = o ? o.subject : id;
+      var over = H.splitOver(rows[id]);
+      if (over) {
+        out.push('On <b>' + esc(name) + '</b> you have given away ' + hrs(over) +
+          ' more hours than you logged. Raise the hours or lower the split.');
+      }
+      if (!rows[id].thisWeek) {
+        out.push('<b>' + esc(name) + '</b> has hours but no <i>This Week</i> note. ' +
+          'The weekly report is a status report — the note is the part MISMO reads.');
+      }
+    });
+    return out;
+  }
+
+  function saveHours(C, person, fy, rows, submit) {
+    var ending = HRS.week || H.weekFor(fy, new Date());
+    var path = hoursPath(person, fy);
+    var key = keyFor(C.slug);
+    return R.update(key, path, function (cur) {
+      var next = cur ? JSON.parse(JSON.stringify(cur)) : H.emptyFile(person, fy);
+      next.person = person.name; next.slug = person.slug; next.fiscalYear = fy;
+      if (!submit) {
+        /* Saving a draft must not drop what a take-back put there, or saving
+           once between taking a week back and resending it would lose the
+           earlier submission. */
+        var held = (next.draft && next.draft.weekEnding === ending && next.draft.tookBack) || null;
+        next.draft = { weekEnding: ending, rows: rows, savedAt: new Date().toISOString() };
+        if (held) next.draft.tookBack = held;
+        return next;
+      }
+      next.weeks = next.weeks || [];
+      var at = new Date().toISOString();
+      var found = null;
+      next.weeks.forEach(function (w) { if (w.weekEnding === ending) found = w; });
+      if (found) {
+        /* ⚠ Never overwritten.  What was there becomes a version, so what an
+           invoice was raised against can always be shown. */
+        found.versions = (found.versions || []).concat([{
+          at: found.submittedAt, rows: found.rows, state: found.state }]);
+        found.rows = rows; found.state = 'submitted'; found.submittedAt = at;
+        found.returnRequest = null;
+        found.history = (found.history || []).concat([{ at: at, what: 'resubmitted', by: person.name }]);
+      } else {
+        /* ⚠ A week that was taken back left the weeks list, and the versions it
+           had carried went into the draft.  They come back here, or a
+           take-back-and-resubmit would quietly erase the submission it
+           replaced — and "every submission is its own version" would be a
+           promise this page does not keep. */
+        var carried = (next.draft && next.draft.weekEnding === ending && next.draft.tookBack) || [];
+        next.weeks.push({ weekEnding: ending, state: 'submitted', submittedAt: at, rows: rows,
+          versions: carried, returnRequest: null,
+          history: (carried.length
+            ? [{ at: at, what: 'resubmitted after taking it back', by: person.name }]
+            : [{ at: at, what: 'submitted', by: person.name }]) });
+      }
+      next.draft = null;
+      return next;
+    }, (submit ? 'hours submitted' : 'hours saved') + ': ' + person.name + ' week ending ' + ending);
+  }
+
+  /* Taking a week back before MISMO has approved it.  The submission is KEPT
+     as a version and the rows return to the draft, so nothing is lost and the
+     record still shows a week was sent and withdrawn. */
+  function takeBack(C, person, fy, ending) {
+    return R.update(keyFor(C.slug), hoursPath(person, fy), function (cur) {
+      var next = JSON.parse(JSON.stringify(cur));
+      var keep = null;
+      next.weeks = (next.weeks || []).filter(function (w) {
+        if (w.weekEnding !== ending) return true;
+        keep = w; return false;
+      });
+      if (keep) {
+        next.draft = { weekEnding: ending, rows: keep.rows, savedAt: new Date().toISOString(),
+          tookBack: (keep.versions || []).concat([{ at: keep.submittedAt, rows: keep.rows,
+            state: keep.state }]) };
+      }
+      return next;
+    }, 'week taken back: ' + person.name + ' ' + ending);
+  }
+
+  function askReturn(C, person, fy, ending, why) {
+    var at = new Date().toISOString();
+    return R.update(keyFor(C.slug), hoursPath(person, fy), function (cur) {
+      var next = JSON.parse(JSON.stringify(cur));
+      (next.weeks || []).forEach(function (w) {
+        if (w.weekEnding !== ending) return;
+        w.returnRequest = { why: why, at: at, by: person.name };
+        w.history = (w.history || []).concat([{ at: at, what: 'return requested', by: person.name, why: why }]);
+      });
+      return next;
+    }, 'return requested: ' + person.name + ' ' + ending)
+    .then(function () {
+      /* The nudge outbox is the only thing on this page that reaches anybody.
+         A return request is exactly the kind of stop that belongs in it. */
+      return notify(C.slug, { kind: 'hours-return-requested', orderId: null,
+        order: 'Week ending ' + ending, company: C.F.company, who: person.name,
+        said: why, raisedOn: at, forAttentionOf: 'jcritchley@mismo.org', sent: false, sentOn: null });
+    });
+  }
+
+  /* ---- wiring ------------------------------------------------------------- */
+  function wireHours(C, person, fy) {
+    function refresh() { HRS.files = null; hoursHome(); }
+
+    var save = document.getElementById('h-save');
+    var send = document.getElementById('h-send');
+    var msg = document.getElementById('h-msg');
+
+    function count() {
+      if (!msg) return;
+      var rows = readRows(person);
+      var n = Object.keys(rows).filter(function (id) { return Number(rows[id].hours); }).length;
+      var t = Object.keys(rows).reduce(function (a, id) { return a + (Number(rows[id].hours) || 0); }, 0);
+      msg.textContent = n ? hrs(t) + ' hours on ' + n + ' order' + (n === 1 ? '' : 's')
+                          : 'Nothing entered yet';
+    }
+    $$('#view .hnum, #view .covhrs').forEach(function (el) { el.addEventListener('input', count); });
+    count();
+
+    if (save) save.addEventListener('click', function () {
+      save.disabled = true;
+      saveHours(C, person, fy, readRows(person), false)
+        .then(function () { toast('Saved. It has not gone to MISMO.', 'ok'); save.disabled = false; })
+        .catch(function (e) { save.disabled = false; failed(e); });
+    });
+
+    if (send) send.addEventListener('click', function () {
+      var rows = readRows(person);
+      var bad = weekProblems(C.F, person, rows);
+      if (bad.length) { openCheck(bad, function () { doSend(rows); }); return; }
+      doSend(rows);
+    });
+    function doSend(rows) {
+      if (send) send.disabled = true;
+      saveHours(C, person, fy, rows, true)
+        .then(function () { HRS.week = null; toast('Sent to MISMO.', 'ok'); refresh(); })
+        .catch(function (e) { if (send) send.disabled = false; failed(e); });
+    }
+
+    var back = document.getElementById('h-back');
+    if (back) back.addEventListener('click', function () {
+      back.disabled = true;
+      takeBack(C, person, fy, H.weekFor(fy, new Date()))
+        .then(function () { toast('Taken back. It is yours again.', 'ok'); refresh(); })
+        .catch(function (e) { back.disabled = false; failed(e); });
+    });
+
+    $$('#view [data-wkback]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation(); b.disabled = true;
+        takeBack(C, person, fy, b.dataset.wkback)
+          .then(function () { toast('Taken back. It is yours again.', 'ok'); refresh(); })
+          .catch(function (er) { b.disabled = false; failed(er); });
+      });
+    });
+
+    $$('#view [data-wkask]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var wk = b.dataset.wkask;
+        var box = $('#view [data-wkwhy="' + wk + '"]');
+        var why = box ? String(box.value || '').trim() : '';
+        if (!why) {
+          toast('A reason is required — it is what MISMO reads before deciding.', 'bad');
+          if (box) box.focus();
+          return;
+        }
+        b.disabled = true;
+        askReturn(C, person, fy, wk, why)
+          .then(function () { toast('Asked. MISMO decides, and the answer appears here.', 'ok'); refresh(); })
+          .catch(function (er) { b.disabled = false; failed(er); });
+      });
+    });
+
+    /* the cover split: show, hide, add and remove */
+    $$('#view [data-covtog]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var body = b.parentElement.querySelector('.covbody');
+        if (body) body.classList.toggle('open');
+      });
+    });
+    $$('#view [data-covadd]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var id = b.dataset.covadd;
+        var host = $('#view [data-covrows="' + id + '"]');
+        if (!host) return;
+        var mates = (C.F.people || []).filter(function (p) { return p.name !== person.name; });
+        var wrap = document.createElement('div');
+        wrap.innerHTML = covRow(id, mates, null);
+        var row = wrap.firstChild;
+        host.appendChild(row);
+        wireCovDel(row);
+        $('.covhrs', row).addEventListener('input', count);
+      });
+    });
+    $$('#view .covrow').forEach(wireCovDel);
+    function wireCovDel(row) {
+      var d = $('.covdel', row);
+      if (d) d.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var host = row.parentElement;
+        row.parentElement.removeChild(row);
+        if (host && !host.children.length) {
+          var mates = (C.F.people || []).filter(function (p) { return p.name !== person.name; });
+          var w = document.createElement('div');
+          w.innerHTML = covRow(host.dataset.covrows, mates, null);
+          host.appendChild(w.firstChild);
+          wireCovDel(host.firstChild);
+        }
+        count();
+      });
+    }
+
+    $$('#view [data-wkfix]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        HRS.week = b.dataset.wkfix;
+        hoursHome();
+      });
+    });
+    var now = document.getElementById('h-now');
+    if (now) now.addEventListener('click', function () { HRS.week = null; hoursHome(); });
+
+    var mp = document.getElementById('m-pick');
+    if (mp) mp.addEventListener('change', function () { HRS.month = mp.value; hoursHome(); });
+  }
+
+  /* A week with something worth a second look is not blocked — it is shown,
+     and the person decides.  ⚠ A missing note is a real omission but it is
+     not a reason to stop somebody sending their time on a Friday afternoon. */
+  function openCheck(problems, go) {
+    var host = document.getElementById('h-check');
+    if (!host) { go(); return; }
+    host.innerHTML =
+      '<div class="note"><b>Before you send this week.</b> Nothing here stops you \u2014 each one is ' +
+      'cheap to fix now and expensive to fix once these hours are on an invoice.' +
+      '<ul class="checks">' + problems.map(function (x) { return '<li>' + x + '</li>'; }).join('') + '</ul>' +
+      '<div class="issacts"><button class="tbtn ghost" type="button" id="ck-back">Go Back and Fix It</button>' +
+      '<button class="tbtn" type="button" id="ck-go">Send It Anyway</button></div></div>';
+    host.scrollIntoView({ block: 'nearest' });
+    var a = document.getElementById('ck-back'), b = document.getElementById('ck-go');
+    if (a) a.addEventListener('click', function () { host.innerHTML = ''; });
+    if (b) b.addEventListener('click', function () { host.innerHTML = ''; go(); });
+  }
+
+  /* ---- one page, one redraw ----------------------------------------------
+     My Hours sits in the contracting company's own view rather than a page of
+     its own, because the week and the orders it is logged against are the same
+     screen's business.  Everything that changes hours redraws that one view,
+     so a save, a take-back and a month change can never leave the page showing
+     two different answers for the same week. */
+  function hoursHome() { contractorView(); }
+
+
+  /* =========================================================================
+   * TIME TO APPROVE — the MISMO side of hours
+   *
+   * ⚠ Approving is a decision about a WEEK, not about a person: a week is the
+   * unit an invoice is eventually raised against, so it is the unit that gets
+   * locked.  Returning one sends it back whole, with the reason attached, and
+   * keeps what was submitted as its own version — nothing is edited on
+   * somebody else's behalf.
+   * ======================================================================= */
+  function everyWeek(list, filesByslug) {
+    var out = [];
+    list.forEach(function (C) {
+      (filesByslug[C.slug] || []).forEach(function (f) {
+        ((f && f.weeks) || []).forEach(function (wk) {
+          out.push({ C: C, file: f, wk: wk });
+        });
+      });
+    });
+    return out;
+  }
+
+  function loadAllHours(list) {
+    return Promise.all(list.map(function (C) {
+      var fy = C.F.fiscalYear || 'FY 2027';
+      return loadHours(C.slug, C.F, fy).then(function (files) { return { slug: C.slug, files: files }; });
+    })).then(function (rs) {
+      var by = {};
+      rs.forEach(function (r) { by[r.slug] = r.files; });
+      return by;
+    });
+  }
+
+  function approveSection(list, by) {
+    var all = everyWeek(list, by);
+    var waiting = all.filter(function (x) { return x.wk.state === 'submitted'; });
+    var asked = all.filter(function (x) { return x.wk.returnRequest; });
+
+    if (!waiting.length && !asked.length) {
+      return '<p class="empty">No time is waiting on you. Weeks appear here the moment somebody ' +
+        'submits one, and a request to reopen an approved week appears here too.</p>';
+    }
+
+    var body = '';
+    if (asked.length) {
+      body += '<h3 class="subh">Asked to Be Reopened</h3>' +
+        '<p class="lede">Somebody wants a week back that is already approved or invoiced. ' +
+        '<b>Read the reason before deciding</b> — a week on an unpaid invoice can be reopened, but ' +
+        'it means crediting and reissuing that invoice.</p>' +
+        '<div class="rows">' + asked.map(function (x) { return weekRow(x, true); }).join('') + '</div>';
+    }
+    if (waiting.length) {
+      var hoursWaiting = waiting.reduce(function (a, x) { return a + H.hoursIn(x.wk); }, 0);
+      body += (asked.length ? '<h3 class="subh">Waiting for Approval</h3>' : '') +
+        '<p class="lede">Each one is a week somebody has submitted. Approving locks it; returning it ' +
+        'sends it back with your reason and keeps what they sent.</p>' +
+        '<div class="tot"><span class="tot-l">Waiting for You</span>' +
+        '<span class="tot-v">' + hrs(hoursWaiting) + ' hours across ' + waiting.length + ' week' +
+        (waiting.length === 1 ? '' : 's') + '</span></div>' +
+        '<div class="rows">' + waiting.map(function (x) { return weekRow(x, false); }).join('') + '</div>';
+    }
+    return body;
+  }
+
+  function weekRow(x, isAsk) {
+    var F = x.C.F, wk = x.wk, f = x.file;
+    var rows = H.rowsOf(wk);
+    var ids = Object.keys(rows);
+    var st = H.stateOf(wk);
+    var tag = f.slug + '|' + wk.weekEnding;
+    var ask = wk.returnRequest;
+    /* Anything on this week worth Jonna's eye before she locks it. */
+    var flags = [];
+    ids.forEach(function (id) {
+      var o = orderById(F, id);
+      if (!o) { flags.push('Hours against something with no service order behind it'); return; }
+      var used = H.usedOnOrder(x.C.__files || [], id);
+      var tot = Number(o.estimatedHours) || 0;
+      if (tot && used > tot) flags.push(esc(o.subject) + ' is over its hours');
+      if (!rows[id].thisWeek) flags.push(esc(o.subject) + ' has no note');
+      if (H.splitOver(rows[id])) flags.push(esc(o.subject) + ' splits away more hours than were logged');
+    });
+
+    return '<div class="row"><div class="row-h">' +
+      '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
+      '<span class="rt">' + esc(f.person) + ' · week ending ' + esc(wk.weekEnding) + '</span>' +
+      (flags.length ? '<span class="pill warn">' + flags.length + ' to check</span>'
+                    : '<span class="pill ' + st.tone + '">' + esc(st.label) + '</span>') +
+      '<span class="rs num">' + hrs(H.hoursIn(wk)) + ' hours</span>' +
+      '</div><div class="row-b">' +
+      '<div class="fields">' +
+      fld('Company', F.company) +
+      fld('Person', f.person) +
+      fld('Week', H.weekSpan(x.C.F.fiscalYear || 'FY 2027', wk.weekEnding)) +
+      fld('Submitted', stamp(wk.submittedAt)) +
+      '</div>' +
+      (ask ? '<div class="note"><b>They have asked for this week back.</b> ' + esc(ask.why) +
+        '<br><span class="fineprint">Asked ' + esc(stamp(ask.at)) + ' by ' + esc(ask.by) + '. ' +
+        'The week is ' + esc(st.label.toLowerCase()) + '.</span></div>' : '') +
+      (flags.length ? '<div class="note"><b>Worth a look before you approve.</b><ul class="checks">' +
+        flags.map(function (fl) { return '<li>' + fl + '</li>'; }).join('') + '</ul></div>' : '') +
+      '<div class="tbl"><table><thead><tr><th>Service Order</th><th class="n">Hours</th>' +
+      '<th class="hide-narrow">What They Wrote</th><th class="hide-narrow">Health</th></tr></thead><tbody>' +
+      ids.map(function (id) {
+        var r = rows[id], o = orderById(F, id);
+        var split = H.splitOf(r, f.person);
+        return '<tr><td>' + esc(o ? o.subject : id) +
+          (split.length > 1 ? '<br><span class="fineprint">For ' + esc(split.map(function (s) {
+            return s.person + ' ' + hrs(s.hours); }).join(' · ')) + '</span>' : '') +
+          '</td><td class="n">' + hrs(r.hours) + '</td>' +
+          '<td class="hide-narrow">' + (r.thisWeek ? esc(r.thisWeek) :
+            '<span class="fineprint">No note written</span>') +
+          (r.upcoming ? '<br><span class="fineprint">Upcoming: ' + esc(r.upcoming) + '</span>' : '') +
+          '</td><td class="hide-narrow">' + esc(r.health || '—') + '</td></tr>';
+      }).join('') + '</tbody></table></div>' +
+      '<div class="fields"><div class="f wide">' +
+      '<label>Why You Are Sending It Back</label>' +
+      '<input type="text" data-apwhy="' + esc(tag) + '" placeholder="One line — what they need to change">' +
+      '</div></div>' +
+      '<div class="issacts">' +
+      '<button class="tbtn" type="button" data-apok="' + esc(tag) + '">' +
+        (isAsk ? 'Reopen This Week' : 'Approve This Week') + '</button>' +
+      '<button class="tbtn ghost" type="button" data-apno="' + esc(tag) + '">' +
+        (isAsk ? 'Leave It Locked' : 'Send It Back') + '</button>' +
+      '</div>' +
+      '<p class="fineprint">' + (isAsk
+        ? 'Reopening returns the week to them to correct and resubmit. <b>A reason is required to ' +
+          'refuse</b> — it is what they read. What they submitted is kept either way.'
+        : 'Approving locks the week. Sending it back returns it to them with your reason, and keeps ' +
+          'what they sent as its own version — nothing is edited on their behalf. ' +
+          '<b>A reason is required to send one back.</b>') + '</p>' +
+      '</div></div>';
+  }
+
+  /* ---- the two decisions -------------------------------------------------- */
+  function setWeek(C, personSlug, ending, change, msg) {
+    var fy = C.F.fiscalYear || 'FY 2027';
+    return R.update(keyFor(C.slug), 'hours/' + personSlug + '-' + fyKey(fy) + '.json', function (cur) {
+      var next = JSON.parse(JSON.stringify(cur));
+      (next.weeks || []).forEach(function (w) { if (w.weekEnding === ending) change(w); });
+      return next;
+    }, msg);
+  }
+
+  function wireApprove(list, by, redraw) {
+    function ctx(tag) {
+      var p = String(tag).split('|');
+      var slug = p[0], ending = p[1];
+      var found = null;
+      list.forEach(function (C) {
+        (by[C.slug] || []).forEach(function (f) { if (f && f.slug === slug) found = { C: C, f: f }; });
+      });
+      return found ? { C: found.C, slug: slug, ending: ending } : null;
+    }
+
+    $$('#view [data-apok]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var c = ctx(b.dataset.apok); if (!c) return;
+        b.disabled = true;
+        var at = new Date().toISOString();
+        setWeek(c.C, c.slug, c.ending, function (w) {
+          if (w.returnRequest) {
+            /* Reopening: the week goes back to them, and what they submitted
+               is kept as a version so the invoice trail survives. */
+            w.versions = (w.versions || []).concat([{ at: w.submittedAt, rows: w.rows, state: w.state }]);
+            w.state = 'submitted'; w.returnRequest = null;
+            w.history = (w.history || []).concat([{ at: at, what: 'reopened by MISMO', by: ME.name }]);
+          } else {
+            w.state = 'approved'; w.approvedAt = at; w.approvedBy = ME.name;
+            w.history = (w.history || []).concat([{ at: at, what: 'approved', by: ME.name }]);
+          }
+        }, 'hours decision: ' + c.slug + ' ' + c.ending)
+          .then(function () { toast('Done.', 'ok'); redraw(); })
+          .catch(function (er) { b.disabled = false; failed(er); });
+      });
+    });
+
+    $$('#view [data-apno]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var c = ctx(b.dataset.apno); if (!c) return;
+        var box = $('#view [data-apwhy="' + b.dataset.apno + '"]');
+        var why = box ? String(box.value || '').trim() : '';
+        if (!why) {
+          toast('A reason is required — it is what they read.', 'bad');
+          if (box) box.focus();
+          return;
+        }
+        b.disabled = true;
+        var at = new Date().toISOString();
+        setWeek(c.C, c.slug, c.ending, function (w) {
+          if (w.returnRequest) {
+            w.returnRequest = null;
+            w.history = (w.history || []).concat([
+              { at: at, what: 'reopening refused', by: ME.name, why: why }]);
+            w.refused = { why: why, at: at, by: ME.name };
+          } else {
+            w.versions = (w.versions || []).concat([{ at: w.submittedAt, rows: w.rows, state: w.state }]);
+            w.state = 'returned'; w.returnedWhy = why; w.returnedAt = at;
+            w.history = (w.history || []).concat([
+              { at: at, what: 'sent back', by: ME.name, why: why }]);
+          }
+        }, 'hours sent back: ' + c.slug + ' ' + c.ending)
+          .then(function () {
+            return notify(c.C.slug, { kind: 'hours-sent-back', orderId: null,
+              order: 'Week ending ' + c.ending, company: c.C.F.company, who: c.slug,
+              said: why, raisedOn: at, forAttentionOf: null, sent: false, sentOn: null });
+          })
+          .then(function () { toast('Sent back with your reason.', 'ok'); redraw(); })
+          .catch(function (er) { b.disabled = false; failed(er); });
+      });
+    });
   }
 
   /* what the nudge outbox is holding, and whether anything has gone out */
@@ -2703,7 +4024,7 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
 
       var sendBody = '<p class="lede">An order can be sent once ' + esc(list[0].F.vpProduct.name) +
         ' has released it. Sending writes the date onto the order; the contracting company sees it ' +
-        'the next time they open their link.</p>' +
+        'the next time they sign in.</p>' +
         '<div class="rows">' + list.map(function (C) {
           var ready = C.F.orders.filter(function (o) { return C.st[o.id].key === 'vp'; });
           return '<div class="row" data-co="' + esc(C.slug) + '"><div class="row-h">' +
@@ -2749,11 +4070,32 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
         }).join('') + '</div>';
 
       whoEl.innerHTML = esc(ME.name) + ' <i>·</i> ' + esc(ME.title);
+      /* Hours are read for every company in one go.  ⚠ They are read SEPARATELY
+         from the orders rather than folded into the same request, so a company
+         whose hours cannot be read never takes the orders down with it —
+         approving time and sending orders are different jobs and must not
+         share a single point of failure. */
+      loadAllHours(list).then(function (by) {
+        list.forEach(function (C) { C.__files = by[C.slug] || []; });
+        var wks = everyWeek(list, by);
+        var waiting = wks.filter(function (x) {
+          return x.wk.state === 'submitted' || x.wk.returnRequest; }).length;
+        drawAdmin(approveSection(list, by), waiting, by);
+      }).catch(function (e) {
+        if (window.console && console.warn) console.warn('hours', e);
+        drawAdmin('<div class="note"><b>Time could not be read just now.</b> Nothing has been lost — ' +
+          'this is the page failing to fetch it. Everything else on this page is unaffected.</div>',
+          null, null);
+      });
+
+      function drawAdmin(approveBody, waiting, by) {
       say(sect('Status Board', null, board, true) +
         sect('Needs You', needs.length, needsBody, needs.length > 0) +
+        sect('Time to Approve', waiting, approveBody, waiting > 0) +
         sect('Send Orders', tally.vp || 0, sendBody) +
         sect('Executed Documents', null, archive) +
         sect('Help', null, helpFor('admin', list[0] && list[0].F)));
+      if (by) wireApprove(list, by, adminView);
 
       document.querySelectorAll('.sendco').forEach(function (b) {
         b.addEventListener('click', function () {
@@ -2783,7 +4125,12 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
           fr.onload = function () {
             var b64 = String(fr.result).split(',')[1];
             var path = 'agreements/' + slug + '/' + flav.toLowerCase() + '-fy2027.pdf';
-            R.write('orders', path, { encoding: 'base64', content: b64 }, null, 'executed ' + flav + ' MSA')
+            /* ⚠ Was R.write('orders', …) — a function the relay module does not
+               have, against the old single-project alias.  It would have thrown
+               the first time an executed MSA was filed.  A PDF goes through as
+               base64 or every byte that is not valid UTF-8 is mangled, and that
+               only shows when somebody opens the file. */
+            R.commit(keyFor(slug), [R.binaryFile(path, b64)], 'executed ' + flav + ' MSA')
               .then(function () {
                 return R.update(keyFor(slug), 'agreements/' + slug + '.json', function (cur) {
                   var next = JSON.parse(JSON.stringify(cur));
@@ -2803,6 +4150,7 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
           fr.readAsDataURL(file);
         });
       });
+      }   /* drawAdmin */
     }).catch(closed);
   }
 
@@ -2819,10 +4167,28 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
   function helpFor(kind, F) {
     var name = ME && ME.name ? ME.name : 'you';
     if (kind === 'contractor') {
-      return blk('Opening Your Link', steps([
-        'Open the link MISMO emailed you. It is <b>yours</b>, not your company’s — do not forward it, because whoever holds it can accept orders as you.',
-        'The web address loses its long code as soon as the page opens. That is deliberate; the code is kept in this browser instead.',
-        'From then on, on this browser, <b>resources.mismo.org/service-orders/</b> on its own will open your page. On any other browser or device, use the link again.']))
+      return blk('Signing In', steps([
+        'Go to <b>resources.mismo.org/service-orders/</b>.',
+        'Type the email address MISMO set you up with, and the password they sent you separately.',
+        'Press <b>Sign In</b>. Your session lasts four hours and ends when you close the tab.',
+        'The account is <b>yours</b>, not your company’s — do not share the password, because whoever has it can accept orders as you.']))
+        + blk('Logging Your Time', steps([
+        'Open <b>My Hours</b>. It shows the week you are in, with one row for every service order you work on.',
+        'Click a row to open it. Put the hours in <b>Hours This Week</b>, write one line in <b>This Week</b>, and set <b>Health</b>.',
+        '<b>Upcoming</b> is what is next — it is what MISMO reads to see what is coming, so it is worth a line.',
+        'If a colleague did some of those hours, open <b>Did somebody else do some of these hours?</b> and name them with their share. Whatever is left stays with you. On a normal week, leave it alone.',
+        'Press <b>Save Without Sending</b> as often as you like — it keeps the week here and sends nothing.',
+        'When the week is done, press <b>Submit This Week</b>.']))
+        + blk('Seeing Whether an Order Is Running Out', steps([
+        'Open any row in <b>My Hours</b>.',
+        '<b>Used by Everyone</b> and <b>Remaining on the Order</b> are the whole order, not your share — when several people work the same order, that is the only figure that tells you whether it is close to its maximum.',
+        'The bar turns amber past 70% and red past 90%. <b>Tell MISMO before it runs out</b>, not after it appears on an invoice.']))
+        + blk('Changing a Week You Have Already Sent', steps([
+        'Open <b>My Submitted Time</b> and choose the week.',
+        'If it says <b>Submitted</b>, MISMO has not approved it yet and it is still yours — press <b>Take It Back to Correct</b>. You need nobody’s permission.',
+        'If it says <b>Approved</b> or <b>Invoiced</b>, write one line in <b>What Is Wrong With This Week</b> and press <b>Ask for It to Be Returned</b>. A reason is required — it is what MISMO reads before deciding.',
+        'If it says <b>Invoiced and Paid</b>, the week does not reopen for anyone. A correction goes on the next period.',
+        'If it says <b>Sent Back to You</b>, press <b>Correct This Week</b> — it opens in My Hours with what you sent still in it.']))
         + blk('Accepting Orders Together', steps([
         'Open <b>To Review</b>.',
         'Read the orders. Each one is listed under <b>Read Them Here</b> — click a row and it opens out into the order exactly as it will read.',
