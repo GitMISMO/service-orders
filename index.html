@@ -15,7 +15,7 @@
  --good:#0f7b5c; --bad:#b3372c; --warn:#a2701a;
  --accent-soft:#e4f2fb;
  --display:'IBM Plex Sans',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
- --ui:var(--display); --mono:'IBM Plex Mono',ui-monospace,monospace;
+ --ui:var(--display); --mono:var(--display);   /* one typeface everywhere */
  --hq-h:64px; --rail-w:240px; --rail-mini:62px;
  color-scheme:light;
 }
@@ -41,7 +41,7 @@ h1,h2,h3,h4{letter-spacing:-.012em;margin:0}
 
 .wrap{padding:26px 30px 90px;max-width:none}
 @media(max-width:640px){ .wrap{padding:18px 16px 70px} }
-.lede{color:var(--ink-2);font-size:14.5px;margin:0 0 22px}
+.lede{color:var(--ink-2);font-size:13.5px;margin:0 0 20px}
 
 /* ── cards in a grid ─────────────────────────────────────────── */
 .grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;margin-bottom:28px}
@@ -52,10 +52,10 @@ h1,h2,h3,h4{letter-spacing:-.012em;margin:0}
  box-shadow:0 1px 2px rgba(6,32,47,.05)}
 .card:hover{border-color:var(--border-strong);box-shadow:0 4px 14px rgba(6,32,47,.10)}
 .card:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
-.card h3{font-size:14.5px;font-weight:600;display:flex;align-items:center;gap:8px}
-.card .cnt{font-family:var(--mono);font-size:10px;letter-spacing:.06em;font-weight:600;color:var(--ink-3);
+.card h3{font-size:15px;font-weight:600;display:flex;align-items:center;gap:8px}
+.card .cnt{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;font-weight:600;color:var(--ink-3);
  background:var(--surface-3);border-radius:20px;padding:2px 8px;margin-left:auto;flex:0 0 auto}
-.card p{margin:0;color:var(--ink-2);font-size:12.7px}
+.card p{margin:0;color:var(--ink-2);font-size:12.5px}
 .card .figs{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:2px}
 .card .fig{display:flex;flex-direction:column}
 .card .fig b{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:16px;font-weight:600;color:var(--ink)}
@@ -89,7 +89,7 @@ h1,h2,h3,h4{letter-spacing:-.012em;margin:0}
 .row.open .row-h{background:var(--sky-wash);}
 :root[data-theme="dark"] .row.open .row-h{background:var(--surface-3)}
 @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .row.open .row-h{background:var(--surface-3)} }
-.row-h .rt{font-weight:600;font-size:13.4px;flex:1 1 auto;min-width:0}
+.row-h .rt{font-weight:600;font-size:13.5px;flex:1 1 auto;min-width:0}
 .row-h .rs{font-family:var(--mono);font-size:11.5px;font-variant-numeric:tabular-nums;color:var(--ink-2);flex:0 0 auto}
 .row-h .chev{width:15px;height:15px;flex:0 0 auto;stroke:var(--ink-3);fill:none;stroke-width:2;
  stroke-linecap:round;stroke-linejoin:round;transition:transform .15s}
@@ -102,10 +102,10 @@ h1,h2,h3,h4{letter-spacing:-.012em;margin:0}
 .f{display:flex;flex-direction:column;gap:2px;min-width:0}
 .f label{font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;
  color:var(--ink-3);font-weight:600}
-.f .v{font-size:13.2px;color:var(--ink);overflow-wrap:anywhere}
+.f .v{font-size:13.5px;color:var(--ink);overflow-wrap:anywhere}
 .f .v.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .blk{margin-top:16px}
-.blk h4{font-size:11px;font-family:var(--mono);letter-spacing:.09em;text-transform:uppercase;
+.blk h4{font-size:11.5px;font-family:var(--mono);letter-spacing:.09em;text-transform:uppercase;
  color:var(--ink-3);font-weight:700;margin-bottom:5px}
 .blk ul{margin:0;padding-left:19px}
 .blk li{margin-bottom:4px}
@@ -115,21 +115,21 @@ h1,h2,h3,h4{letter-spacing:-.012em;margin:0}
 .doc{background:var(--surface);border:1px solid var(--border);border-radius:9px;padding:20px 24px;margin-top:16px}
 .doc .dt{font-weight:700;font-size:14px;margin-bottom:12px}
 .doc .sec{margin-top:15px}
-.doc .sn{font-weight:600;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--navy-mid);margin-bottom:4px}
+.doc .sn{font-weight:600;font-size:12.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--navy-mid);margin-bottom:4px}
 :root[data-theme="dark"] .doc .sn{color:var(--sky)}
 @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .doc .sn{color:var(--sky)} }
 .doc p{margin:0 0 6px;white-space:pre-wrap}
 .doc .sig{display:grid;grid-template-columns:1fr 1fr;gap:26px;margin-top:24px;
  border-top:1px solid var(--rule);padding-top:14px}
 @media(max-width:620px){ .doc .sig{grid-template-columns:1fr} }
-.doc .sig div b{display:block;font-size:11px;font-family:var(--mono);letter-spacing:.08em;
+.doc .sig div b{display:block;font-size:11.5px;font-family:var(--mono);letter-spacing:.08em;
  text-transform:uppercase;color:var(--ink-3);margin-bottom:5px}
 .doc .sig div span{display:block;font-size:13px}
 
 /* tables */
-table{border-collapse:collapse;width:100%;font-size:12.8px}
+table{border-collapse:collapse;width:100%;font-size:12.5px}
 th,td{padding:7px 11px;text-align:left;border-bottom:1px solid var(--rule)}
-th{background:var(--surface-3);font-size:10px;font-family:var(--mono);letter-spacing:.08em;
+th{background:var(--surface-3);font-size:10.5px;font-family:var(--mono);letter-spacing:.08em;
  text-transform:uppercase;color:var(--ink-2);font-weight:700;border-bottom:2px solid var(--navy-mid)}
 td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
 tr:last-child td{border-bottom:0}
@@ -137,7 +137,7 @@ tfoot td{font-weight:700;background:var(--surface-2);border-top:2px solid var(--
 .tbl{border:1px solid var(--border);border-radius:9px;overflow:hidden;background:var(--surface)}
 
 /* chips + callouts */
-.chip{display:inline-flex;align-items:center;gap:5px;font-family:'IBM Plex Sans',sans-serif;font-size:10.5px;
+.chip{display:inline-flex;align-items:center;gap:5px;font-family:var(--display);font-size:10.5px;
  letter-spacing:.05em;text-transform:uppercase;font-weight:600;padding:2px 8px;border-radius:20px;
  background:var(--surface-3);color:var(--ink-2);white-space:nowrap}
 .chip.warn{background:rgba(162,112,26,.14);color:var(--warn)}
@@ -149,7 +149,7 @@ tfoot td{font-weight:700;background:var(--surface-2);border-top:2px solid var(--
 .ok b{color:var(--good)}
 
 /* ── editing ─────────────────────────────────────────────────── */
-.f input, .f select{font:inherit;font-size:13.2px;font-family:var(--display);color:var(--ink);
+.f input, .f select{font:inherit;font-size:13.5px;font-family:var(--display);color:var(--ink);
  background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;width:100%;min-width:0}
 .f input.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
 .f input:hover,.f select:hover{border-color:var(--border-strong)}
@@ -158,7 +158,7 @@ tfoot td{font-weight:700;background:var(--surface-2);border-top:2px solid var(--
 .f.edited input,.f.edited select{border-color:var(--warn);background:rgba(162,112,26,.07)}
 .row.edited .row-h .rt::after{content:"Edited";font-family:var(--mono);font-size:9px;letter-spacing:.06em;
  font-weight:600;color:var(--warn);background:rgba(162,112,26,.14);border-radius:20px;padding:2px 7px;margin-left:8px}
-.editnote{font-size:12.3px;color:var(--ink-3);margin:2px 0 10px}
+.editnote{font-size:12.5px;color:var(--ink-3);margin:2px 0 10px}
 
 /* the floating changes button */
 .chgbtn{position:fixed;right:22px;bottom:22px;z-index:130;background:var(--navy);color:#fff;
@@ -179,7 +179,7 @@ tfoot td{font-weight:700;background:var(--surface-2);border-top:2px solid var(--
 
 /* the signing box, as the contractor will see it */
 .signbox{border:2px dashed var(--border-strong);border-radius:9px;padding:16px 18px;margin-top:20px;background:var(--surface-2)}
-.signbox h4{font-size:11px;font-family:var(--mono);letter-spacing:.09em;text-transform:uppercase;
+.signbox h4{font-size:11.5px;font-family:var(--mono);letter-spacing:.09em;text-transform:uppercase;
  color:var(--ink-3);font-weight:700;margin-bottom:9px}
 .signbox .stamp{font-family:var(--mono);font-size:11.5px;color:var(--ink-2);margin-top:11px;
  border-top:1px solid var(--rule);padding-top:9px}
@@ -209,7 +209,7 @@ tfoot td{font-weight:700;background:var(--surface-2);border-top:2px solid var(--
 .stat .lab{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;
  color:var(--ink-3);line-height:1.35;font-weight:600;font-family:var(--mono)}
 .stat .val{display:block;font-family:var(--mono);font-variant-numeric:tabular-nums;
- font-size:25px;font-weight:600;margin-top:6px;letter-spacing:-.02em;line-height:1.1}
+ font-size:26px;font-weight:600;margin-top:6px;letter-spacing:-.02em;line-height:1.1}
 .stat .sub{display:block;font-size:11.5px;color:var(--ink-3);margin-top:3px}
 .stat.warn{border-left:3px solid var(--warn)} .stat.warn .val{color:var(--warn)}
 .stat.good{border-left:3px solid var(--good)} .stat.good .val{color:var(--good)}
@@ -223,13 +223,13 @@ tr.clk td:first-child::after{content:"›";color:var(--ink-3);font-size:15px;mar
 
 /* who may change what */
 .lockbar{display:flex;align-items:center;gap:9px;background:var(--surface-3);border:1px solid var(--border);
- border-radius:7px;padding:8px 12px;margin:2px 0 12px;font-size:12.3px;color:var(--ink-2)}
+ border-radius:7px;padding:8px 12px;margin:2px 0 12px;font-size:12.5px;color:var(--ink-2)}
 .lockbar svg{width:15px;height:15px;flex:0 0 auto;stroke:var(--ink-3);fill:none;stroke-width:1.8}
 .lockbar b{color:var(--ink)}
 
 /* print / save as PDF */
 .printbtn{background:var(--surface-3);border:1px solid var(--border-strong);border-radius:6px;color:var(--ink);
- font:inherit;font-family:var(--display);font-size:12.3px;font-weight:600;padding:6px 13px;cursor:pointer;
+ font:inherit;font-family:var(--display);font-size:12.5px;font-weight:600;padding:6px 13px;cursor:pointer;
  display:inline-flex;align-items:center;gap:7px;margin:14px 0 0}
 .printbtn:hover{background:var(--sky-wash)}
 :root[data-theme="dark"] .printbtn:hover{background:var(--surface-2)}
@@ -242,7 +242,7 @@ tr.clk td:first-child::after{content:"›";color:var(--ink-3);font-size:15px;mar
   body.printing > *{display:none !important}
   body.printing > #printhost{display:block !important}
   #printhost .doc{border:0;padding:0;margin:0;background:#fff;color:#000;
-    font-family:Georgia,'Times New Roman',serif;font-size:11pt;line-height:1.5}
+    font-family:var(--display);font-size:10.5pt;line-height:1.5}
   #printhost .doc .sn{color:#000}
   #printhost .signbox,#printhost .printbtn,#printhost .note{display:none !important}
   @page{margin:1in 1.1in}
@@ -256,17 +256,17 @@ tr.clk td:first-child::after{content:"›";color:var(--ink-3);font-size:15px;mar
 .cvbar .who{margin-left:auto;font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;
  text-transform:uppercase;color:rgba(255,255,255,.62);font-weight:600}
 .cvurl{background:var(--surface-3);border-bottom:1px solid var(--border);padding:7px 18px;
- font-family:var(--mono);font-size:11px;color:var(--ink-3);overflow-wrap:anywhere}
+ font-family:var(--mono);font-size:11.5px;color:var(--ink-3);overflow-wrap:anywhere}
 .cvbody{padding:18px}
 .cvsec{margin-bottom:24px}
 .cvsec:last-child{margin-bottom:0}
 .cvsec h3{font-size:13.5px;font-weight:600;margin-bottom:3px;display:flex;align-items:center;gap:9px}
-.cvsec .cvsub{font-size:12.3px;color:var(--ink-3);margin-bottom:10px}
+.cvsec .cvsub{font-size:12.5px;color:var(--ink-3);margin-bottom:10px}
 .meter{height:6px;border-radius:4px;background:var(--surface-3);overflow:hidden;min-width:70px;flex:1 1 auto}
 .meter i{display:block;height:100%;background:var(--sky)}
 .meter i.hot{background:var(--warn)}
 .meter i.over{background:var(--bad)}
-.cvnote{font-size:12.3px;color:var(--ink-2);background:var(--surface-3);border-radius:7px;padding:9px 13px;margin-top:10px}
+.cvnote{font-size:12.5px;color:var(--ink-2);background:var(--surface-3);border-radius:7px;padding:9px 13px;margin-top:10px}
 
 /* ── figures in the sans face, still aligned ─────────────────── */
 .num, .f .v.num, .f input.num, td.n, th.n, .stat .val, .card .fig b, .row-h .rs,
@@ -277,7 +277,7 @@ table .n, .doc .num{ font-family:var(--display) !important; font-variant-numeric
 /* ── services and deliverables, one field per line ───────────── */
 .sdlist{display:flex;flex-direction:column;gap:7px;margin-top:6px}
 .sdrow{display:flex;gap:8px;align-items:flex-start}
-.sdrow input{flex:1 1 auto;min-width:0;font:inherit;font-size:13.2px;font-family:var(--display);
+.sdrow input{flex:1 1 auto;min-width:0;font:inherit;font-size:13.5px;font-family:var(--display);
  color:var(--ink);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 9px}
 .sdrow input:hover{border-color:var(--border-strong)}
 .sdrow input:focus{outline:2px solid var(--sky);outline-offset:-1px;background:var(--surface-2)}
@@ -286,7 +286,7 @@ table .n, .doc .num{ font-family:var(--display) !important; font-variant-numeric
  background:var(--surface-2);color:var(--ink-3);cursor:pointer;font-size:15px;line-height:1;padding:0}
 .sdx:hover{background:var(--surface-3);color:var(--bad)}
 .sdadd{align-self:flex-start;background:var(--surface-3);border:1px solid var(--border);border-radius:6px;
- color:var(--ink-2);font:inherit;font-family:var(--display);font-size:12.2px;font-weight:600;padding:5px 12px;cursor:pointer;margin-top:2px}
+ color:var(--ink-2);font:inherit;font-family:var(--display);font-size:12.5px;font-weight:600;padding:5px 12px;cursor:pointer;margin-top:2px}
 .sdadd:hover{background:var(--sky-wash);color:var(--ink)}
 .srcline{font-size:11.5px;color:var(--ink-3);margin-top:5px}
 .srcline b{color:var(--ink-2)}
@@ -295,14 +295,14 @@ table .n, .doc .num{ font-family:var(--display) !important; font-variant-numeric
 .q td:first-child{width:34px}
 .q input[type=checkbox]{width:17px;height:17px;accent-color:var(--navy-mid);cursor:pointer}
 .qask{background:none;border:1px solid var(--border);border-radius:6px;color:var(--ink-2);
- font:inherit;font-family:var(--display);font-size:11.8px;padding:4px 10px;cursor:pointer;white-space:nowrap}
+ font:inherit;font-family:var(--display);font-size:11.5px;padding:4px 10px;cursor:pointer;white-space:nowrap}
 .qask:hover{background:var(--surface-3);color:var(--ink)}
 .qask.on{background:rgba(162,112,26,.14);border-color:var(--warn);color:var(--warn);font-weight:600}
 .qbar{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid var(--rule)}
 .qcount{font-size:12.5px;color:var(--ink-2)}
 .qcount b{color:var(--ink)}
 .qbox{margin-top:8px}
-.qbox input{width:100%;font:inherit;font-size:12.8px;font-family:var(--display);color:var(--ink);
+.qbox input{width:100%;font:inherit;font-size:12.5px;font-family:var(--display);color:var(--ink);
  background:var(--surface);border:1px solid var(--warn);border-radius:6px;padding:6px 9px}
 
 /* ── their shell: the same masthead and rail, their own sections ── */
@@ -327,7 +327,7 @@ table .n, .doc .num{ font-family:var(--display) !important; font-variant-numeric
 
 /* ── pick the company from inside the preview, where the eye is ── */
 .cvpick{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 14px}
-.cvpick .cvlab{font-family:var(--mono);font-size:9.5px;letter-spacing:.11em;text-transform:uppercase;
+.cvpick .cvlab{font-family:var(--mono);font-size:10.5px;letter-spacing:.11em;text-transform:uppercase;
  font-weight:700;color:var(--ink-3);margin-right:2px}
 .cvpick button{background:var(--surface);border:1px solid var(--border);border-radius:20px;
  color:var(--ink-2);font:inherit;font-family:var(--display);font-size:12.5px;font-weight:600;
@@ -341,7 +341,7 @@ table .n, .doc .num{ font-family:var(--display) !important; font-variant-numeric
 /* ── the company record ──────────────────────────────────────── */
 /* rows share the header's grid so every column starts in the same place */
 .crow{display:grid;gap:8px;align-items:center;margin-bottom:7px}
-.crow input,.crow select{min-width:0;width:100%;font:inherit;font-size:13.2px;font-family:var(--display);
+.crow input,.crow select{min-width:0;width:100%;font:inherit;font-size:13.5px;font-family:var(--display);
  color:var(--ink);background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 9px}
 .crow input.num{font-variant-numeric:tabular-nums}
 .crow input:hover,.crow select:hover{border-color:var(--border-strong)}
@@ -349,14 +349,14 @@ table .n, .doc .num{ font-family:var(--display) !important; font-variant-numeric
 .crow .cx{width:28px;justify-self:start;height:30px;border:1px solid var(--border);border-radius:6px;
  background:var(--surface-2);color:var(--ink-3);cursor:pointer;font-size:15px;line-height:1;padding:0}
 .crow .cx:hover{background:var(--surface-3);color:var(--bad)}
-.crow .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:.06em;color:var(--ink-3);
+.crow .tag{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;color:var(--ink-3);
  background:var(--surface-3);border-radius:4px;padding:4px 8px;white-space:nowrap;
  text-align:center;justify-self:stretch;overflow:hidden;text-overflow:ellipsis}
 .chead{display:grid;gap:8px;margin-bottom:5px;padding:0 0 1px}
 .chead span{font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;
  color:var(--ink-3);font-weight:600}
 .addbtn{background:var(--surface-3);border:1px solid var(--border);border-radius:6px;color:var(--ink-2);
- font:inherit;font-family:var(--display);font-size:12.2px;font-weight:600;padding:5px 12px;cursor:pointer;margin-top:4px}
+ font:inherit;font-family:var(--display);font-size:12.5px;font-weight:600;padding:5px 12px;cursor:pointer;margin-top:4px}
 .addbtn:hover{background:var(--sky-wash);color:var(--ink)}
 .card.newco{border-style:dashed;align-items:center;justify-content:center;text-align:center;min-height:132px}
 .card.newco h3{justify-content:center}
@@ -395,7 +395,7 @@ table .n, .doc .num{ font-family:var(--display) !important; font-variant-numeric
 .tstate.sub .dot{background:var(--warn)}
 .tstate.appr .dot{background:var(--good)}
 .tstate .st{font-weight:600;font-size:13px}
-.tstate .sd{font-size:12.4px;color:var(--ink-2)}
+.tstate .sd{font-size:12.5px;color:var(--ink-2)}
 .tstate .acts{margin-left:auto;display:flex;gap:8px}
 .tbtn{background:var(--navy);color:#fff;border:1px solid var(--navy);border-radius:6px;
  font:inherit;font-family:var(--display);font-size:12.5px;font-weight:600;padding:6px 14px;cursor:pointer}
@@ -407,7 +407,7 @@ table .n, .doc .num{ font-family:var(--display) !important; font-variant-numeric
 @media (prefers-color-scheme:dark){
  :root:not([data-theme="light"]) .tbtn{background:var(--sky);color:var(--navy-deep);border-color:var(--sky)}
  :root:not([data-theme="light"]) .tbtn.ghost{background:var(--surface-2);color:var(--ink);border-color:var(--border-strong)} }
-.tw input,.tw select{width:100%;min-width:0;font:inherit;font-size:12.8px;font-family:var(--display);color:var(--ink);
+.tw input,.tw select{width:100%;min-width:0;font:inherit;font-size:12.5px;font-family:var(--display);color:var(--ink);
  background:var(--surface);border:1px solid var(--border);border-radius:5px;padding:4px 7px}
 .tw input.h{font-variant-numeric:tabular-nums;text-align:right}
 .tw input:focus,.tw select:focus{outline:2px solid var(--sky);outline-offset:-1px}
@@ -428,7 +428,7 @@ table .n, .doc .num{ font-family:var(--display) !important; font-variant-numeric
 /* ── one timesheet entry, in the panel ───────────────────────── */
 .tnote label{display:block;font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;
  color:var(--ink-3);font-weight:600;margin-bottom:4px}
-.tnote textarea{width:100%;min-height:104px;resize:vertical;font:inherit;font-size:13.4px;line-height:1.55;
+.tnote textarea{width:100%;min-height:104px;resize:vertical;font:inherit;font-size:13.5px;line-height:1.55;
  font-family:var(--display);color:var(--ink);background:var(--surface);border:1px solid var(--border);
  border-radius:7px;padding:10px 12px}
 .tnote textarea:hover{border-color:var(--border-strong)}
@@ -438,37 +438,37 @@ table .n, .doc .num{ font-family:var(--display) !important; font-variant-numeric
 .tnote .cnt2{font-size:11.5px;color:var(--ink-3);margin-top:4px}
 .tbar{position:sticky;bottom:0;display:flex;flex-wrap:wrap;gap:9px;align-items:center;
  background:var(--surface);border-top:1px solid var(--border);margin:22px -20px -60px;padding:13px 20px 16px}
-.tbar .sp{margin-left:auto;font-size:12.3px;color:var(--ink-3)}
+.tbar .sp{margin-left:auto;font-size:12.5px;color:var(--ink-3)}
 .tbar .sp b{color:var(--warn)}
 .tw tr.trow{cursor:pointer}
 .tw tr.trow:hover td{background:var(--sky-wash)}
 :root[data-theme="dark"] .tw tr.trow:hover td{background:var(--surface-3)}
 @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .tw tr.trow:hover td{background:var(--surface-3)} }
-.tw td.notecell{color:var(--ink-2);font-size:12.4px}
+.tw td.notecell{color:var(--ink-2);font-size:12.5px}
 .tw td.notecell.empty{color:var(--ink-3);font-style:italic}
 
 /* ── fiscal year picker inside their sections ────────────────── */
 .fypick{display:flex;align-items:center;gap:9px;margin:0 0 10px}
 .fypick label{font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;
  color:var(--ink-3);font-weight:600}
-.fypick select{font:inherit;font-size:12.6px;font-family:var(--display);font-weight:600;color:var(--ink);
+.fypick select{font:inherit;font-size:12.5px;font-family:var(--display);font-weight:600;color:var(--ink);
  background:var(--surface);border:1px solid var(--border-strong);border-radius:5px;padding:5px 10px;cursor:pointer}
 .fypick select:hover{background:var(--surface-2)}
 .fypick select:focus{outline:2px solid var(--sky);outline-offset:1px}
-.fypick .hint{font-size:11.8px;color:var(--ink-3)}
+.fypick .hint{font-size:11.5px;color:var(--ink-3)}
 
 /* ---------- wording library ---------- */
 .wsec{margin:14px 0 0}
-.wsec h4{margin:0 0 6px;font:600 .78rem/1.3 'IBM Plex Sans',sans-serif;letter-spacing:.06em;
+.wsec h4{margin:0 0 6px;font:600 .78rem/1.3 var(--display);letter-spacing:.06em;
   text-transform:uppercase;color:var(--muted)}
 .wsec ul{margin:0;padding-left:18px}
 .wsec li{margin:0 0 5px;font-size:.92rem;line-height:1.5}
 .wsec p{margin:0;font-size:.92rem;line-height:1.55}
 .wfind{margin:0 0 12px}
 .wfind input{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:5px;
-  background:var(--card);color:var(--ink);font:400 .95rem/1.3 'IBM Plex Sans',sans-serif}
+  background:var(--card);color:var(--ink);font:400 .95rem/1.3 var(--display)}
 .wfind input:focus{outline:2px solid var(--sky);outline-offset:1px;border-color:var(--sky)}
-h3.sech{margin:26px 0 10px;font:600 1rem/1.3 'IBM Plex Sans',sans-serif;color:var(--ink)}
+h3.sech{margin:26px 0 10px;font:600 1rem/1.3 var(--display);color:var(--ink)}
 
 .crow.isnew input,.crow.isnew select{border-color:var(--sky);background:rgba(116,191,235,.08)}
 .addbtn{margin-top:10px}
@@ -482,7 +482,7 @@ h3.sech{margin:26px 0 10px;font:600 1rem/1.3 'IBM Plex Sans',sans-serif;color:va
 .printwarn ol{margin:0;padding-left:20px}
 .printwarn li{margin-bottom:6px}
 .printwarn .pw-x{margin-top:10px;background:var(--surface-3);border:1px solid var(--border);
-  border-radius:5px;color:var(--ink-2);font:inherit;font-size:12.2px;font-weight:600;
+  border-radius:5px;color:var(--ink-2);font:inherit;font-size:12.5px;font-weight:600;
   padding:5px 12px;cursor:pointer}
 .printwarn .pw-x:hover{background:var(--sky-wash);color:var(--ink)}
 @media print{.printwarn{display:none}}
@@ -502,7 +502,7 @@ h3.sech{margin:26px 0 10px;font:600 1rem/1.3 'IBM Plex Sans',sans-serif;color:va
 .hp .hpdot{width:13px;height:13px;border-radius:50%;background:var(--ink-3);
   box-shadow:inset 0 0 0 1px rgba(0,0,0,.14)}
 .hp.g .hpdot{background:var(--good)} .hp.y .hpdot{background:var(--warn)} .hp.r .hpdot{background:var(--bad)}
-.hp .hpna{font-family:'IBM Plex Sans',sans-serif;font-size:10.5px;font-weight:700;
+.hp .hpna{font-family:var(--display);font-size:10.5px;font-weight:700;
   letter-spacing:.03em;color:var(--ink-3)}
 .hp.na{width:42px}
 .hp.on{border-color:var(--navy);box-shadow:0 0 0 2px var(--sky-wash)}
@@ -520,7 +520,7 @@ h3.sech{margin:26px 0 10px;font:600 1rem/1.3 'IBM Plex Sans',sans-serif;color:va
 .cvco-h b{font-size:13.5px}
 .cvco-t{margin-left:auto; font-size:12.5px; color:var(--ink-2)}
 .cvco .tbl{border:0}
-.cvaccept{font-size:12px; color:var(--ink-2); white-space:nowrap}
+.cvaccept{font-size:12.5px; color:var(--ink-2); white-space:nowrap}
 @media (max-width:620px){ .cvco-t{margin-left:0; width:100%} }
 
 /* The order name is a sentence, not a label, so it gets the width — otherwise
@@ -545,7 +545,7 @@ h3.sech{margin:26px 0 10px;font:600 1rem/1.3 'IBM Plex Sans',sans-serif;color:va
 .tot{display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 14px;
   margin:0 0 14px; padding:11px 14px; border-radius:8px;
   background:var(--surface-3); border:1px solid var(--border)}
-.tot-l{font-family:var(--mono); font-size:9.5px; letter-spacing:.11em;
+.tot-l{font-family:var(--mono); font-size:10.5px; letter-spacing:.11em;
   text-transform:uppercase; color:var(--ink-3); font-weight:700; white-space:nowrap}
 .tot-v{font-size:14px; color:var(--ink)}
 .tot-v b{font-size:17px; font-weight:600; font-variant-numeric:tabular-nums}
@@ -561,7 +561,7 @@ h3.sech{margin:26px 0 10px;font:600 1rem/1.3 'IBM Plex Sans',sans-serif;color:va
 }
 
 /* The role switch on the company preview */
-.cvrolenote{font-size:12px; color:var(--ink-3); margin-left:10px; flex:1 1 220px; min-width:0}
+.cvrolenote{font-size:12.5px; color:var(--ink-3); margin-left:10px; flex:1 1 220px; min-width:0}
 .cvnote.warnnote{border-left:3px solid var(--warn); background:var(--surface-3)}
 @media (max-width:620px){ .cvrolenote{margin-left:0; flex-basis:100%} }
 
@@ -584,11 +584,11 @@ h3.sech{margin:26px 0 10px;font:600 1rem/1.3 'IBM Plex Sans',sans-serif;color:va
   background:var(--surface-3); border-left:3px solid var(--border)}
 .wkstate.good{border-left-color:var(--good)}
 .wkstate.warn{border-left-color:var(--warn)}
-.wk-l{font-family:var(--mono); font-size:9.5px; letter-spacing:.11em;
+.wk-l{font-family:var(--mono); font-size:10.5px; letter-spacing:.11em;
   text-transform:uppercase; font-weight:700; color:var(--ink-2); white-space:nowrap}
 .wk-d{font-size:12.5px; color:var(--ink-3); flex:1 1 260px; min-width:0}
 @media (max-width:620px){ .wk-l{width:100%} }
-.nonote{color:var(--ink-3); opacity:.75; font-style:italic; font-size:12px}
+.nonote{color:var(--ink-3); opacity:.75; font-style:italic; font-size:12.5px}
 
 /* Invoices */
 .cvh4{font-family:var(--display); font-size:13px; font-weight:700; color:var(--ink);
@@ -596,11 +596,11 @@ h3.sech{margin:26px 0 10px;font:600 1rem/1.3 'IBM Plex Sans',sans-serif;color:va
 .cvh4:first-of-type{margin-top:4px}
 .totrow td{border-top:2px solid var(--border); background:var(--surface-3)}
 .upbox{margin:14px 0; border:1px solid var(--border); border-radius:9px; background:var(--surface)}
-.upl{font-family:var(--mono); font-size:9.5px; letter-spacing:.11em; text-transform:uppercase;
+.upl{font-family:var(--mono); font-size:10.5px; letter-spacing:.11em; text-transform:uppercase;
   font-weight:700; color:var(--ink-3); padding:10px 14px 0}
 .updrop{padding:6px 14px 14px}
 .updrop > p{margin:6px 0 10px; font-size:13px; color:var(--ink-2)}
-.upnote{font-size:12px; color:var(--ink-3); margin:10px 0 0; line-height:1.55}
+.upnote{font-size:12.5px; color:var(--ink-3); margin:10px 0 0; line-height:1.55}
 .upfile{display:flex; flex-wrap:wrap; align-items:center; gap:8px 14px; padding:8px 14px 14px}
 .upfile .fn{font-weight:600; font-size:13.5px; color:var(--ink)}
 .upfile .fm{font-family:var(--mono); font-size:11.5px; color:var(--ink-3)}
@@ -608,14 +608,14 @@ h3.sech{margin:26px 0 10px;font:600 1rem/1.3 'IBM Plex Sans',sans-serif;color:va
 .invchk{margin:12px 0}
 .invtrail{display:flex; flex-wrap:wrap; gap:6px 22px; margin:14px 0 0; padding:12px 14px;
   border-radius:8px; background:var(--surface-3)}
-.invtrail .ts{display:flex; align-items:baseline; gap:7px; font-size:12px; color:var(--ink-3)}
+.invtrail .ts{display:flex; align-items:baseline; gap:7px; font-size:12.5px; color:var(--ink-3)}
 .invtrail .tsd{width:7px; height:7px; border-radius:50%; background:var(--border); flex:0 0 auto}
 .invtrail .ts.on .tsd{background:var(--good)}
 .invtrail .ts.on .tsl{color:var(--ink); font-weight:600}
-.invtrail .tsw{font-family:var(--mono); font-size:11px; opacity:.85}
+.invtrail .tsw{font-family:var(--mono); font-size:11.5px; opacity:.85}
 .mailcard{border:1px solid var(--border); border-radius:8px; background:var(--surface); margin:10px 0}
 .mailcard .mrow{display:flex; gap:10px; padding:7px 12px; border-bottom:1px solid var(--border); font-size:13px}
-.mailcard .ml{font-family:var(--mono); font-size:9.5px; letter-spacing:.1em; text-transform:uppercase;
+.mailcard .ml{font-family:var(--mono); font-size:10.5px; letter-spacing:.1em; text-transform:uppercase;
   font-weight:700; color:var(--ink-3); width:72px; flex:0 0 auto; padding-top:3px}
 .mailcard .mv{color:var(--ink); overflow-wrap:anywhere}
 .mailcard .mbody{padding:12px; font-size:13.5px; color:var(--ink); line-height:1.6}
@@ -627,7 +627,7 @@ h3.sech{margin:26px 0 10px;font:600 1rem/1.3 'IBM Plex Sans',sans-serif;color:va
 .upreject p{margin:0 0 9px; font-size:13px; color:var(--ink-2); line-height:1.6}
 .uptotal{padding:0 14px 14px}
 .uptotal .fields{margin:0 0 8px}
-.linkbtn{background:none; border:0; padding:0; font:inherit; font-size:12px;
+.linkbtn{background:none; border:0; padding:0; font:inherit; font-size:12.5px;
   color:var(--navy-mid); text-decoration:underline; cursor:pointer}
 .linkbtn:hover{opacity:.8}
 .sentok{display:flex; gap:11px; align-items:flex-start; margin:0 0 16px;
@@ -671,13 +671,13 @@ body.railmini .panel.wide{width:min(1320px, calc(100vw - var(--rail-mini,62px) -
 .vhead h1{font-size:24px;font-weight:700;letter-spacing:-.012em;margin:0}
 .vhead p{margin:4px 0 0;color:var(--ink-2)}
 .vhead .grow{flex:1 1 320px}
-.sect-t{font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+.sect-t{font-size:12.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
   color:var(--ink-2);margin:26px 0 10px}
 
 /* the navy headline block with its tiles */
 .headline{background:var(--navy);color:#fff;border-radius:8px;padding:20px 22px;
   display:flex;flex-direction:column;gap:14px;margin:0 0 22px}
-.headline .hl-date{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
+.headline .hl-date{font-size:11.5px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;
   color:var(--sky-soft);margin-bottom:-6px}
 .headline .hl-say{font-size:18px;font-weight:600;letter-spacing:-.01em;line-height:1.35;margin:0}
 .headline .hl-say em{font-style:normal;color:var(--sky)}
@@ -690,7 +690,7 @@ body.railmini .panel.wide{width:min(1320px, calc(100vw - var(--rail-mini,62px) -
 .tile:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
 .tile b{display:block;font-size:28px;font-weight:700;line-height:1.1;color:#fff;
   font-variant-numeric:tabular-nums}
-.tile span{display:block;font-size:12px;color:var(--sky-soft);margin-top:3px}
+.tile span{display:block;font-size:12.5px;color:var(--sky-soft);margin-top:3px}
 .tile small{display:block;font-size:11.5px;color:rgba(255,255,255,.6);margin-top:2px}
 .tile.warn b{color:#ffcf73}
 
@@ -727,7 +727,7 @@ body.railmini .panel.wide{width:min(1320px, calc(100vw - var(--rail-mini,62px) -
 .hqrow:hover{background:var(--surface-2)}
 .hqrow:focus-visible{outline:2px solid var(--navy-mid);outline-offset:-2px}
 .hqrow .t{flex:1 1 260px;font-weight:600;min-width:0;overflow-wrap:anywhere}
-.hqrow .t small{display:block;font-weight:400;color:var(--ink-3);font-size:12px;margin-top:1px}
+.hqrow .t small{display:block;font-weight:400;color:var(--ink-3);font-size:12.5px;margin-top:1px}
 .hqrow .r{display:flex;flex-wrap:wrap;gap:6px;align-items:center;justify-content:flex-end}
 .hqrow .d{font-size:12.5px;color:var(--ink-2);white-space:nowrap;font-variant-numeric:tabular-nums}
 .hqrow .arr{color:var(--ink-3);font-size:16px;line-height:1}
@@ -806,7 +806,7 @@ body.railmini .hq .mast-right .theme-btn span{display:none}
 .railfind-b svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
 .railfind-b:hover{background:rgba(255,255,255,.18);color:#fff}
 .rail-top{display:flex;align-items:center;gap:8px;padding:11px 10px 9px;border-bottom:1px solid rgba(80,164,219,.2);flex:0 0 auto}
-.rail-lbl{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:rgba(255,255,255,.55);padding-left:3px}
+.rail-lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;font-weight:700;color:rgba(255,255,255,.55);padding-left:3px}
 .railhide{margin-left:auto;background:transparent;border:1px solid rgba(255,255,255,.18);border-radius:5px;
   color:rgba(255,255,255,.75);width:24px;height:24px;flex:0 0 auto;display:flex;align-items:center;justify-content:center;padding:0;cursor:pointer}
 .railhide svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
@@ -830,8 +830,8 @@ body.railmini .hq .mast-right .theme-btn span{display:none}
 .railhits .rh:last-child{border-bottom:0}
 .railhits .rh:hover,.railhits .rh.on{background:var(--accent-soft)}
 .railhits .rh b{display:block;font-size:12.5px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
-.railhits .rh i{display:block;font-style:normal;font-family:var(--mono);font-size:9.5px;letter-spacing:.03em;color:var(--ink-3);margin-top:1px;overflow-wrap:anywhere}
-.railhits .rh-none{padding:10px;font-size:12px;color:var(--ink-3)}
+.railhits .rh i{display:block;font-style:normal;font-family:var(--mono);font-size:10.5px;letter-spacing:.03em;color:var(--ink-3);margin-top:1px;overflow-wrap:anywhere}
+.railhits .rh-none{padding:10px;font-size:12.5px;color:var(--ink-3)}
 .hq nav{display:flex;flex-direction:column;gap:1px;padding:8px 8px 4px;flex:0 0 auto}
 .hq nav button{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:0;border-radius:6px;
   color:rgba(255,255,255,.76);padding:8px 10px;font:inherit;font-family:var(--display);font-size:13px;font-weight:500;cursor:pointer;white-space:nowrap}
@@ -877,7 +877,7 @@ body.railmini .hq .mast-right .theme-btn span{display:none}
 
 /* The count beside a rail item — the same number the section header carries. */
 .hq nav button .railn{margin-left:auto; font-style:normal;
-  font-family:"IBM Plex Mono",monospace; font-size:10.5px; font-weight:600;
+  font-family:var(--mono); font-size:10.5px; font-weight:600;
   color:var(--side-dim,rgba(255,255,255,.55)); padding-left:8px}
 .hq nav button[aria-current="page"] .railn{color:rgba(255,255,255,.85)}
 body.railmini .hq nav button .railn{display:none}
@@ -900,7 +900,7 @@ body.railmini .hq nav button .railn{display:none}
 .hq nav button .railbadge.late{background:#d8453a; color:#fff}
 .hq nav button .railbadge.slot1{margin-left:3px}
 body.railmini .hq nav button .railbadge{display:inline-flex; position:absolute; top:2px; right:0;
-  width:17px; height:17px; padding:0; font-size:10px; margin:0;
+  width:17px; height:17px; padding:0; font-size:10.5px; margin:0;
   box-shadow:0 0 0 2px var(--navy,#0d314c)}
 body.railmini .hq nav button .railbadge.w2{width:22px; right:-3px}
 body.railmini .hq nav button .railbadge.w3{width:27px; right:-6px}
@@ -921,6 +921,10 @@ body.railmini .hq nav button .railbadge.slot1{top:22px; margin-left:0}
  * ======================================================================= */
 :root{ --mono:var(--display); }
 body{ font-variant-numeric:tabular-nums; }
+/* A button, input or select does NOT inherit the page font by default — the
+   browser gives it its own. The two close crosses (the rail search and the
+   panel) were the last two things on the page set in something else. */
+button,input,select,textarea,optgroup{font-family:inherit}
 
 /* The platform page — resources.mismo.org/service-orders/
    Sits on top of style.css so the portal, the Sponsorship Portal and Summit HQ
@@ -977,7 +981,7 @@ body{ font-variant-numeric:tabular-nums; }
 .dochost{overflow-wrap:anywhere}
 
 /* ── status pills ─────────────────────────────────────────── */
-.pill{display:inline-flex;align-items:center;font-family:var(--mono);font-size:10px;
+.pill{display:inline-flex;align-items:center;font-family:var(--mono);font-size:10.5px;
  letter-spacing:.07em;text-transform:uppercase;font-weight:600;border-radius:20px;
  padding:3px 9px;background:var(--surface-3);color:var(--ink-2);flex:0 0 auto;white-space:nowrap}
 .pill.good{background:rgba(15,123,92,.14);color:var(--good)}
@@ -991,7 +995,7 @@ body{ font-variant-numeric:tabular-nums; }
 /* ── tables ───────────────────────────────────────────────── */
 .tbl{margin:12px 0}
 .tbl table{width:100%;border-collapse:collapse;font-size:13px}
-.tbl th{text-align:left;font-family:var(--mono);font-size:9.5px;letter-spacing:.09em;
+.tbl th{text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.09em;
  text-transform:uppercase;color:var(--ink-3);font-weight:600;padding:9px 12px;
  background:var(--surface-2);border-bottom:1px solid var(--border);white-space:nowrap}
 .tbl td{padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
@@ -1021,7 +1025,7 @@ body{ font-variant-numeric:tabular-nums; }
 .gobtn:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
 :root[data-theme="dark"] .gobtn{background:var(--sky);color:var(--navy-deep);border-color:var(--sky)}
 @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .gobtn{background:var(--sky);color:var(--navy-deep);border-color:var(--sky)} }
-.ghost{font:inherit;font-size:12.6px;padding:8px 14px;border-radius:7px;background:var(--surface);
+.ghost{font:inherit;font-size:12.5px;padding:8px 14px;border-radius:7px;background:var(--surface);
  color:var(--ink);border:1px solid var(--border-strong);cursor:pointer;white-space:nowrap}
 .ghost:hover{background:var(--surface-3)}
 
@@ -1056,14 +1060,18 @@ body{ font-variant-numeric:tabular-nums; }
   :root:not([data-theme="light"]) .tbtn.ghost{background:var(--surface-2);color:var(--ink)}
 }
 .qc{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);align-self:center}
-.fineprint{font-size:12.3px;color:var(--ink-3);margin:8px 0 0;max-width:none}
+.fineprint{font-size:12.5px;color:var(--ink-3);margin:8px 0 0;max-width:none}
+/* A note under a totals band explains THAT band, so it hugs it and the air
+   goes below the pair instead — it was floating midway between the band and
+   the rows and reading as a caption for the wrong thing. */
+.tot + .fineprint{margin:-6px 0 20px}
 .dl{color:var(--navy-mid);font-weight:600}
 :root[data-theme="dark"] .dl{color:var(--sky)}
 
 /* ── what was signed ──────────────────────────────────────── */
 .signed{border-left:3px solid var(--good);background:rgba(15,123,92,.07);padding:10px 14px;
  border-radius:0 7px 7px 0;margin:14px 0 0;font-size:13px}
-.signed .what{display:block;font-family:var(--mono);font-size:11.3px;color:var(--ink-3);margin-top:4px}
+.signed .what{display:block;font-family:var(--mono);font-size:11.5px;color:var(--ink-3);margin-top:4px}
 .note.warn{border-left-color:var(--warn)}
 /* ⚠ This was called .upl, which the SHARED sheet already uses for a tiny
    uppercase monospace LABEL.  The portal used the same name for a whole
@@ -1072,14 +1080,14 @@ body{ font-variant-numeric:tabular-nums; }
    Renamed rather than overridden: two different things must not share a name. */
 .execbox{border:1px solid var(--border);border-radius:9px;padding:12px 14px;margin:12px 0;
   background:var(--surface)}
-.execbox input[type=file]{font:inherit;font-size:12.4px;color:var(--ink-2)}
+.execbox input[type=file]{font:inherit;font-size:12.5px;color:var(--ink-2)}
 
 /* ── the board ────────────────────────────────────────────── */
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 20px}
 @media(max-width:900px){ .stats{grid-template-columns:repeat(2,minmax(0,1fr))} }
 .stat{background:var(--surface-2);border:1px solid var(--border);border-radius:9px;padding:11px 13px}
 .stat.warn{border-color:var(--warn)}
-.stat .lab{display:block;font-size:9.5px;font-family:var(--mono);letter-spacing:.09em;
+.stat .lab{display:block;font-size:10.5px;font-family:var(--mono);letter-spacing:.09em;
  text-transform:uppercase;color:var(--ink-3);font-weight:600}
 .stat .val{display:block;font-family:var(--mono);font-variant-numeric:tabular-nums;
  font-size:22px;font-weight:600;color:var(--ink);margin-top:2px}
@@ -1093,9 +1101,9 @@ body{ font-variant-numeric:tabular-nums; }
  border:1px solid var(--border);border-radius:12px;padding:34px 30px}
 .shut h2{font-size:19px;margin-bottom:10px}
 .shut p{color:var(--ink-2);font-size:14px;margin:0}
-.empty{color:var(--ink-3);font-size:13.4px;margin:4px 0}
+.empty{color:var(--ink-3);font-size:13.5px;margin:4px 0}
 .toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,16px);opacity:0;z-index:300;
- background:var(--navy);color:#fff;font-size:13.2px;padding:11px 20px;border-radius:9px;
+ background:var(--navy);color:#fff;font-size:13.5px;padding:11px 20px;border-radius:9px;
  box-shadow:0 8px 26px rgba(6,32,47,.28);transition:opacity .2s,transform .2s;max-width:88vw}
 .toast.go{opacity:1;transform:translate(-50%,0)}
 .toast.good{background:var(--good)} .toast.warn{background:var(--bad)}
@@ -1127,13 +1135,13 @@ body{ font-variant-numeric:tabular-nums; }
 .hblk{border-top:1px solid var(--rule);padding:14px 0 2px}
 .hblk:first-child{border-top:0;padding-top:0}
 .hblk h4{font-size:13px;font-weight:600;margin:0 0 6px}
-.hblk p{margin:0 0 8px;color:var(--ink-2);font-size:13.2px;max-width:none}
+.hblk p{margin:0 0 8px;color:var(--ink-2);font-size:13.5px;max-width:none}
 /* .steps already has its numbered badges in the shared stylesheet — only the
    colour and size of the text belong here, or the badges land on the words */
-ol.steps{color:var(--ink-2);font-size:13.2px;margin:0 0 10px}
+ol.steps{color:var(--ink-2);font-size:13.5px;margin:0 0 10px}
 .hblk b{color:var(--ink)}
-.why{font-family:var(--mono);font-size:11px;color:var(--ink-3);margin-top:3px;white-space:normal}
-.note code{font-family:var(--mono);font-size:11.8px;background:var(--surface-3);
+.why{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);margin-top:3px;white-space:normal}
+.note code{font-family:var(--mono);font-size:11.5px;background:var(--surface-3);
  border-radius:4px;padding:1px 5px}
 
 /* ---- fee totals (decision 31) -------------------------------------------
@@ -1142,7 +1150,7 @@ ol.steps{color:var(--ink-2);font-size:13.2px;margin:0 0 10px}
 .tot{display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 14px;
   margin:0 0 14px; padding:11px 14px; border-radius:8px;
   background:var(--surface-3); border:1px solid var(--border)}
-.tot-l{font-family:"IBM Plex Mono",monospace; font-size:9.5px; letter-spacing:.11em;
+.tot-l{font-family:var(--mono); font-size:10.5px; letter-spacing:.11em;
   text-transform:uppercase; color:var(--ink-3); font-weight:700; white-space:nowrap}
 .tot-v{font-size:14px; color:var(--ink)}
 .tot-v .num{font-size:17px; font-weight:600; font-variant-numeric:tabular-nums}
@@ -1196,9 +1204,9 @@ body.signedout main,body.signedout #view{padding:0}
 
 .signfields{display:flex;flex-direction:column;gap:15px;margin:0 0 20px}
 .signfields .f{display:flex;flex-direction:column;gap:6px}
-.signfields label{font-family:var(--mono);font-size:9.5px;letter-spacing:.11em;
+.signfields label{font-family:var(--mono);font-size:10.5px;letter-spacing:.11em;
   text-transform:uppercase;font-weight:700;color:var(--ink-3)}
-.signfields input{width:100%;box-sizing:border-box;font:inherit;font-size:14.5px;
+.signfields input{width:100%;box-sizing:border-box;font:inherit;font-size:14px;
   padding:11px 13px;border:1px solid var(--border-strong);border-radius:7px;
   background:var(--surface-2);color:var(--ink)}
 .signfields input::placeholder{color:var(--ink-3);opacity:.85}
@@ -1210,7 +1218,7 @@ body.signedout main,body.signedout #view{padding:0}
   border-color:var(--sky);box-shadow:0 0 0 3px rgba(116,191,235,.22)} }
 
 .signgo{display:block;width:100%;background:var(--navy);color:#fff;border:1px solid var(--navy);
-  border-radius:7px;padding:12px 16px;font:inherit;font-family:var(--display);font-size:14.5px;
+  border-radius:7px;padding:12px 16px;font:inherit;font-family:var(--display);font-size:14px;
   font-weight:600;cursor:pointer}
 .signgo:hover:not(:disabled){background:var(--navy-mid)}
 .signgo:disabled{opacity:.6;cursor:wait}
@@ -1219,11 +1227,11 @@ body.signedout main,body.signedout #view{padding:0}
 @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .signgo{
   background:var(--sky);color:var(--navy-deep);border-color:var(--sky)} }
 
-.signfine{margin:18px 0 0;font-size:12px;line-height:1.6;color:var(--ink-3);text-align:center}
+.signfine{margin:18px 0 0;font-size:12.5px;line-height:1.6;color:var(--ink-3);text-align:center}
 .signfine a{color:var(--navy-mid);font-weight:600}
 :root[data-theme="dark"] .signfine a{color:var(--sky)}
 @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .signfine a{color:var(--sky)} }
-.signerr{display:block;margin-top:6px;font-family:var(--mono);font-size:11px;opacity:.8}
+.signerr{display:block;margin-top:6px;font-family:var(--mono);font-size:11.5px;opacity:.8}
 
 @media(max-width:480px){
   .signwrap{padding:18px 14px 48px;align-items:flex-start}
@@ -1269,17 +1277,17 @@ body.railmini .railout{justify-content:center;padding:11px 0 8px}
 .covbody{display:none;margin-top:8px}
 .covbody.open{display:block}
 .covrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:6px 0}
-.covrow select.covwho{font:inherit;font-size:13.2px;font-family:var(--display);color:var(--ink);
+.covrow select.covwho{font:inherit;font-size:13.5px;font-family:var(--display);color:var(--ink);
   background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 8px;
   min-width:190px;flex:1 1 190px}
-.covrow input.covhrs{font-size:13.2px;font-family:var(--mono);font-variant-numeric:tabular-nums;
+.covrow input.covhrs{font-size:13.5px;font-family:var(--mono);font-variant-numeric:tabular-nums;
   color:var(--ink);background:var(--surface);border:1px solid var(--border);border-radius:6px;
   padding:6px 8px;width:100px}
 .covrow select.covwho:focus,.covrow input.covhrs:focus{outline:2px solid var(--sky);outline-offset:-1px}
 
 /* A text link that does something on the page, as distinct from a button that
    sends something to MISMO. */
-.lnk{background:none;border:0;padding:0;font:inherit;font-size:12.4px;color:var(--navy-mid);
+.lnk{background:none;border:0;padding:0;font:inherit;font-size:12.5px;color:var(--navy-mid);
   text-decoration:underline;text-underline-offset:2px;cursor:pointer;text-align:left}
 .lnk:hover{color:var(--navy)}
 @media (prefers-color-scheme:dark){
@@ -1288,7 +1296,7 @@ body.railmini .railout{justify-content:center;padding:11px 0 8px}
 }
 :root[data-theme="dark"] .lnk{color:var(--sky)}
 :root[data-theme="dark"] .lnk:hover{color:var(--sky-soft)}
-.covdel{font-size:11.6px;color:var(--ink-3)}
+.covdel{font-size:11.5px;color:var(--ink-3)}
 
 /* The pre-send check. */
 .checks{margin:8px 0 10px;padding-left:18px}
@@ -1311,11 +1319,11 @@ body.railmini .railout{justify-content:center;padding:11px 0 8px}
 .vabar .va-l{font-family:var(--mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;
   color:var(--sky);white-space:nowrap}
 .vabar .va-c{font-weight:700;font-size:14px;white-space:nowrap}
-.vabar .va-r{font-size:12.4px;color:var(--sky-soft);min-width:0;overflow-wrap:anywhere}
+.vabar .va-r{font-size:12.5px;color:var(--sky-soft);min-width:0;overflow-wrap:anywhere}
 .vabar .va-ro{margin-left:auto;font-family:var(--mono);font-size:9px;letter-spacing:.1em;
   text-transform:uppercase;background:var(--warn);color:#2a1d05;border-radius:999px;
   padding:3px 10px;white-space:nowrap}
-.vabar .va-out{font:inherit;font-size:12.4px;background:transparent;color:#fff;cursor:pointer;
+.vabar .va-out{font:inherit;font-size:12.5px;background:transparent;color:#fff;cursor:pointer;
   border:1px solid rgba(255,255,255,.45);border-radius:6px;padding:5px 11px;white-space:nowrap}
 .vabar .va-out:hover{background:rgba(255,255,255,.12);border-color:#fff}
 .vabar .va-out:focus-visible{outline:2px solid var(--sky);outline-offset:1px}
@@ -1324,10 +1332,10 @@ body.railmini .railout{justify-content:center;padding:11px 0 8px}
    page began.  It keeps every piece of information and gives up the space. */
 @media(max-width:700px){
   .vabar{gap:4px 8px;padding:8px 12px;margin-bottom:10px}
-  .vabar .va-l{font-size:8.5px;letter-spacing:.09em}
+  .vabar .va-l{font-size:9px;letter-spacing:.09em}
   .vabar .va-c{font-size:13px;flex:1 1 auto;min-width:0}
   .vabar .va-r{flex:1 1 100%;font-size:11.5px;line-height:1.35}
-  .vabar .va-ro{margin-left:0;order:3;font-size:8.5px;padding:2px 8px}
+  .vabar .va-ro{margin-left:0;order:3;font-size:9px;padding:2px 8px}
   .vabar .va-out{order:4;margin-left:auto;padding:4px 10px;font-size:11.5px}
 }
 
@@ -1345,7 +1353,7 @@ body.railmini .railout{justify-content:center;padding:11px 0 8px}
    the pipeline reads the same on every one. */
 .stepline{display:flex;flex-wrap:wrap;gap:4px}
 .stp{display:inline-flex;align-items:center;gap:4px;border-radius:4px;padding:2px 6px;
-  font-size:11px;font-weight:600;background:var(--sky-wash);color:var(--navy-mid);
+  font-size:11.5px;font-weight:600;background:var(--sky-wash);color:var(--navy-mid);
   border:1px solid transparent;white-space:nowrap}
 .stp i{font-style:normal;font-variant-numeric:tabular-nums;font-weight:700}
 .stp.none{background:transparent;border-color:var(--border);color:var(--ink-3);font-weight:500}
@@ -1385,7 +1393,7 @@ body.railmini .railout{justify-content:center;padding:11px 0 8px}
 .hdot.r{background:var(--bad)}
 .hdot.none{background:transparent;border-style:dashed;border-color:var(--border-strong)}
 .hdot.na{width:auto;height:auto;border:0;border-radius:3px;padding:1px 6px;background:var(--surface-3);
-  color:var(--ink-3);font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;font-weight:600}
+  color:var(--ink-3);font-family:var(--mono);font-size:10.5px;letter-spacing:.07em;font-weight:600}
 .row-h .hdot{margin-left:2px}
 /* the Health column in a table wants to be narrow, not a third of the width */
 th.hcol,td.hcol{width:62px;text-align:center}
@@ -1398,7 +1406,7 @@ td.hcol .hdot{margin:0 auto}
    and draggable further — a one-line box that scrolls sideways is where a
    status report goes to die. */
 .fields.notes2{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
-.f textarea{font:inherit;font-size:13.2px;font-family:var(--display);color:var(--ink);
+.f textarea{font:inherit;font-size:13.5px;font-family:var(--display);color:var(--ink);
   background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;
   width:100%;min-width:0;resize:vertical;line-height:1.5}
 .f textarea:hover{border-color:var(--border-strong)}
@@ -1407,7 +1415,7 @@ td.hcol .hdot{margin:0 auto}
 
 /* A block of quoted words in the panel — what somebody actually said. */
 .saidbox{margin:6px 0 14px;padding:10px 14px;border-left:3px solid var(--sky);
-  background:var(--sky-wash);border-radius:0 6px 6px 0;font-size:13.4px;line-height:1.55}
+  background:var(--sky-wash);border-radius:0 6px 6px 0;font-size:13.5px;line-height:1.55}
 :root[data-theme="dark"] .saidbox{background:var(--surface-2)}
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]) .saidbox{background:var(--surface-2)}
@@ -1421,7 +1429,7 @@ td.hcol .hdot{margin:0 auto}
    is not a health flag: the point is being able to take it in without reading.
    The word stays on every one of them, because colour alone is not a label. */
 .hpick{display:flex;flex-wrap:wrap;gap:4px}
-.hbtn{display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:12px;
+.hbtn{display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:12.5px;
   background:var(--surface);border:1px solid var(--border);border-radius:6px;
   padding:5px 9px;cursor:pointer;color:var(--ink-2);white-space:nowrap}
 .hbtn:hover:not(:disabled){border-color:var(--border-strong);color:var(--ink)}
@@ -1463,7 +1471,7 @@ td.hcol .hdot{margin:0 auto}
   border-bottom:1px solid var(--rule);font-size:11.5px;font-weight:700;letter-spacing:.07em;
   text-transform:uppercase;color:var(--ink-2)}
 .rgrp > span{background:var(--surface);border:1px solid var(--border);border-radius:3px;
-  padding:0 6px;font-size:11px;letter-spacing:0;color:var(--ink)}
+  padding:0 6px;font-size:11.5px;letter-spacing:0;color:var(--ink)}
 .rgrp-go{margin-left:auto;font:inherit;font-size:11.5px;font-weight:600;letter-spacing:0;
   text-transform:none;background:var(--navy);color:#fff;border:1px solid var(--navy);
   border-radius:5px;padding:4px 11px;cursor:pointer;white-space:nowrap}
@@ -1497,7 +1505,7 @@ td.hcol .hdot{margin:0 auto}
 .rowacts{display:flex;flex-wrap:wrap;align-items:center;gap:10px;
   margin:20px 0 4px;padding-top:16px;border-top:1px solid var(--rule,var(--border))}
 .rowacts .unsaved{margin-right:auto;display:inline-flex;align-items:center;gap:7px;
-  font-size:12.4px;font-weight:600;color:var(--warn)}
+  font-size:12.5px;font-weight:600;color:var(--warn)}
 .rowacts .unsaved::before{content:"";width:7px;height:7px;border-radius:50%;
   background:var(--warn);flex:0 0 auto}
 .rowacts .unsaved[hidden]{display:none}
@@ -1528,7 +1536,7 @@ td.hcol .hdot{margin:0 auto}
   padding-right:12px}
 .signtbl td,.signtbl th{vertical-align:middle}
 .signtbl td{padding-top:9px;padding-bottom:9px}
-.signtbl .gobtn.ghost{padding:5px 12px;font-size:12px;font-weight:600}
+.signtbl .gobtn.ghost{padding:5px 12px;font-size:12.5px;font-weight:600}
 #signhost{display:none}
 
 /* every order starts a new sheet */
@@ -3217,9 +3225,10 @@ window.H = (function () {
                 : 'No maximum \u2014 paid per review', 1) +
             fld('Runs', o.startDate + ' to ' + o.endDate) +
             fld('Master Services Agreement', o.msaFlavour) +
-            '</div>' + signedBlock(st[o.id]) + signaturePreview(F, st[o.id]) +
+            '</div>' + signedBlock(st[o.id]) +
             '<div class="dochost" id="d-' + esc(o.id) + '">' + P.orderDoc(F, o) + '</div>' +
-            (st[o.id].key === 'executed' ? P.printBtn('d-' + o.id, o.subject) : '');
+            (st[o.id].key === 'executed' ? P.printBtn('d-' + o.id, o.subject) : '') +
+            signaturePreview(F, st[o.id]);
           return panelRow('ord-' + o.id, o.subject, o.msaFlavour + ' \u00b7 ' +
             o.startDate + ' to ' + o.endDate,
             (o.maximumFee != null ? money(o.maximumFee) : 'Per review'), body, pill(st[o.id]));
