@@ -1302,7 +1302,10 @@ body.railmini .railout{justify-content:center;padding:11px 0 8px}
    ⚠ Sticky, not repeated per section: it has to be impossible to forget whose
    screen you are on, and a banner that scrolls away fails at exactly the
    moment somebody is deep in a training session. */
-.vabar{position:sticky;top:0;z-index:40;display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+/* ⚠ It stuck at top:0 — which is exactly where the masthead already is, so on
+   a phone it sat on top of the MISMO logo.  It sticks BELOW the masthead. */
+.vabar{position:sticky;top:calc(var(--hq-h,64px) + env(safe-area-inset-top,0px));z-index:40;
+  display:flex;flex-wrap:wrap;align-items:center;gap:10px;
   padding:10px 16px;margin:0 0 14px;border-radius:0 0 10px 10px;
   background:var(--navy);color:#fff;box-shadow:0 2px 10px rgba(6,32,47,.22)}
 .vabar .va-l{font-family:var(--mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;
@@ -1317,10 +1320,15 @@ body.railmini .railout{justify-content:center;padding:11px 0 8px}
 .vabar .va-out:hover{background:rgba(255,255,255,.12);border-color:#fff}
 .vabar .va-out:focus-visible{outline:2px solid var(--sky);outline-offset:1px}
 
-@media(max-width:560px){
-  .vabar{gap:6px 10px;padding:9px 12px}
-  .vabar .va-ro{margin-left:0}
-  .vabar .va-out{width:100%}
+/* ⚠ On a phone the banner was five lines deep and ate the screen before the
+   page began.  It keeps every piece of information and gives up the space. */
+@media(max-width:700px){
+  .vabar{gap:4px 8px;padding:8px 12px;margin-bottom:10px}
+  .vabar .va-l{font-size:8.5px;letter-spacing:.09em}
+  .vabar .va-c{font-size:13px;flex:1 1 auto;min-width:0}
+  .vabar .va-r{flex:1 1 100%;font-size:11.5px;line-height:1.35}
+  .vabar .va-ro{margin-left:0;order:3;font-size:8.5px;padding:2px 8px}
+  .vabar .va-out{order:4;margin-left:auto;padding:4px 10px;font-size:11.5px}
 }
 
 /* ===== The Status Board, in the HQ shape ==================================
@@ -1482,6 +1490,55 @@ td.hcol .hdot{margin:0 auto}
 .modal-acts{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end}
 .gobtn.danger{background:transparent;color:var(--bad);border-color:var(--bad)}
 .gobtn.danger:hover:not(:disabled){background:var(--bad-soft,var(--surface-3));color:var(--bad)}
+
+/* ===== The actions at the foot of a panel ================================
+   ⚠ This markup was carried over from the HQ without its styling, so the
+   buttons and the Unsaved label sat jammed together with nothing above them. */
+.rowacts{display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+  margin:20px 0 4px;padding-top:16px;border-top:1px solid var(--rule,var(--border))}
+.rowacts .unsaved{margin-right:auto;display:inline-flex;align-items:center;gap:7px;
+  font-size:12.4px;font-weight:600;color:var(--warn)}
+.rowacts .unsaved::before{content:"";width:7px;height:7px;border-radius:50%;
+  background:var(--warn);flex:0 0 auto}
+.rowacts .unsaved[hidden]{display:none}
+/* with nothing unsaved, the buttons still sit to the right */
+.rowacts .unsaved[hidden] + .gobtn{margin-left:auto}
+@media(max-width:480px){
+  .rowacts{gap:8px}
+  .rowacts .gobtn{flex:1 1 auto}
+}
+
+/* ===== The signed service orders =========================================
+   ⚠ Only on a signer's screen, and only for orders both parties have signed.
+   A facilitator's list is built separately and carries no document at all,
+   because the order has the rate written on it. */
+.signedbox{border:1px solid var(--border);border-radius:9px;padding:14px 16px 6px;
+  margin:0 0 20px;background:var(--surface-2)}
+.signedbox .subh{margin:0 0 4px}
+.signedbox .tbl{margin-top:10px}
+.signedbox .ackbar{margin-top:12px}
+
+/* ⚠ Even and aligned: the tick column is a fixed width, centred, and the row
+   height does not change when a box is ticked. The download column is fixed
+   too, so every button sits on the same edge. */
+.signtbl th.tick,.signtbl td.tick{width:38px;text-align:center;padding-left:10px;padding-right:0}
+.signtbl th.tick input,.signtbl td.tick input{width:16px;height:16px;margin:0;vertical-align:middle;
+  accent-color:var(--navy-mid);cursor:pointer;display:inline-block}
+.signtbl th.dl-col,.signtbl td.dl-col{width:1%;white-space:nowrap;text-align:right;
+  padding-right:12px}
+.signtbl td,.signtbl th{vertical-align:middle}
+.signtbl td{padding-top:9px;padding-bottom:9px}
+.signtbl .gobtn.ghost{padding:5px 12px;font-size:12px;font-weight:600}
+#signhost{display:none}
+
+/* every order starts a new sheet */
+@media print{ .pagebreak{break-before:page;page-break-before:always} }
+
+@media(max-width:560px){
+  .signedbox{padding:12px 12px 6px}
+  .signtbl th.dl-col,.signtbl td.dl-col{padding-right:8px}
+  .signtbl .gobtn.ghost{padding:5px 9px}
+}
 </style>
 </head>
 <body>
@@ -3094,7 +3151,49 @@ window.H = (function () {
         'several people cover the same order, each of them needs to see how much of it is left \u2014 ' +
         'that is what stops an overrun turning up on an invoice.</p>'; }
 
-      var all = '<p class="lede">Every service order MISMO has raised for you this fiscal year, ' +
+      /* ---- the signed copies -------------------------------------------
+         ⚠ Only executed orders appear here, and only on a SIGNER's screen.  A
+         facilitator's list is built separately and carries no document at all,
+         because the order itself has the rate written on it (decision 26).
+         An order that is not executed has no signed copy to download \u2014 saying
+         "download" before both signatures exist would be offering a document
+         that does not yet mean anything. */
+      var executed = yearOrders.filter(function (o) { return st[o.id].key === 'executed'; });
+      var signedBlockHtml = '';
+      if (executed.length) {
+        signedBlockHtml =
+          '<div class="signedbox">' +
+          '<h4 class="subh">Your Signed Service Orders</h4>' +
+          '<p class="fineprint">Executed by both parties. Download one, or tick several and take ' +
+          'them together \u2014 they come as one PDF, one order per page.</p>' +
+          '<div class="tbl"><table class="signtbl"><thead><tr>' +
+          '<th class="tick"><input type="checkbox" id="sg-all" aria-label="Tick every signed order"></th>' +
+          '<th>Service Order</th><th class="hide-narrow">Executed</th>' +
+          '<th class="n">Maximum Fee</th><th class="dl-col"></th>' +
+          '</tr></thead><tbody>' +
+          executed.map(function (o) {
+            var sig = st[o.id].sig || {};
+            return '<tr><td class="tick">' +
+              '<input type="checkbox" class="sgtick" data-id="' + esc(o.id) + '" ' +
+              'aria-label="' + esc(o.subject) + '"></td>' +
+              '<td>' + esc(o.subject) + '</td>' +
+              '<td class="hide-narrow">' + esc(sig.signedOn ? stamp(sig.signedOn) : '\u2014') + '</td>' +
+              '<td class="n">' + (o.maximumFee != null ? money(o.maximumFee) : 'Per review') + '</td>' +
+              '<td class="dl-col"><button class="gobtn ghost sgone" type="button" ' +
+              'data-id="' + esc(o.id) + '">Download</button></td></tr>';
+          }).join('') + '</tbody></table></div>' +
+          '<div class="ackbar"><button class="gobtn" type="button" id="sg-go" disabled>' +
+          'Download the Ticked</button>' +
+          '<span class="qc" id="sg-c">Nothing ticked yet</span></div>' +
+          '<div class="dochost" id="signhost" hidden>' +
+          executed.map(function (o) {
+            return '<div class="signdoc" data-doc="' + esc(o.id) + '">' + P.orderDoc(F, o) + '</div>';
+          }).join('') + '</div>' +
+          '</div>';
+      }
+
+      var all = signedBlockHtml +
+        '<p class="lede">Every service order MISMO has raised for you this fiscal year, ' +
         'with its status, rate, hours and maximum fee. Open one to read it in full.</p>' +
         '<div class="tot"><span class="tot-l">' +
           (yearList.length > 1
@@ -3213,6 +3312,7 @@ window.H = (function () {
               sect('Help', null, helpFor('contractor', F))
           );
           if (!isFac()) wireReview(C, st, toReview);
+          wireSigned(C, F);
           if (person) wireHours(C, person, fy);
           var fyEl2 = document.getElementById('fy-pick');
           if (fyEl2) fyEl2.addEventListener('change', function () {
@@ -3805,7 +3905,31 @@ window.H = (function () {
     }
     return r;
   }
-  function sameRow(a, b) { return JSON.stringify(a || {}) === JSON.stringify(b || {}); }
+  /* ⚠ Comparing two rows with JSON.stringify compares their SHAPE, not what
+     they say.  An order nobody has touched is stored as nothing at all, while
+     the panel reads back {hours:0} — so every untouched order looked changed
+     the moment it opened, and closing it asked a question with no answer worth
+     giving.  Key order counts too, so the same data written twice could differ.
+     This reduces a row to what it actually says before comparing. */
+  function normRow(r) {
+    r = r || {};
+    var out = {};
+    if (Number(r.hours)) out.hours = Math.round(Number(r.hours) * 100) / 100;
+    if ((r.thisWeek || '').trim()) out.thisWeek = r.thisWeek.trim();
+    if ((r.upcoming || '').trim()) out.upcoming = r.upcoming.trim();
+    if (r.health) out.health = r.health;
+    if (r.inFirstMonth != null && r.inFirstMonth !== '') {
+      out.inFirstMonth = Math.round(Number(r.inFirstMonth) * 100) / 100;
+    }
+    var f = (r['for'] || []).filter(function (x) { return x && x.person && Number(x.hours); })
+      .map(function (x) { return x.person + ':' + (Math.round(Number(x.hours) * 100) / 100); })
+      .sort();
+    if (f.length) out['for'] = f;
+    return Object.keys(out).sort().map(function (k) {
+      return k + '=' + JSON.stringify(out[k]);
+    }).join('|');
+  }
+  function sameRow(a, b) { return normRow(a) === normRow(b); }
 
   /* Everything that must be true before a week can go to MISMO.  ⚠ Each of
      these is a thing that is cheap to fix now and expensive to fix once it is
@@ -4627,6 +4751,79 @@ window.H = (function () {
     adminView();
   }
 
+  /* ---- downloading the signed copies --------------------------------------
+     One at a time, or several as one PDF with a page break between them.  The
+     documents are already on the page, hidden; printing copies the chosen ones
+     into the print host, so nothing is fetched and nothing can be stale. */
+  function wireSigned(C, F) {
+    var all = document.getElementById('sg-all');
+    var go = document.getElementById('sg-go');
+    var cnt = document.getElementById('sg-c');
+    var host = document.getElementById('signhost');
+    if (!host) return;
+
+    function ticked() {
+      return $$('#view .sgtick:checked').map(function (b) { return b.dataset.id; });
+    }
+    function paint() {
+      var n = ticked().length;
+      if (go) go.disabled = !n;
+      if (cnt) cnt.textContent = n ? n + ' ticked' : 'Nothing ticked yet';
+      if (all) {
+        var boxes = $$('#view .sgtick');
+        all.checked = boxes.length > 0 && n === boxes.length;
+        all.indeterminate = n > 0 && n < boxes.length;
+      }
+    }
+    $$('#view .sgtick').forEach(function (b) { b.addEventListener('change', paint); });
+    if (all) all.addEventListener('change', function () {
+      $$('#view .sgtick').forEach(function (b) { b.checked = all.checked; });
+      paint();
+    });
+    paint();
+
+    function printThese(ids, title) {
+      var ph = document.getElementById('printhost');
+      if (!ph) return;
+      ph.innerHTML = '';
+      ids.forEach(function (id, i) {
+        var src = host.querySelector('.signdoc[data-doc="' + id + '"]');
+        if (!src) return;
+        var w = document.createElement('div');
+        /* ⚠ One order per page. Without the break they run together and a
+           two-page order ends up sharing a sheet with the next one. */
+        if (i) w.className = 'pagebreak';
+        w.innerHTML = src.innerHTML;
+        ph.appendChild(w);
+      });
+      var t = document.title;
+      document.title = title || (F.company + ' \u2014 Signed Service Orders');
+      document.body.classList.add('printing');
+      var done = function () {
+        document.body.classList.remove('printing');
+        ph.innerHTML = ''; document.title = t;
+        window.removeEventListener('afterprint', done);
+      };
+      window.addEventListener('afterprint', done);
+      requestAnimationFrame(function () {
+        requestAnimationFrame(function () { window.print(); setTimeout(done, 1200); });
+      });
+    }
+
+    $$('#view .sgone').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var o = orderById(F, b.dataset.id);
+        printThese([b.dataset.id], o ? o.subject : null);
+      });
+    });
+    if (go) go.addEventListener('click', function () {
+      var ids = ticked();
+      if (!ids.length) return;
+      printThese(ids, F.company + ' \u2014 ' + ids.length + ' Signed Service Order' +
+        (ids.length === 1 ? '' : 's'));
+    });
+  }
+
   /* what the nudge outbox is holding, and whether anything has gone out */
   function outboxLine(outbox) {
     var waiting = (outbox || []).filter(function (n) { return !n.sent; });
@@ -4714,12 +4911,12 @@ window.H = (function () {
       '<div class="f"><label>Type Your Name to Accept This One</label>' +
       '<input type="text" class="one-name" data-id="' + esc(o.id) + '" autocomplete="off"></div>' +
       '<button class="gobtn one-go" type="button" data-id="' + esc(o.id) + '">Accept This Order</button>' +
-      '<button class="ghost one-ask" type="button" data-id="' + esc(o.id) + '">Set It Aside With a Question</button>' +
+      '<button class="gobtn ghost one-ask" type="button" data-id="' + esc(o.id) + '">Set It Aside With a Question</button>' +
       '</div>' +
       '<div class="askbox" data-ask="' + esc(o.id) + '" hidden>' +
       '<div class="f"><label>What Is the Question?</label>' +
       '<input type="text" class="one-q" data-id="' + esc(o.id) + '" placeholder="It comes back to MISMO with the order"></div>' +
-      '<button class="ghost one-send" type="button" data-id="' + esc(o.id) + '">Send the Question</button></div>' +
+      '<button class="gobtn ghost one-send" type="button" data-id="' + esc(o.id) + '">Send the Question</button></div>' +
       '</div></div>';
   }
 
