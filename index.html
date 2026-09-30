@@ -1008,6 +1008,37 @@ body.railmini .hq nav button .railbadge.slot1{top:22px; margin-left:0}
 .ghost{font:inherit;font-size:12.6px;padding:8px 14px;border-radius:7px;background:var(--surface);
  color:var(--ink);border:1px solid var(--border-strong);cursor:pointer;white-space:nowrap}
 .ghost:hover{background:var(--surface-3)}
+
+/* ⚠ Two faults lived here, both on Save Without Sending.
+   SIZE: .ghost set its own font-size and padding, so a .gobtn.ghost came out
+   smaller than the .gobtn beside it and the pair never lined up.
+   HOVER: .gobtn:hover:not(:disabled) is more specific than .ghost:hover, so it
+   won — painting a navy background behind .ghost's dark text and making the
+   label vanish on the way to clicking it.
+   Both fixed by making the ghost a real variant of the button rather than a
+   second button that happens to share a class. */
+.gobtn.ghost{font-size:13px;font-weight:600;padding:9px 18px;border-radius:7px;
+  background:var(--surface);color:var(--ink);border:1px solid var(--border-strong)}
+.gobtn.ghost:hover:not(:disabled){background:var(--surface-3);color:var(--ink);
+  border-color:var(--navy-mid)}
+:root[data-theme="dark"] .gobtn.ghost{background:var(--surface-2);color:var(--ink);
+  border-color:var(--border-strong)}
+:root[data-theme="dark"] .gobtn.ghost:hover:not(:disabled){background:var(--surface-3);
+  color:var(--ink);border-color:var(--sky)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .gobtn.ghost{background:var(--surface-2);color:var(--ink);
+    border-color:var(--border-strong)}
+  :root:not([data-theme="light"]) .gobtn.ghost:hover:not(:disabled){background:var(--surface-3);
+    color:var(--ink);border-color:var(--sky)}
+}
+/* the same pairing on the smaller buttons */
+.tbtn.ghost{background:var(--surface);color:var(--ink);border-color:var(--border-strong)}
+.tbtn.ghost:hover:not(:disabled){background:var(--surface-3);color:var(--ink);
+  border-color:var(--navy-mid)}
+:root[data-theme="dark"] .tbtn.ghost{background:var(--surface-2);color:var(--ink)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .tbtn.ghost{background:var(--surface-2);color:var(--ink)}
+}
 .qc{font-family:var(--mono);font-size:11.5px;color:var(--ink-3);align-self:center}
 .fineprint{font-size:12.3px;color:var(--ink-3);margin:8px 0 0;max-width:none}
 .dl{color:var(--navy-mid);font-weight:600}
@@ -1018,8 +1049,14 @@ body.railmini .hq nav button .railbadge.slot1{top:22px; margin-left:0}
  border-radius:0 7px 7px 0;margin:14px 0 0;font-size:13px}
 .signed .what{display:block;font-family:var(--mono);font-size:11.3px;color:var(--ink-3);margin-top:4px}
 .note.warn{border-left-color:var(--warn)}
-.upl{border:1px solid var(--border);border-radius:9px;padding:12px 14px;margin:12px 0;background:var(--surface)}
-.upl input[type=file]{font:inherit;font-size:12.4px;color:var(--ink-2)}
+/* ⚠ This was called .upl, which the SHARED sheet already uses for a tiny
+   uppercase monospace LABEL.  The portal used the same name for a whole
+   container, so every value and every sentence inside it inherited mono,
+   uppercase and 9.5px — which is what made Executed Documents look broken.
+   Renamed rather than overridden: two different things must not share a name. */
+.execbox{border:1px solid var(--border);border-radius:9px;padding:12px 14px;margin:12px 0;
+  background:var(--surface)}
+.execbox input[type=file]{font:inherit;font-size:12.4px;color:var(--ink-2)}
 
 /* ── the board ────────────────────────────────────────────── */
 .stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin:0 0 20px}
@@ -1307,6 +1344,53 @@ body.railmini .railout{justify-content:center;padding:11px 0 8px}
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]) .headline{border:1px solid var(--border-strong)}
 }
+
+/* ===== Hours, second pass =================================================
+   Health as a colour, the two notes side by side, and the month split. */
+
+/* ⚠ Health is a colour. A dropdown as wide as the hours box gave four words
+   the same weight as the figure, and the point of a health flag is being able
+   to see it without reading. The select stays for choosing; the dot is what
+   you read. */
+.healthpick{display:flex;align-items:center;gap:8px}
+.healthpick select{flex:1 1 auto;min-width:0}
+.hdot{flex:0 0 auto;width:13px;height:13px;border-radius:50%;display:inline-block;
+  border:1px solid rgba(13,49,76,.22)}
+.hdot.g{background:var(--good)}
+.hdot.y{background:var(--warn)}
+.hdot.r{background:var(--bad)}
+.hdot.none{background:transparent;border-style:dashed;border-color:var(--border-strong)}
+.hdot.na{width:auto;height:auto;border:0;border-radius:3px;padding:1px 6px;background:var(--surface-3);
+  color:var(--ink-3);font-family:var(--mono);font-size:9.5px;letter-spacing:.07em;font-weight:600}
+.row-h .hdot{margin-left:2px}
+/* the Health column in a table wants to be narrow, not a third of the width */
+th.hcol,td.hcol{width:62px;text-align:center}
+td.hcol .hdot{margin:0 auto}
+
+/* A field that only ever holds a small number should not stretch to 220px. */
+.fields .f.narrow{max-width:210px}
+
+/* ⚠ The two notes are what MISMO actually reads. Side by side, five rows deep,
+   and draggable further — a one-line box that scrolls sideways is where a
+   status report goes to die. */
+.fields.notes2{grid-template-columns:repeat(auto-fit,minmax(260px,1fr))}
+.f textarea{font:inherit;font-size:13.2px;font-family:var(--display);color:var(--ink);
+  background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:8px 10px;
+  width:100%;min-width:0;resize:vertical;line-height:1.5}
+.f textarea:hover{border-color:var(--border-strong)}
+.f textarea:focus{outline:2px solid var(--sky);outline-offset:-1px;background:var(--surface-2)}
+.f textarea:disabled{background:var(--sunk);color:var(--ink-3)}
+
+/* A block of quoted words in the panel — what somebody actually said. */
+.saidbox{margin:6px 0 14px;padding:10px 14px;border-left:3px solid var(--sky);
+  background:var(--sky-wash);border-radius:0 6px 6px 0;font-size:13.4px;line-height:1.55}
+:root[data-theme="dark"] .saidbox{background:var(--surface-2)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .saidbox{background:var(--surface-2)}
+}
+/* the panel's own content needs the same spacing the page has */
+.panel-b .fields{margin-top:0}
+.panel-b .subh{margin:16px 0 6px}
 </style>
 </head>
 <body>
@@ -1398,6 +1482,16 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
 <div id="printhost"></div>
 
 <script>window.RELAY={"base": "https://rgvdi67cg27o5kcmiytcqbqnrm0hmztx.lambda-url.us-east-1.on.aws", "projects": ["so-phoenix", "so-actualize", "so-trex", "so-falcon", "so-trudigital"], "slugs": {"so-phoenix": "phoenixteam", "so-actualize": "actualize", "so-trex": "trex", "so-falcon": "falcon", "so-trudigital": "trudigital"}, "note": "base is the relay's Lambda function URL. projects is every key this page may sign in against, tried in turn; the token is not project-bound, so the first that works covers them all. slugs maps a project key to the filename its data uses. All three are configuration: a sixth company is a change HERE and nowhere else."};</script>
+<div class="scrim" id="pscrim"></div>
+<aside class="panel" id="panel" aria-label="Detail">
+  <div class="panel-h"><h2 id="panel-title"></h2>
+    <button class="panel-x wide-b" id="panel-wide" type="button" aria-label="Expand the panel" title="Expand">
+      <svg class="i-max" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+      <svg class="i-min" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 14h6v6M20 10h-6V4M14 10l7-7M3 21l7-7"/></svg></button>
+    <button class="panel-x" id="panel-x" type="button" aria-label="Close">&times;</button></div>
+  <div class="panel-b" id="panel-body"></div>
+</aside>
+
 <script>/* MISMO Service Orders — the relay module.
  *
  * Every credential and every relay call in this tool goes through this file and
@@ -1839,13 +1933,15 @@ window.H = (function () {
   }
 
   /* ---- week endings ------------------------------------------------------
-     Weeks end on a Friday, AND on the last day of a month when that is not
-     already a Friday.  ⚠ The month-end stub is not tidiness: invoices are
-     monthly, so a week that straddles a month end would put hours from two
-     months on one invoice line and there would be no honest way to split them
-     afterwards.  The Smartsheet sheet already works this way — August 2026 ran
-     ... 08/28 (Friday), 08/31 (month end), 09/04 (Friday) — so this matches
-     what the contractors are used to rather than introducing anything. */
+     Weeks end on a Friday.  That is all.
+
+     ⚠ An earlier version added the last day of a month as an extra week ending,
+     on the reasoning that a week straddling a month end would put two months'
+     hours on one invoice line.  Jonna, 29 September: THAT IS NOT HOW IT WORKS.
+     A week does straddle — the week ending 10/02/26 has 28, 29 and 30 September
+     on the September invoice and 1 and 2 October on the October one — and the
+     split is made by DAY inside the week, not by cutting the week in two.
+     See monthSplit() below, which is what asks for it. */
   var WE_CACHE = {};
   function weekEndings(fy) {
     if (WE_CACHE[fy]) return WE_CACHE[fy];
@@ -1853,16 +1949,16 @@ window.H = (function () {
     if (!b) return [];
     var out = [], d = new Date(b.start.getTime());
     while (d <= b.end) {
-      var isFri = d.getDay() === 5;
-      var nxt = addDays(d, 1);
-      var isMonthEnd = nxt.getMonth() !== d.getMonth();
-      if (isFri || isMonthEnd) out.push(new Date(d.getTime()));
-      d = nxt;
+      if (d.getDay() === 5) out.push(new Date(d.getTime()));
+      d = addDays(d, 1);
     }
+    /* The year's last days may fall after the final Friday; they still have to
+       belong to a week, so the fiscal year end closes the last one. */
     if (!out.length || !sameDay(out[out.length - 1], b.end)) out.push(new Date(b.end.getTime()));
     WE_CACHE[fy] = out;
     return out;
   }
+
   /* The first day a week covers: the day after the week before it ended, or
      the first day of the fiscal year for the very first week. */
   function weekStart(fy, ending) {
@@ -1889,6 +1985,48 @@ window.H = (function () {
     var ends = weekEndings(fy), out = [];
     for (var i = 0; i < ends.length; i++) if (ends[i] <= today) out.push(print(ends[i]));
     return out.reverse();
+  }
+
+  /* ---- a week that crosses a month end -----------------------------------
+     Jonna, 29 September: the week ending 10/02/26 puts 28, 29 and 30 September
+     on the September invoice and 1 and 2 October on the October one.
+
+     ⚠ A weekly total cannot say that on its own, and neither can the calendar:
+     somebody who worked only the Tuesday has NO October hours, while dividing
+     by weekdays would book them 40% into October for work they did not do.
+     So on the weeks that straddle — about eleven a year — the person is asked,
+     and every other week is untouched.  Guessing here would quietly move real
+     cost between two months, which is the thing the monthly reconciliation
+     exists to catch. */
+  function straddle(fy, ending) {
+    var e = parse(ending), s = e && weekStart(fy, e);
+    if (!s || !e || s.getMonth() === e.getMonth()) return null;
+    /* The last day of the earlier month, and the first of the later one. */
+    var cut = new Date(e.getFullYear(), e.getMonth(), 1);
+    /* A one-day side reads "31 October to 31 October" otherwise, which is the
+       kind of small wrongness that makes people distrust the rest. */
+    function span(a, b) {
+      return sameDay(a, b) ? longDate(a) : longDate(a) + ' to ' + longDate(b);
+    }
+    return {
+      firstMonth: MONTHS[s.getMonth()],
+      lastMonth: MONTHS[e.getMonth()],
+      firstDays: span(s, addDays(cut, -1)),
+      lastDays: span(cut, e)
+    };
+  }
+  /* What was said about the split, and what is left for the later month. */
+  function splitMonths(row, fy, ending) {
+    var st = straddle(fy, ending);
+    if (!st) return null;
+    var total = Number(row && row.hours) || 0;
+    var first = Number(row && row.inFirstMonth);
+    if (!(first >= 0)) first = null;
+    return {
+      first: first, last: first == null ? null : Math.round((total - first) * 100) / 100,
+      total: total, firstMonth: st.firstMonth, lastMonth: st.lastMonth,
+      over: first != null && first > total + 0.001
+    };
   }
 
   /* ---- the weekly pace, derived --------------------------------------------
@@ -2052,6 +2190,7 @@ window.H = (function () {
     fyBounds: fyBounds, fyOf: fyOf,
     weekEndings: weekEndings, weekStart: weekStart, weekSpan: weekSpan,
     weekFor: weekFor, weeksTo: weeksTo,
+    straddle: straddle, splitMonths: splitMonths,
     orderWeeks: orderWeeks, perWeek: perWeek,
     emptyFile: emptyFile, weekIn: weekIn, rowsOf: rowsOf, hoursIn: hoursIn,
     splitOf: splitOf, splitOver: splitOver,
@@ -2139,12 +2278,23 @@ window.H = (function () {
       });
       return hit;
     }
-    var pres = last('MISMO Signer', 'Approved');
+    /* ⚠ The LAST MISMO Signer record, whatever it decided — not the last
+       Approved one.  The President may hold an order and approve it later, and
+       asking only for approvals would make the hold invisible the moment it was
+       resolved, and the approval invisible while an older hold still sat in the
+       file. */
+    var presLast = last('MISMO Signer');
     var ack = last('Consultant', 'Accepted');
     var held = last('Consultant', 'Question');
     var vp = last('VP Product Decision');
 
-    if (pres) return { key: 'executed', label: 'Executed', tone: 'good', sig: pres, ack: ack };
+    if (presLast && presLast.decision === 'Approved') {
+      return { key: 'executed', label: 'Executed', tone: 'good', sig: presLast, ack: ack };
+    }
+    if (presLast && presLast.decision === 'Held') {
+      return { key: 'preshold', label: 'Held by the President', tone: 'warn',
+               sig: presLast, ack: ack };
+    }
     if (ack) {
       /* Decision 33.  Only the BINDING terms bring an order back: rate, hours,
          maximum fee, fee type, dates, Services, Deliverables, the MSA it is
@@ -2343,13 +2493,103 @@ window.H = (function () {
      never reaches them. */
   function who() { return (VIEWAS && VIEWAS.as) || ME; }
 
+  /* =========================================================================
+   * The right-hand panel — the same one Summit HQ and the review page use.
+   *
+   * ⚠ It carries the expand / back-to-normal control because every other MISMO
+   * page does, and a panel that behaves differently here is the thing somebody
+   * notices and mistrusts.
+   * ======================================================================= */
+  var panel = document.getElementById('panel');
+  var pscrim = document.getElementById('pscrim');
+  var ptitle = document.getElementById('panel-title');
+  var pbody = document.getElementById('panel-body');
+
+  function openPanel(title, html) {
+    if (!panel) return;
+    ptitle.textContent = title;
+    pbody.innerHTML = html;
+    panel.classList.add('on');
+    if (pscrim) pscrim.classList.add('on');
+    pbody.scrollTop = 0;
+    document.body.style.overflow = 'hidden';
+    P.wireRows(pbody);
+    P.wireSections(pbody);
+    /* ⚠ The controls inside a panel do not exist until the panel opens, so the
+       view's wiring has to run again here.  A view registers what to re-run;
+       say() clears the list, so a stale view can never wire a live panel. */
+    PANEL_AFTER.forEach(function (fn) { try { fn(pbody); } catch (e) {
+      if (window.console && console.warn) console.warn('panel wiring', e); } });
+  }
+  var PANEL_AFTER = [];
+  function onPanelOpen(fn) { PANEL_AFTER.push(fn); }
+  function closePanel() {
+    if (!panel) return;
+    panel.classList.remove('on');
+    if (pscrim) pscrim.classList.remove('on');
+    document.body.style.overflow = '';
+  }
+  (function () {
+    var x = document.getElementById('panel-x');
+    if (x) x.addEventListener('click', closePanel);
+    if (pscrim) pscrim.addEventListener('click', closePanel);
+    var w = document.getElementById('panel-wide');
+    if (w) w.addEventListener('click', function () {
+      var on = panel.classList.toggle('wide');
+      w.setAttribute('aria-label', on ? 'Bring the panel back to its normal size' : 'Expand the panel');
+      w.title = on ? 'Back to normal size' : 'Expand';
+    });
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && panel && panel.classList.contains('on')) closePanel();
+    });
+  })();
+
+  /* ---- rows that open in the panel ---------------------------------------
+     One helper so every list behaves the same: a row is a button, the detail
+     lives in the panel, and nothing is half-open in place.
+
+     ⚠ My Hours deliberately does NOT use this.  Its rows carry the inputs for
+     a whole week and are read back together when the week is submitted; a
+     panel shows one row at a time and can be dismissed mid-typing, which is
+     how somebody loses a Friday afternoon's work. */
+  var PANEL_BODIES = {};
+  function panelRow(key, title, sub, right, html, chips) {
+    PANEL_BODIES[key] = { title: title, html: html };
+    return '<button class="hqrow" type="button" data-panel="' + esc(key) + '">' +
+      '<span class="t">' + esc(title) +
+      (sub ? '<small>' + esc(sub) + '</small>' : '') + '</span>' +
+      '<span class="r">' + (chips || '') +
+      (right ? '<span class="d">' + right + '</span>' : '') +
+      '<span class="arr">\u203a</span></span></button>';
+  }
+  function wirePanelRows(root) {
+    $$('[data-panel]', root || document).forEach(function (b) {
+      if (b.dataset.pwired) return;
+      b.dataset.pwired = '1';
+      b.addEventListener('click', function () {
+        var rec = PANEL_BODIES[b.dataset.panel];
+        if (!rec) return;
+        openPanel(rec.title, rec.html);
+        if (typeof rec.after === 'function') rec.after();
+      });
+    });
+  }
+
   function say(html) {
     /* ⚠ The View As banner is prepended here rather than by each view, so a
        screen added later cannot forget it — and it is STICKY rather than
        repeated per section, so scrolling never leaves it behind.  It must be
        impossible to forget whose screen you are on. */
+    /* ⚠ PANEL_BODIES is NOT cleared here.  The rows register their bodies while
+       the markup is being built, which happens BEFORE say() is called — wiping
+       it here emptied the registry a moment after it was filled, and every row
+       opened nothing.  Keys repeat between renders, so entries overwrite rather
+       than pile up.  PANEL_AFTER is different: views register it AFTER say(),
+       so clearing it here is what stops a stale view wiring a live panel. */
+    PANEL_AFTER = [];
     view.innerHTML = viewAsBanner() + html;
-    P.wireSections(view); P.wireRows(view); buildRail();
+    P.wireSections(view); P.wireRows(view); wirePanelRows(view); buildRail();
+    closePanel();
     var out = document.getElementById('va-out');
     if (out) out.addEventListener('click', leaveViewAs);
     document.body.classList.toggle('viewingas', !!VIEWAS);
@@ -2688,23 +2928,22 @@ window.H = (function () {
         (yearList.length > 1 ? ' in ' + esc(pickedYear) : ' this fiscal year') +
         ', whatever its status. An order added later in the year lands in this figure too. ' +
         'MISMO\u2019s fiscal year runs 1 October to 30 September.</p>' +
-        '<div class="rows">' + yearOrders.map(function (o) {
-          return '<div class="row"><div class="row-h">' +
-            '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
-            '<span class="rt">' + esc(o.subject) + '</span>' + pill(st[o.id]) +
-            '<span class="rs num">' + (o.maximumFee != null ? money(o.maximumFee) : 'Per review') + '</span>' +
-            '</div><div class="row-b">' +
+        '<div class="hqrows">' + yearOrders.map(function (o) {
+          var body =
             '<div class="fields">' +
             fld('Status', st[o.id].label) +
             fld('Hourly Rate', o.hourlyRate ? money(o.hourlyRate) : 'Paid per review', 1) +
-            fld('Estimated Hours', o.estimatedHours || '—', 1) +
-            fld('Maximum Fee', o.maximumFee != null ? money(o.maximumFee) : 'No maximum — paid per review', 1) +
+            fld('Estimated Hours', o.estimatedHours || '\u2014', 1) +
+            fld('Maximum Fee', o.maximumFee != null ? money(o.maximumFee)
+                : 'No maximum \u2014 paid per review', 1) +
             fld('Runs', o.startDate + ' to ' + o.endDate) +
             fld('Master Services Agreement', o.msaFlavour) +
             '</div>' + signedBlock(st[o.id]) +
             '<div class="dochost" id="d-' + esc(o.id) + '">' + P.orderDoc(F, o) + '</div>' +
-            (st[o.id].key === 'executed' ? P.printBtn('d-' + o.id, o.subject) : '') +
-            '</div></div>';
+            (st[o.id].key === 'executed' ? P.printBtn('d-' + o.id, o.subject) : '');
+          return panelRow('ord-' + o.id, o.subject, o.msaFlavour + ' \u00b7 ' +
+            o.startDate + ' to ' + o.endDate,
+            (o.maximumFee != null ? money(o.maximumFee) : 'Per review'), body, pill(st[o.id]));
         }).join('') + '</div>';
 
       /* ---- My Agreements ------------------------------------------------- */
@@ -2717,26 +2956,26 @@ window.H = (function () {
         exec.forEach(function (e) { byFlavour[e.msaFlavour] = e; });
         var ag = '<p class="lede">Your Master Services Agreement extensions. MISMO sends each one ' +
           'through DocuSign; once it is executed the signed copy appears here and stays.</p>' +
-          '<div class="rows">' + F.letters.map(function (l) {
+          '<div class="hqrows">' + F.letters.map(function (l) {
             var e = byFlavour[l.msaFlavour];
-            return '<div class="row"><div class="row-h">' +
-              '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
-              '<span class="rt">' + esc(l.msaFlavour) + ' Master Services Agreement</span>' +
-              (e ? '<span class="pill good">Executed</span>' : '<span class="pill">Awaiting Signature</span>') +
-              '<span class="rs">Extends to ' + esc(l.extendTo) + '</span>' +
-              '</div><div class="row-b"><div class="fields">' +
+            var body =
+              '<div class="fields">' +
               fld('Agreement Signed', l.msaEffectiveDate) +
               fld('Expires Without This Letter', l.extendFrom) +
               fld('This Letter Extends It To', l.extendTo) +
-              fld('Signed for ' + l.company + ' by', l.signer.name + ' — ' + l.signer.title) +
-              fld('Signed for MISMO by', F.mismoSigner.name + ' — ' + F.mismoSigner.title) +
+              fld('Signed for ' + l.company + ' by', l.signer.name + ' \u2014 ' + l.signer.title) +
+              fld('Signed for MISMO by', F.mismoSigner.name + ' \u2014 ' + F.mismoSigner.title) +
               (e ? fld('Executed On', e.executedOn) + fld('DocuSign Envelope', e.envelopeId) : '') +
               '</div>' +
               (e ? '<p class="fineprint">The executed copy, with its Certificate of Completion, is ' +
-                'the record. <a class="dl" href="' + esc(e.href || '#') + '">Download the signed PDF</a></p>' : '') +
+                'the record. <a class="dl" href="' + esc(e.href || '#') +
+                '">Download the signed PDF</a></p>' : '') +
               '<div class="dochost" id="l-' + esc(l.id) + '">' + P.letterDoc(F, l) + '</div>' +
-              P.printBtn('l-' + l.id, l.company + ' — ' + l.msaFlavour + ' MSA Extension') +
-              '</div></div>';
+              P.printBtn('l-' + l.id, l.company + ' \u2014 ' + l.msaFlavour + ' MSA Extension');
+            return panelRow('agr-' + l.id, l.msaFlavour + ' Master Services Agreement',
+              'Signed by ' + l.signer.name, 'Extends to ' + esc(l.extendTo), body,
+              e ? '<span class="pill good">Executed</span>'
+                : '<span class="pill">Awaiting Signature</span>');
           }).join('') + '</div>';
 
         whoEl.innerHTML = esc(who().name) + ' <i>·</i> ' + esc(F.company);
@@ -2755,11 +2994,21 @@ window.H = (function () {
             files.forEach(function (f) { if (f && f.slug === person.slug) mine = f; });
             if (!mine) { mine = H.emptyFile(person, fy); files = files.concat([mine]); }
             HRS.files = files; HRS.mine = mine; HRS.person = person;
-            return sect('My Hours', null, hoursSection(C, person, fy, mine, files), true) +
-              sect('My Submitted Time', (mine.weeks || []).length,
-                   submittedSection(C, person, fy, mine)) +
+            /* ⚠ Somebody who logs no time does not get a personal hours screen.
+               Four of the fourteen people manage their company's time without
+               logging any of their own, and an empty My Hours reading "no
+               service order is set up for you" was noise on every one of their
+               screens — Jonna, 29 September.  What a time manager gets instead
+               is the one screen that IS their job.
+               (No names here: this file is served from a PUBLIC repository.) */
+            var logs = (person.orders || []).length > 0;
+            return (logs
+              ? sect('My Hours', null, hoursSection(C, person, fy, mine, files), true) +
+                sect('My Submitted Time', (mine.weeks || []).length,
+                     submittedSection(C, person, fy, mine))
+              : '') +
               (person.timeManager
-                ? sect('The Company\u2019s Month', null, monthSection(C, fy, files)) : '');
+                ? sect('The Company\u2019s Month', null, monthSection(C, fy, files), !logs) : '');
           }).catch(function (e) {
             if (window.console && console.warn) console.warn('hours', e);
             return sect('My Hours', null,
@@ -2901,6 +3150,15 @@ window.H = (function () {
   /* One step of the pipeline on a company card.  ⚠ A step with nothing in it is
      shown greyed rather than hidden, so the five cards line up and the shape of
      the pipeline reads the same on every one of them. */
+  /* Health as a colour, with the word beside it for anybody who cannot rely on
+     one — a dot alone is not a label. */
+  var HEALTH_TONE = { Green: 'g', Yellow: 'y', Red: 'r', 'N/A': 'na' };
+  function healthDot(v) {
+    if (!v) return '<span class="hdot none" aria-hidden="true"></span>';
+    if (v === 'N/A') return '<span class="hdot na" title="N/A">N/A</span>';
+    return '<span class="hdot ' + HEALTH_TONE[v] + '" title="' + esc(v) + '"></span>';
+  }
+
   function stepChip(label, n) {
     return '<span class="stp' + (n ? '' : ' none') + '"><i>' + n + '</i>' + esc(label) + '</span>';
   }
@@ -2956,9 +3214,18 @@ window.H = (function () {
       (HRS.week && HRS.week !== H.weekFor(fy, today)
         ? '<p class="fineprint"><b>This is not the week you are in.</b> You are correcting an earlier ' +
           'week. <button class="lnk" type="button" id="h-now">Go back to this week</button></p>' : '') +
-      '<p class="fineprint">' + esc(H.weekSpan(fy, ending)) + '. ' +
-      'MISMO’s weeks end on a Friday, and on the last day of a month when that is not a Friday — ' +
-      'so no week straddles two invoices.</p>';
+      /* ⚠ This used to claim no week straddles two invoices.  It does — Jonna,
+         29 September — and saying otherwise would have had people logging a
+         week believing it all landed on one. */
+      '<p class="fineprint">' + esc(H.weekSpan(fy, ending)) + '. Weeks end on a Friday.' +
+      (function () {
+        var st = H.straddle(fy, ending);
+        if (!st) return '';
+        return ' <b>This one crosses a month end</b>, so it is split between two invoices — ' +
+          esc(st.firstDays) + ' goes on the ' + esc(st.firstMonth) + ' invoice and ' +
+          esc(st.lastDays) + ' on the ' + esc(st.lastMonth) + ' one. Each row asks how many of ' +
+          'its hours fell in ' + esc(st.firstMonth) + '.';
+      })() + '</p>';
 
     var state = back
       ? '<div class="wkstate bad"><span class="wk-l">Sent Back to You</span>' +
@@ -2992,33 +3259,51 @@ window.H = (function () {
       return '<div class="row"><div class="row-h">' +
         '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
         '<span class="rt">' + esc(o.subject) + '</span>' +
-        (r.health ? '<span class="pill ' + ({ Green: 'good', Yellow: 'warn', Red: 'bad' }[r.health] || '') +
-          '">' + esc(r.health) + '</span>' : '') +
+        (r.health ? healthDot(r.health) : '') +
         '<span class="rs num">' + hrs(logged) + ' hours</span>' +
         '</div><div class="row-b">' +
         '<div class="fields">' +
-        '<div class="f"><label for="h-' + esc(o.id) + '">Hours This Week</label>' +
+        '<div class="f narrow"><label for="h-' + esc(o.id) + '">Hours This Week</label>' +
         '<input id="h-' + esc(o.id) + '" class="hnum" type="number" min="0" step="0.25" ' +
         'data-hid="' + esc(o.id) + '" value="' + (logged ? hrs(logged) : '') + '"' +
         (sent ? ' disabled' : '') + '></div>' +
-        '<div class="f"><label for="hh-' + esc(o.id) + '">Health</label>' +
+        /* ⚠ Health is a colour, so it is shown as one.  A full-width dropdown
+           gave four words the same weight as the hours, and the whole point of
+           a health flag is that somebody can see it without reading. */
+        '<div class="f narrow"><label for="hh-' + esc(o.id) + '">Health</label>' +
+        '<div class="healthpick">' +
         '<select id="hh-' + esc(o.id) + '" class="hsel" data-hid="' + esc(o.id) + '"' +
         (sent ? ' disabled' : '') + '>' +
-        ['', 'Green', 'Yellow', 'Red', 'N/A'].map(function (v) {
-          return '<option value="' + v + '"' + (r.health === v ? ' selected' : '') + '>' +
-            (v || 'Not set') + '</option>'; }).join('') + '</select></div>' +
+        [['', 'Not set'], ['Green', 'Green'], ['Yellow', 'Yellow'], ['Red', 'Red'], ['N/A', 'N/A']]
+          .map(function (v) {
+            return '<option value="' + v[0] + '"' + (r.health === v[0] ? ' selected' : '') + '>' +
+              v[1] + '</option>'; }).join('') + '</select>' +
+        healthDot(r.health) + '</div></div>' +
+        /* A week that crosses a month end is split by the person who worked it.
+           About eleven weeks a year; the rest never see this. */
+        (function () {
+          var st = H.straddle(fy, ending);
+          if (!st) return '';
+          return '<div class="f narrow"><label for="hm-' + esc(o.id) + '">Of Those, in ' +
+            esc(st.firstMonth) + '</label>' +
+            '<input id="hm-' + esc(o.id) + '" class="hsplit" type="number" min="0" step="0.25" ' +
+            'data-hid="' + esc(o.id) + '" value="' +
+            (r.inFirstMonth != null ? hrs(r.inFirstMonth) : '') + '"' +
+            (sent ? ' disabled' : '') + '></div>';
+        })() +
         '</div>' +
-        '<div class="fields">' +
-        '<div class="f wide"><label for="hn-' + esc(o.id) + '">This Week</label>' +
-        '<input id="hn-' + esc(o.id) + '" class="hnote" type="text" data-hid="' + esc(o.id) + '" ' +
-        'placeholder="What you did — one line" value="' + esc(r.thisWeek || '') + '"' +
-        (sent ? ' disabled' : '') + '></div>' +
-        '</div>' +
-        '<div class="fields">' +
-        '<div class="f wide"><label for="hu-' + esc(o.id) + '">Upcoming</label>' +
-        '<input id="hu-' + esc(o.id) + '" class="hup" type="text" data-hid="' + esc(o.id) + '" ' +
-        'placeholder="What is next — one line" value="' + esc(r.upcoming || '') + '"' +
-        (sent ? ' disabled' : '') + '></div>' +
+        /* ⚠ The two notes sit side by side and are textareas, not one-line
+           boxes.  They are the part MISMO actually reads, and a single line
+           that scrolls sideways is where a status report goes to die. */
+        '<div class="fields notes2">' +
+        '<div class="f"><label for="hn-' + esc(o.id) + '">This Week</label>' +
+        '<textarea id="hn-' + esc(o.id) + '" class="hnote" rows="5" data-hid="' + esc(o.id) + '" ' +
+        'placeholder="What you did"' + (sent ? ' disabled' : '') + '>' +
+        esc(r.thisWeek || '') + '</textarea></div>' +
+        '<div class="f"><label for="hu-' + esc(o.id) + '">Upcoming</label>' +
+        '<textarea id="hu-' + esc(o.id) + '" class="hup" rows="5" data-hid="' + esc(o.id) + '" ' +
+        'placeholder="What is next"' + (sent ? ' disabled' : '') + '>' +
+        esc(r.upcoming || '') + '</textarea></div>' +
         '</div>' +
         /* ---- the cover split (Jonna, 29 Sep) ------------------------------
            Defaults to whoever is typing and stays out of the way.  It earns
@@ -3111,7 +3396,7 @@ window.H = (function () {
           '<span class="rs num">' + hrs(H.hoursIn(wk)) + ' hours</span>' +
           '</div><div class="row-b">' +
           '<div class="tbl"><table><thead><tr><th>Service Order</th><th class="n">Hours</th>' +
-          '<th class="hide-narrow">What You Wrote</th><th class="hide-narrow">Health</th></tr></thead><tbody>' +
+          '<th class="hide-narrow">What You Wrote</th><th class="hide-narrow hcol">Health</th></tr></thead><tbody>' +
           ids.map(function (id) {
             var r = rows[id], o = orderById(F, id);
             var split = H.splitOf(r, person.name);
@@ -3123,7 +3408,7 @@ window.H = (function () {
               '<td class="hide-narrow">' + (r.thisWeek ? esc(r.thisWeek) :
                 '<span class="fineprint">No note written</span>') +
               (r.upcoming ? '<br><span class="fineprint">Upcoming: ' + esc(r.upcoming) + '</span>' : '') +
-              '</td><td class="hide-narrow">' + esc(r.health || '—') + '</td></tr>';
+              '</td><td class="hide-narrow hcol">' + (r.health ? healthDot(r.health) : '—') + '</td></tr>';
           }).join('') + '</tbody></table></div>' +
           '<div class="wkstate ' + st.tone + '"><span class="wk-l">' + esc(st.label) + '</span>' +
           '<span class="wk-d">' + st.said + '</span></div>' +
@@ -3307,12 +3592,19 @@ window.H = (function () {
         rows[id][p[1]] = v;
       });
     });
+    /* The month split, on the weeks that cross a month end. */
+    $$('#view .hsplit').forEach(function (el) {
+      var id = el.dataset.hid, v = el.value;
+      if (v === '' || v == null) return;
+      if (!rows[id]) rows[id] = { hours: 0 };
+      rows[id].inFirstMonth = Math.round(Number(v) * 100) / 100;
+    });
     $$('#view .covrows').forEach(function (host) {
       var id = host.dataset.covrows, list = [];
       $$('.covrow', host).forEach(function (r) {
-        var who = $('.covwho', r), h = $('.covhrs', r);
+        var pick = $('.covwho', r), h = $('.covhrs', r);
         var n = Number(h && h.value);
-        if (who && who.value && n) list.push({ person: who.value, hours: Math.round(n * 100) / 100 });
+        if (pick && pick.value && n) list.push({ person: pick.value, hours: Math.round(n * 100) / 100 });
       });
       if (list.length && rows[id]) rows[id]['for'] = list;
     });
@@ -3322,8 +3614,9 @@ window.H = (function () {
   /* Everything that must be true before a week can go to MISMO.  ⚠ Each of
      these is a thing that is cheap to fix now and expensive to fix once it is
      on an invoice. */
-  function weekProblems(F, person, rows) {
+  function weekProblems(F, person, rows, fy) {
     var out = [];
+    var ending = HRS.week || H.weekFor(fy || F.fiscalYear || 'FY 2027', new Date());
     var ids = Object.keys(rows).filter(function (id) { return Number(rows[id].hours); });
     if (!ids.length) out.push('Nothing is entered yet — put hours against at least one service order.');
     ids.forEach(function (id) {
@@ -3337,6 +3630,19 @@ window.H = (function () {
       if (!rows[id].thisWeek) {
         out.push('<b>' + esc(name) + '</b> has hours but no <i>This Week</i> note. ' +
           'The weekly report is a status report — the note is the part MISMO reads.');
+      }
+      /* ⚠ A week that crosses a month end has to say how it splits, or real
+         cost quietly moves between two months — which is the thing the monthly
+         reconciliation exists to catch. */
+      var sp = H.splitMonths(rows[id], fy || F.fiscalYear || 'FY 2027', ending);
+      if (sp && sp.first == null) {
+        out.push('<b>' + esc(name) + '</b> — this week crosses a month end and nothing says how it ' +
+          'splits. Put the ' + esc(sp.firstMonth) + ' hours in <i>Of Those, in ' +
+          esc(sp.firstMonth) + '</i>, or all of them go on the ' + esc(sp.lastMonth) + ' invoice.');
+      }
+      if (sp && sp.over) {
+        out.push('<b>' + esc(name) + '</b> — more hours are marked as ' + esc(sp.firstMonth) +
+          ' than were logged for the whole week.');
       }
     });
     return out;
@@ -3456,7 +3762,7 @@ window.H = (function () {
 
     if (send) send.addEventListener('click', function () {
       var rows = readRows(person);
-      var bad = weekProblems(C.F, person, rows);
+      var bad = weekProblems(C.F, person, rows, fy);
       if (bad.length) { openCheck(bad, function () { doSend(rows); }); return; }
       doSend(rows);
     });
@@ -3685,7 +3991,7 @@ window.H = (function () {
       (flags.length ? '<div class="note"><b>Worth a look before you approve.</b><ul class="checks">' +
         flags.map(function (fl) { return '<li>' + fl + '</li>'; }).join('') + '</ul></div>' : '') +
       '<div class="tbl"><table><thead><tr><th>Service Order</th><th class="n">Hours</th>' +
-      '<th class="hide-narrow">What They Wrote</th><th class="hide-narrow">Health</th></tr></thead><tbody>' +
+      '<th class="hide-narrow">What They Wrote</th><th class="hide-narrow hcol">Health</th></tr></thead><tbody>' +
       ids.map(function (id) {
         var r = rows[id], o = orderById(F, id);
         var split = H.splitOf(r, f.person);
@@ -3696,7 +4002,7 @@ window.H = (function () {
           '<td class="hide-narrow">' + (r.thisWeek ? esc(r.thisWeek) :
             '<span class="fineprint">No note written</span>') +
           (r.upcoming ? '<br><span class="fineprint">Upcoming: ' + esc(r.upcoming) + '</span>' : '') +
-          '</td><td class="hide-narrow">' + esc(r.health || '—') + '</td></tr>';
+          '</td><td class="hide-narrow hcol">' + (r.health ? healthDot(r.health) : '—') + '</td></tr>';
       }).join('') + '</tbody></table></div>' +
       '<div class="fields"><div class="f wide">' +
       '<label>Why You Are Sending It Back</label>' +
@@ -3809,9 +4115,10 @@ window.H = (function () {
       '<span class="va-l">Viewing As</span>' +
       '<span class="va-c">' + esc(VIEWAS.company) + '</span>' +
       '<span class="va-r">' + esc(VIEWAS.person || '') + ' · ' +
-        (VIEWAS.role === 'facilitator'
-          ? 'a facilitator — no rate, no fee, hours only'
-          : 'the signer — everything they see') + '</span>' +
+        ({ facilitator: 'a facilitator — no rate, no fee, hours only',
+           'vp-product': 'the VP’s decision queue, across all five companies',
+           president: 'the President’s approval queue, across all five companies'
+         }[VIEWAS.role] || 'the signer — everything they see') + '</span>' +
       '<span class="va-ro">Nothing saves</span>' +
       '<button class="va-out" type="button" id="va-out">Back to My View</button>' +
       '</div>';
@@ -3845,6 +4152,20 @@ window.H = (function () {
       }).join('') + '</select></div>' +
       '<div class="f"><label for="va-who">Whose Screen</label><select id="va-who">' +
       '<option value="">Choose the company first</option></select></div>' +
+      '</div>' +
+      /* ⚠ MISMO's own two screens are not company-scoped — the VP and the
+         President see all five at once — so they sit apart from the picker
+         rather than pretending to be a sixth company. */
+      '<h4 class="subh">MISMO\u2019s Own Screens</h4>' +
+      '<p class="fineprint">Jonathan and Brian see every company at once, so these are not chosen by ' +
+      'company. Same rule: nothing saves.</p>' +
+      '<div class="issacts">' +
+      '<button class="tbtn ghost" type="button" id="va-vp">Open ' +
+        esc(((list[0] || {}).F || {}).vpProduct ? list[0].F.vpProduct.name : 'the VP') +
+        '\u2019s Screen</button>' +
+      '<button class="tbtn ghost" type="button" id="va-pres">Open ' +
+        esc(((list[0] || {}).F || {}).mismoSigner ? list[0].F.mismoSigner.name : 'the President') +
+        '\u2019s Screen</button>' +
       '</div>' +
       '<div class="issacts"><button class="tbtn" type="button" id="va-go">Open Their Screen</button></div>' +
       '<div class="note"><b>It is read-only, and that is the point.</b> Training means pressing the ' +
@@ -3904,6 +4225,17 @@ window.H = (function () {
     if (co) co.addEventListener('change', fill);
     fill();
 
+    /* MISMO's own two screens, which span every company. */
+    var F0 = (list[0] || {}).F || {};
+    var vpb = document.getElementById('va-vp');
+    if (vpb) vpb.addEventListener('click', function () {
+      enterMismoViewAs('vp-product', F0.vpProduct || { name: 'The VP', title: '' });
+    });
+    var prb = document.getElementById('va-pres');
+    if (prb) prb.addEventListener('click', function () {
+      enterMismoViewAs('president', F0.mismoSigner || { name: 'The President', title: '' });
+    });
+
     var go = document.getElementById('va-go');
     if (go) go.addEventListener('click', function () {
       if (!co || !co.value) { toast('Choose a company first'); if (co) co.focus(); return; }
@@ -3941,6 +4273,23 @@ window.H = (function () {
     HCTX = null;
     ISS_YEAR = null;
     contractorView();
+  }
+
+  /* The VP's and the President's screens.  ⚠ They are NOT company-scoped: both
+     read every company, exactly as those two accounts do.  The same read-only
+     guard covers them, so approving a batch here writes nothing. */
+  function enterMismoViewAs(kind, person) {
+    VIEWAS = {
+      slug: null,
+      company: kind === 'president' ? 'The President\u2019s Screen' : 'The VP\u2019s Screen',
+      role: kind,
+      person: person.name,
+      as: { name: person.name, title: person.title || '', email: person.email || '',
+            slugs: ME.slugs, slug: ME.slug, project: ME.project }
+    };
+    HRS = { files: null, mine: null, sha: null, person: null, month: null, week: null };
+    HCTX = null; ISS_YEAR = null;
+    if (kind === 'president') presidentView(); else vpView();
   }
 
   function leaveViewAs() {
@@ -4051,10 +4400,14 @@ window.H = (function () {
 
     go.addEventListener('click', function () {
       var ids = ticked();
-      var who = { signerName: nameEl.value.trim(), signerTitle: titleEl.value.trim(), signerEmail: who().email };
+      /* ⚠ This was called `who`, which shadowed the who() accessor — and its own
+         initialiser then called the shadow, so every acceptance threw before it
+         wrote anything.  Named for what it is instead. */
+      var signedBy = { signerName: nameEl.value.trim(), signerTitle: titleEl.value.trim(),
+                       signerEmail: who().email };
       var recs = ids.map(function (id) {
         var o = C.F.orders.filter(function (x) { return x.id === id; })[0];
-        return signature('Consultant', 'Accepted', o, who);
+        return signature('Consultant', 'Accepted', o, signedBy);
       });
       go.disabled = true; go.textContent = 'Accepting…';
       addSignatures(who().slug, recs, 'accepted ' + recs.length + ' orders')
@@ -4110,7 +4463,7 @@ window.H = (function () {
    * ======================================================================= */
   function presidentView() {
     busy('Reading the orders waiting for you…');
-    loadAll(ME.slugs).then(function (list) {
+    loadAll(who().slugs).then(function (list) {
       var waiting = [], done = 0;
       list.forEach(function (C) {
         var mine = C.F.orders.filter(function (o) {
@@ -4130,7 +4483,7 @@ window.H = (function () {
           '<div class="batchbar"><button class="gobtn" type="button" id="approve-all">' +
           'Approve All ' + total + ' Waiting</button>' +
           '<span class="qc">' + waiting.length + ' ' + (waiting.length === 1 ? 'company' : 'companies') +
-          ' · signed in as ' + esc(ME.name) + ', ' + esc(ME.title) + '</span></div>' +
+          ' · signed in as ' + esc(who().name) + ', ' + esc(who().title) + '</span></div>' +
           '<div class="rows">' + waiting.map(function (C) {
             return '<div class="row" data-co="' + esc(C.slug) + '"><div class="row-h">' +
               '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
@@ -4156,11 +4509,22 @@ window.H = (function () {
               '<div class="docstack">' + C.waiting.map(function (o) {
                 return '<div class="row"><div class="row-h"><svg class="chev" viewBox="0 0 24 24" aria-hidden="true">' +
                   '<path d="M9 6l6 6-6 6"/></svg><span class="rt">' + esc(o.subject) + '</span></div>' +
-                  '<div class="row-b"><div class="dochost">' + P.orderDoc(C.F, o) + '</div></div></div>';
+                  '<div class="row-b"><div class="dochost">' + P.orderDoc(C.F, o) + '</div>' +
+                  /* ⚠ The President could previously only approve or do nothing.
+                     An objection had nowhere to go, so it reached Jonna by email
+                     or not at all.  This is the VP's hold, with the same rule:
+                     no reason, no hold. */
+                  '<div class="onebar">' +
+                  '<div class="f"><label>Why Is It Not Working?</label>' +
+                  '<input type="text" class="preswhy" data-id="' + esc(o.id) +
+                  '" placeholder="This goes back to Jonna with the order"></div>' +
+                  '<button class="gobtn ghost preshold" type="button" data-slug="' + esc(C.slug) +
+                  '" data-id="' + esc(o.id) + '">Hold This One</button></div>' +
+                  '</div></div>';
               }).join('') + '</div></div></div>';
           }).join('') + '</div>';
 
-      whoEl.innerHTML = esc(ME.name) + ' <i>·</i> ' + esc(ME.title);
+      whoEl.innerHTML = esc(who().name) + ' <i>·</i> ' + esc(who().title);
       say(sect('Awaiting Your Approval', total, body, true) +
         sect('Already Approved', done,
           '<p class="lede">' + done + ' ' + (done === 1 ? 'order has' : 'orders have') +
@@ -4182,11 +4546,38 @@ window.H = (function () {
       function approveCompany(C) {
         var recs = C.waiting.map(function (o) {
           return signature('MISMO Signer', 'Approved', o, {
-            signerName: ME.name, signerTitle: ME.title, signerEmail: ME.email, via: 'single sign-on'
+            signerName: who().name, signerTitle: who().title, signerEmail: who().email, via: 'single sign-on'
           });
         });
         return addSignatures(C.slug, recs, 'approved ' + recs.length + ' orders for ' + C.F.company);
       }
+      document.querySelectorAll('.preshold').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var C = waiting.filter(function (x) { return x.slug === b.dataset.slug; })[0];
+          var o = C.waiting.filter(function (x) { return x.id === b.dataset.id; })[0];
+          var why = document.querySelector('.preswhy[data-id="' + b.dataset.id + '"]');
+          /* A hold with no reason lands on Jonna's desk saying nothing, which is
+             no better than the email it replaces. */
+          if (!why || why.value.trim().length < 2) {
+            if (why) why.focus();
+            toast('Say why it is not working first');
+            return;
+          }
+          b.disabled = true;
+          var reason = why.value.trim();
+          addSignatures(C.slug, [signature('MISMO Signer', 'Held', o, {
+            signerName: who().name, signerTitle: who().title, signerEmail: who().email,
+            via: 'single sign-on', note: reason
+          })], 'held by the President — ' + o.subject)
+            .then(function () {
+              return notify(C.slug, notice('Held by the President', o, C.F.company, who().name, reason));
+            })
+            .then(function () {
+              toast('Held \u2014 it goes back to MISMO with your reason'); presidentView();
+            })
+            .catch(function (e) { b.disabled = false; failed(e); });
+        });
+      });
       document.querySelectorAll('.batch').forEach(function (b) {
         b.addEventListener('click', function () {
           var C = waiting.filter(function (x) { return x.slug === b.dataset.slug; })[0];
@@ -4213,7 +4604,7 @@ window.H = (function () {
    * ======================================================================= */
   function vpView() {
     busy('Reading the orders waiting for your decision…');
-    loadAll(ME.slugs).then(function (list) {
+    loadAll(who().slugs).then(function (list) {
       var waiting = [], total = 0;
       list.forEach(function (C) {
         C.waiting = C.F.orders.filter(function (o) { return statusOf(o, C.sigs).key === 'draft'; });
@@ -4226,7 +4617,7 @@ window.H = (function () {
           'it. Approving one here releases it for MISMO to send.</p>' +
           '<div class="batchbar"><button class="gobtn" type="button" id="vp-all">' +
           'Approve All ' + total + ' to Send</button><span class="qc">Signed in as ' +
-          esc(ME.name) + ', ' + esc(ME.title) + '</span></div>' +
+          esc(who().name) + ', ' + esc(who().title) + '</span></div>' +
           '<div class="rows">' + waiting.map(function (C) {
             return '<div class="row" data-co="' + esc(C.slug) + '"><div class="row-h">' +
               '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
@@ -4260,7 +4651,7 @@ window.H = (function () {
               }).join('') + '</div></div></div>';
           }).join('') + '</div>';
 
-      whoEl.innerHTML = esc(ME.name) + ' <i>·</i> ' + esc(ME.title);
+      whoEl.innerHTML = esc(who().name) + ' <i>·</i> ' + esc(who().title);
       say(sect('Awaiting Your Decision', total, body, true) +
         sect('Already Decided', list.reduce(function (a, C) {
           return a + C.F.orders.filter(function (o) {
@@ -4284,7 +4675,7 @@ window.H = (function () {
       function decide(C, orders, decision, note) {
         return addSignatures(C.slug, orders.map(function (o) {
           return signature('VP Product Decision', decision, o, {
-            signerName: ME.name, signerTitle: ME.title, signerEmail: ME.email,
+            signerName: who().name, signerTitle: who().title, signerEmail: who().email,
             via: 'single sign-on', note: note || ''
           });
         }), decision + ' — ' + orders.length + ' orders for ' + C.F.company);
@@ -4313,7 +4704,7 @@ window.H = (function () {
           var reason = why.value.trim();
           decide(C, [o], 'Held', reason)
             .then(function () {
-              return notify(C.slug, notice('Held by the VP', o, C.F.company, ME.name, reason));
+              return notify(C.slug, notice('Held by the VP', o, C.F.company, who().name, reason));
             })
             .then(function () { toast('Held — it comes back to MISMO with your reason'); vpView(); })
             .catch(function (e) { b.disabled = false; failed(e); });
@@ -4345,7 +4736,8 @@ window.H = (function () {
     ]).then(function (both) {
       var list = both[0];
       var outbox = [].concat.apply([], both[1]);
-      var tally = { draft: 0, vp: 0, vphold: 0, sent: 0, question: 0, acknowledged: 0, changed: 0, executed: 0 };
+      var tally = { draft: 0, vp: 0, vphold: 0, sent: 0, question: 0, acknowledged: 0, changed: 0,
+        preshold: 0, executed: 0 };
       list.forEach(function (C) {
         C.st = {};
         C.F.orders.forEach(function (o) {
@@ -4354,7 +4746,7 @@ window.H = (function () {
       });
       var LABEL = { draft: 'Draft', vp: 'Released to Send', vphold: 'Held by the VP', sent: 'Sent',
         question: 'Question Raised', acknowledged: 'Acknowledged', changed: 'Changed Since Acknowledged',
-        executed: 'Executed' };
+        preshold: 'Held by the President', executed: 'Executed' };
 
       /* ---- the Status Board, in the Website Migration HQ shape -------------
          ⚠ Eight equal white boxes gave every status the same weight, so the one
@@ -4363,7 +4755,8 @@ window.H = (function () {
          four figures worth acting on, then a card per company. */
       var totalOrders = list.reduce(function (a, C) { return a + C.F.orders.length; }, 0);
       var totalLetters = list.reduce(function (a, C) { return a + C.F.letters.length; }, 0);
-      var needsCount = (tally.question || 0) + (tally.changed || 0) + (tally.vphold || 0);
+      var needsCount = (tally.question || 0) + (tally.changed || 0) + (tally.vphold || 0) +
+        (tally.preshold || 0);
       var moving = (tally.sent || 0) + (tally.acknowledged || 0);
       var boardValue = list.reduce(function (a, C) {
         return a + C.F.orders.reduce(function (b, o) { return b + (o.maximumFee || 0); }, 0);
@@ -4409,8 +4802,9 @@ window.H = (function () {
             esc(((list[0].F.vpProduct) || {}).name || 'the VP') + '</small></div>' +
           '<div class="tile' + (needsCount ? ' warn' : '') + '"><b>' + needsCount + '</b>' +
             '<span>Stopped, Needing You</span>' +
-            '<small>' + (tally.question || 0) + ' questions · ' + (tally.vphold || 0) +
-            ' held · ' + (tally.changed || 0) + ' changed</small></div>' +
+            '<small>' + (tally.question || 0) + ' questions · ' +
+            ((tally.vphold || 0) + (tally.preshold || 0)) + ' held · ' +
+            (tally.changed || 0) + ' changed</small></div>' +
         '</div></div>' +
 
         '<div class="sect-t">Company by Company</div><div class="cards">' +
@@ -4418,7 +4812,7 @@ window.H = (function () {
           var c = function (k) {
             return C.F.orders.filter(function (o) { return C.st[o.id].key === k; }).length;
           };
-          var mine = c('question') + c('changed') + c('vphold');
+          var mine = c('question') + c('changed') + c('vphold') + c('preshold');
           var n = C.F.orders.length;
           var done = c('executed');
           /* What this company is actually waiting on, said as a sentence rather
@@ -4461,8 +4855,8 @@ window.H = (function () {
       list.forEach(function (C) {
         C.F.orders.forEach(function (o) {
           var s = C.st[o.id];
-          if (['question', 'vphold', 'changed'].indexOf(s.key) < 0) return;
-          needs.push({ company: C.F.company, order: o, st: s });
+          if (['question', 'vphold', 'preshold', 'changed'].indexOf(s.key) < 0) return;
+          needs.push({ company: C.F.company, order: o, st: s, C: C });
         });
       });
       var needsBody = needs.length === 0
@@ -4470,66 +4864,76 @@ window.H = (function () {
           'changed since it was accepted.</p>' + outboxLine(outbox)
         : outboxLine(outbox) +
           '<p class="lede">Every order that has stopped and is waiting on you, with what was said ' +
-          'about it. None of these moves on its own.</p>' +
-          '<div class="tbl"><table><thead><tr><th>Company</th><th>Service Order</th>' +
-          '<th class="hide-narrow">Who</th><th>What They Said</th><th>Status</th>' +
-          '</tr></thead><tbody>' + needs.map(function (n) {
+          'about it. None of these moves on its own \u2014 choose one to read it in full.</p>' +
+          '<div class="hqrows">' + needs.map(function (n, i) {
             var sig = n.st.sig || {};
             var said = n.st.key === 'question' ? (sig.question || '')
-              : n.st.key === 'vphold' ? (sig.note || '')
+              : (n.st.key === 'vphold' || n.st.key === 'preshold') ? (sig.note || '')
                 : 'The order was edited after it was accepted, so the acceptance on record is for ' +
                   'the earlier wording. Send it again, or raise a Modification.';
-            return '<tr><td>' + esc(n.company) + '</td><td>' + esc(n.order.subject) + '</td>' +
-              '<td class="hide-narrow">' + esc(sig.signerName || '—') +
-              (sig.signedOn ? '<div class="why">' + esc(stamp(sig.signedOn)) + '</div>' : '') + '</td>' +
-              '<td>' + esc(said) + '</td><td>' + pill(n.st) + '</td></tr>';
-          }).join('') + '</tbody></table></div>';
+            var body =
+              '<div class="fields">' +
+              fld('Company', n.company) +
+              fld('Service Order', n.order.subject) +
+              fld('Status', n.st.label) +
+              fld('Who', sig.signerName || '\u2014') +
+              fld('When', sig.signedOn ? stamp(sig.signedOn) : '\u2014') +
+              '</div>' +
+              '<h4 class="subh">What They Said</h4>' +
+              '<p class="saidbox">' + esc(said) + '</p>' +
+              '<div class="dochost">' + P.orderDoc(n.C.F, n.order) + '</div>';
+            return panelRow('needs-' + i, n.order.subject, n.company + ' \u00b7 ' + (sig.signerName || ''),
+              esc(said).slice(0, 60) + (said.length > 60 ? '\u2026' : ''), body, pill(n.st));
+          }).join('') + '</div>';
 
       var sendBody = '<p class="lede">An order can be sent once ' + esc(list[0].F.vpProduct.name) +
         ' has released it. Sending writes the date onto the order; the contracting company sees it ' +
-        'the next time they sign in.</p>' +
-        '<div class="rows">' + list.map(function (C) {
+        'the next time they sign in. Choose a company to see what is ready.</p>' +
+        '<div class="hqrows">' + list.map(function (C) {
           var ready = C.F.orders.filter(function (o) { return C.st[o.id].key === 'vp'; });
-          return '<div class="row" data-co="' + esc(C.slug) + '"><div class="row-h">' +
-            '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
-            '<span class="rt">' + esc(C.F.company) + '</span><span class="pill' +
-            (ready.length ? '' : ' quiet') + '">' + ready.length + ' ready to send</span></div>' +
-            '<div class="row-b">' + (ready.length
-              ? '<div class="tbl"><table><thead><tr><th>Service Order</th><th class="n">Maximum Fee</th>' +
-                '</tr></thead><tbody>' + ready.map(function (o) {
-                  return '<tr><td>' + esc(o.subject) + '</td><td class="n">' +
-                    (o.maximumFee != null ? money(o.maximumFee) : 'Per review') + '</td></tr>';
-                }).join('') + '</tbody></table></div>' +
-                '<div class="batchbar"><button class="gobtn sendco" type="button" data-slug="' +
-                esc(C.slug) + '">Send These ' + ready.length + ' to ' +
-                esc(C.F.signers.order.name) + '</button></div>'
-              : '<p class="empty">Nothing released for this company yet.</p>') +
-            '</div></div>';
+          var body = ready.length
+            ? '<div class="tbl"><table><thead><tr><th>Service Order</th>' +
+              '<th class="n">Maximum Fee</th></tr></thead><tbody>' + ready.map(function (o) {
+                return '<tr><td>' + esc(o.subject) + '</td><td class="n">' +
+                  (o.maximumFee != null ? money(o.maximumFee) : 'Per review') + '</td></tr>';
+              }).join('') + '</tbody></table></div>' +
+              '<div class="batchbar"><button class="gobtn sendco" type="button" data-slug="' +
+              esc(C.slug) + '">Send These ' + ready.length + ' to ' +
+              esc(C.F.signers.order.name) + '</button></div>' +
+              '<p class="fineprint">\u26a0 <b>This sends the whole company\u2019s batch</b>, not one ' +
+              'order. Every one listed above goes at the same time.</p>'
+            : '<p class="empty">Nothing released for this company yet. ' +
+              esc(C.F.vpProduct.name) + ' decides before anything can be sent.</p>';
+          return panelRow('send-' + C.slug, C.F.company,
+            esc(C.F.signers.order.name) + ' \u00b7 ' + esc(C.F.signers.order.title),
+            ready.length + ' ready', body,
+            ready.length ? '<span class="pill">' + ready.length + '</span>'
+                         : '<span class="pill quiet">none</span>');
         }).join('') + '</div>';
 
-      var archive = '<p class="lede">The executed documents, kept permanently. This archive is yours ' +
-        'and the contracting company’s — it is not returned to the President’s sign-in.</p>' +
-        '<div class="rows">' + list.map(function (C) {
-          return '<div class="row" data-arch="' + esc(C.slug) + '"><div class="row-h">' +
-            '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
-            '<span class="rt">' + esc(C.F.company) + '</span><span class="pill quiet">' +
-            C.F.letters.length + ' agreement' + (C.F.letters.length === 1 ? '' : 's') + '</span></div>' +
-            '<div class="row-b">' + C.F.letters.map(function (l) {
-              return '<div class="upl"><div class="fields">' +
-                fld('Agreement', l.msaFlavour + ' Master Services Agreement') +
-                fld('Signed for the Company by', l.signer.name + ' — ' + l.signer.title) +
-                fld('Extends To', l.extendTo) + '</div>' +
-                '<div class="onebar"><div class="f"><label>Executed PDF From DocuSign</label>' +
-                '<input type="file" accept="application/pdf" class="exec-file" data-slug="' + esc(C.slug) +
-                '" data-flav="' + esc(l.msaFlavour) + '"></div>' +
-                '<div class="f"><label>DocuSign Envelope ID</label>' +
-                '<input type="text" class="exec-env" data-flav="' + esc(l.msaFlavour) + '"></div>' +
-                '<button class="gobtn exec-go" type="button" data-slug="' + esc(C.slug) +
-                '" data-flav="' + esc(l.msaFlavour) + '">File It</button></div>' +
-                '<p class="fineprint">Upload the whole DocuSign output, including the Certificate of ' +
-                'Completion — that certificate is the evidence of execution and the part an auditor ' +
-                'asks for.</p></div>';
-            }).join('') + '</div></div>';
+      var archive = '<p class="lede">The executed documents, kept permanently. This archive is ' +
+        'yours and the contracting company\u2019s \u2014 it is not returned to the President\u2019s ' +
+        'sign-in. Choose a company to file or read one.</p>' +
+        '<div class="hqrows">' + list.map(function (C) {
+          var body = C.F.letters.map(function (l) {
+            return '<div class="execbox"><div class="fields">' +
+              fld('Agreement', l.msaFlavour + ' Master Services Agreement') +
+              fld('Signed for the Company by', l.signer.name + ' \u2014 ' + l.signer.title) +
+              fld('Extends To', l.extendTo) + '</div>' +
+              '<div class="onebar"><div class="f"><label>Executed PDF From DocuSign</label>' +
+              '<input type="file" accept="application/pdf" class="exec-file" data-slug="' +
+              esc(C.slug) + '" data-flav="' + esc(l.msaFlavour) + '"></div>' +
+              '<div class="f"><label>DocuSign Envelope ID</label>' +
+              '<input type="text" class="exec-env" data-flav="' + esc(l.msaFlavour) + '"></div>' +
+              '<button class="gobtn exec-go" type="button" data-slug="' + esc(C.slug) +
+              '" data-flav="' + esc(l.msaFlavour) + '">File It</button></div>' +
+              '<p class="fineprint">Upload the whole DocuSign output, including the Certificate of ' +
+              'Completion \u2014 that certificate is the evidence of execution and the part an ' +
+              'auditor asks for.</p></div>';
+          }).join('');
+          return panelRow('arch-' + C.slug, C.F.company,
+            C.F.letters.map(function (l) { return l.msaFlavour; }).join(' \u00b7 '),
+            C.F.letters.length + ' agreement' + (C.F.letters.length === 1 ? '' : 's'), body);
         }).join('') + '</div>';
 
       whoEl.innerHTML = esc(ME.name) + ' <i>·</i> ' + esc(ME.title);
@@ -4562,7 +4966,11 @@ window.H = (function () {
       if (by) wireApprove(list, by, adminView);
       if (canViewAs()) wireViewAs(list);
 
-      document.querySelectorAll('.sendco').forEach(function (b) {
+      onPanelOpen(wireAdminControls);
+      wireAdminControls(document);
+      function wireAdminControls(root) {
+      (root || document).querySelectorAll('.sendco').forEach(function (b) {
+        if (b.dataset.wired) return; b.dataset.wired = '1';
         b.addEventListener('click', function () {
           var C = list.filter(function (x) { return x.slug === b.dataset.slug; })[0];
           var when = new Date().toISOString();
@@ -4578,7 +4986,8 @@ window.H = (function () {
             .catch(function (e) { b.disabled = false; failed(e); });
         });
       });
-      document.querySelectorAll('.exec-go').forEach(function (b) {
+      (root || document).querySelectorAll('.exec-go').forEach(function (b) {
+        if (b.dataset.wired) return; b.dataset.wired = '1';
         b.addEventListener('click', function () {
           var slug = b.dataset.slug, flav = b.dataset.flav;
           var f = document.querySelector('.exec-file[data-slug="' + slug + '"][data-flav="' + flav + '"]');
@@ -4615,6 +5024,7 @@ window.H = (function () {
           fr.readAsDataURL(file);
         });
       });
+      }   /* wireAdminControls */
       }   /* drawAdmin */
     }).catch(closed);
   }
