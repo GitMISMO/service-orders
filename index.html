@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>MISMO Service Orders and Agreements</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
 <style>:root{
  --navy:#0d314c; --sky:#74bfeb; --navy-deep:#06202f; --navy-mid:#14486e;
  --sky-soft:#a9d8f3; --sky-wash:#e4f2fb;
@@ -906,6 +906,22 @@ body.railmini .hq nav button .railbadge.w2{width:22px; right:-3px}
 body.railmini .hq nav button .railbadge.w3{width:27px; right:-6px}
 body.railmini .hq nav button .railbadge.slot1{top:22px; margin-left:0}
 
+/* =========================================================================
+ * ONE TYPEFACE.
+ *
+ * ⚠ The portal was using IBM Plex Mono for labels, totals, table headers,
+ * chips and status pills, and IBM Plex Sans for everything else — two families
+ * interleaved line by line, which is what "the font looks all over the place"
+ * was.  Every other MISMO artifact (Website Migration HQ, Summit HQ) maps
+ * --mono straight onto the display face and carries the whole hierarchy on
+ * SIZE, WEIGHT and LETTER-SPACING instead.  This does the same.
+ *
+ * Tabular figures came free with the monospace; they are put back explicitly
+ * on the body so columns of numbers still line up.
+ * ======================================================================= */
+:root{ --mono:var(--display); }
+body{ font-variant-numeric:tabular-nums; }
+
 /* The platform page — resources.mismo.org/service-orders/
    Sits on top of style.css so the portal, the Sponsorship Portal and Summit HQ
    read as the same family. Only what is different lives here. */
@@ -1391,6 +1407,81 @@ td.hcol .hdot{margin:0 auto}
 /* the panel's own content needs the same spacing the page has */
 .panel-b .fields{margin-top:0}
 .panel-b .subh{margin:16px 0 6px}
+
+/* ===== Health, as colour ==================================================
+   ⚠ Radio buttons wearing dots. A dropdown of the words Green, Yellow and Red
+   is not a health flag: the point is being able to take it in without reading.
+   The word stays on every one of them, because colour alone is not a label. */
+.hpick{display:flex;flex-wrap:wrap;gap:4px}
+.hbtn{display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:12px;
+  background:var(--surface);border:1px solid var(--border);border-radius:6px;
+  padding:5px 9px;cursor:pointer;color:var(--ink-2);white-space:nowrap}
+.hbtn:hover:not(:disabled){border-color:var(--border-strong);color:var(--ink)}
+.hbtn:focus-visible{outline:2px solid var(--sky);outline-offset:1px}
+.hbtn:disabled{opacity:.5;cursor:not-allowed}
+.hbtn .hd{width:11px;height:11px;border-radius:50%;flex:0 0 auto;
+  border:1px solid rgba(13,49,76,.22);background:var(--surface-3)}
+.hbtn.g .hd{background:var(--good)}
+.hbtn.y .hd{background:var(--warn)}
+.hbtn.r .hd{background:var(--bad)}
+.hbtn .hna{font-size:10.5px;font-weight:700;letter-spacing:.04em;color:var(--ink-3)}
+.hbtn.on{border-color:var(--navy);background:var(--sky-wash);color:var(--ink);font-weight:600}
+.hbtn.on .hd{box-shadow:0 0 0 2px var(--surface),0 0 0 3px currentColor}
+:root[data-theme="dark"] .hbtn.on{background:var(--surface-3);border-color:var(--sky)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .hbtn.on{background:var(--surface-3);border-color:var(--sky)}
+}
+/* at the narrowest, the words would wrap the row onto four lines */
+@media(max-width:480px){ .hbtn .hw{display:none} .hbtn{padding:6px 10px} }
+
+/* The Status Board sits on the page rather than inside a collapsible section,
+   so it needs the card the section used to give it. */
+.board{background:var(--surface);border:1px solid var(--border);border-radius:10px;
+  padding:20px 22px;margin:0 0 18px;box-shadow:var(--shadow,0 1px 2px rgba(13,49,76,.06))}
+@media(max-width:700px){ .board{padding:16px 14px} }
+
+/* The signature block as it will look, before it can be used. */
+.sigprev{margin:16px 0 4px;border:1px dashed var(--border-strong);border-radius:9px;
+  padding:12px 14px;background:var(--sunk,var(--surface-2))}
+.sigprev-h{font-size:11.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--ink-3);margin-bottom:8px}
+.sigprev .onebar{margin:0}
+.sigprev input:disabled{background:var(--surface);color:var(--ink-3);cursor:not-allowed}
+.sigprev .gobtn:disabled{opacity:.4}
+
+/* ===== Grouped lists, the HQ's shape =====================================
+   A group header inside a row list, with the batch action on it. */
+.rgrp{display:flex;align-items:center;gap:10px;padding:8px 14px;background:var(--surface-3);
+  border-bottom:1px solid var(--rule);font-size:11.5px;font-weight:700;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--ink-2)}
+.rgrp > span{background:var(--surface);border:1px solid var(--border);border-radius:3px;
+  padding:0 6px;font-size:11px;letter-spacing:0;color:var(--ink)}
+.rgrp-go{margin-left:auto;font:inherit;font-size:11.5px;font-weight:600;letter-spacing:0;
+  text-transform:none;background:var(--navy);color:#fff;border:1px solid var(--navy);
+  border-radius:5px;padding:4px 11px;cursor:pointer;white-space:nowrap}
+.rgrp-go:hover{background:var(--navy-mid);border-color:var(--navy-mid)}
+:root[data-theme="dark"] .rgrp-go{background:var(--sky);color:var(--navy-deep);border-color:var(--sky)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .rgrp-go{background:var(--sky);color:var(--navy-deep);border-color:var(--sky)}
+}
+/* the decide action inside the panel */
+.decidebar{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 4px}
+
+/* ===== The unsaved-changes question ======================================
+   ⚠ Hours are entered in the panel now, and a panel can be dismissed with a
+   stray click on the scrim or the Escape key.  Nothing is allowed to close
+   over unsaved work without asking — the same three-way question the Website
+   Migration HQ asks. */
+.modal{position:fixed;inset:0;z-index:150;background:rgba(6,32,47,.5);display:flex;
+  align-items:center;justify-content:center;padding:16px}
+.modal[hidden]{display:none!important}
+.modal-box{background:var(--surface);color:var(--ink);border:1px solid var(--border-strong);
+  border-radius:9px;box-shadow:0 18px 48px rgba(6,32,47,.35);padding:20px 22px;max-width:480px;width:100%}
+.modal-box h2{font-size:17px;font-weight:700;margin:0}
+.modal-box p{margin:6px 0 16px;color:var(--ink-2)}
+.modal-acts{display:flex;flex-wrap:wrap;gap:10px;justify-content:flex-end}
+.gobtn.danger{background:transparent;color:var(--bad);border-color:var(--bad)}
+.gobtn.danger:hover:not(:disabled){background:var(--bad-soft,var(--surface-3));color:var(--bad)}
 </style>
 </head>
 <body>
@@ -1482,6 +1573,13 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
 <div id="printhost"></div>
 
 <script>window.RELAY={"base": "https://rgvdi67cg27o5kcmiytcqbqnrm0hmztx.lambda-url.us-east-1.on.aws", "projects": ["so-phoenix", "so-actualize", "so-trex", "so-falcon", "so-trudigital"], "slugs": {"so-phoenix": "phoenixteam", "so-actualize": "actualize", "so-trex": "trex", "so-falcon": "falcon", "so-trudigital": "trudigital"}, "note": "base is the relay's Lambda function URL. projects is every key this page may sign in against, tried in turn; the token is not project-bound, so the first that works covers them all. slugs maps a project key to the filename its data uses. All three are configuration: a sixth company is a change HERE and nowhere else."};</script>
+<div class="modal" id="confirm" hidden role="alertdialog" aria-modal="true" aria-labelledby="confirm-t">
+  <div class="modal-box"><h2 id="confirm-t">You have unsaved changes.</h2>
+  <p id="confirm-p">Save them before closing?</p>
+  <div class="modal-acts"><button type="button" class="gobtn ghost" id="cf-keep">Keep Editing</button>
+  <button type="button" class="gobtn danger" id="cf-discard">Discard and Close</button>
+  <button type="button" class="gobtn" id="cf-save">Save and Close</button></div></div>
+</div>
 <div class="scrim" id="pscrim"></div>
 <aside class="panel" id="panel" aria-label="Detail">
   <div class="panel-h"><h2 id="panel-title"></h2>
@@ -2523,16 +2621,44 @@ window.H = (function () {
   }
   var PANEL_AFTER = [];
   function onPanelOpen(fn) { PANEL_AFTER.push(fn); }
-  function closePanel() {
+  /* ⚠ A view that holds unsaved work registers a guard.  Nothing closes over
+     it without asking — the scrim, the ×, Escape and Back to My View all come
+     through here. */
+  var PANEL_GUARD = null;
+  function closePanel(force) {
     if (!panel) return;
+    if (!force && PANEL_GUARD) {
+      var g = PANEL_GUARD();
+      if (g) { askUnsaved(g); return; }
+    }
     panel.classList.remove('on');
     if (pscrim) pscrim.classList.remove('on');
+    panel.classList.remove('wide');
     document.body.style.overflow = '';
   }
+  function askUnsaved(g) {
+    var box = document.getElementById('confirm');
+    if (!box) { g.save(); closePanel(true); return; }
+    box.hidden = false;
+    function off() {
+      box.hidden = true;
+      keep.onclick = null; disc.onclick = null; sav.onclick = null;
+    }
+    var keep = document.getElementById('cf-keep');
+    var disc = document.getElementById('cf-discard');
+    var sav = document.getElementById('cf-save');
+    keep.onclick = function () { off(); };
+    disc.onclick = function () { off(); g.discard(); closePanel(true); };
+    sav.onclick = function () { off(); g.save(); closePanel(true); };
+    sav.focus();
+  }
   (function () {
+    /* ⚠ NOT addEventListener('click', closePanel) — the event object arrives as
+       the first argument, which closePanel reads as `force`, and the guard is
+       skipped every single time. */
     var x = document.getElementById('panel-x');
-    if (x) x.addEventListener('click', closePanel);
-    if (pscrim) pscrim.addEventListener('click', closePanel);
+    if (x) x.addEventListener('click', function () { closePanel(); });
+    if (pscrim) pscrim.addEventListener('click', function () { closePanel(); });
     var w = document.getElementById('panel-wide');
     if (w) w.addEventListener('click', function () {
       var on = panel.classList.toggle('wide');
@@ -2586,10 +2712,10 @@ window.H = (function () {
        opened nothing.  Keys repeat between renders, so entries overwrite rather
        than pile up.  PANEL_AFTER is different: views register it AFTER say(),
        so clearing it here is what stops a stale view wiring a live panel. */
-    PANEL_AFTER = [];
+    PANEL_AFTER = []; PANEL_GUARD = null;
     view.innerHTML = viewAsBanner() + html;
     P.wireSections(view); P.wireRows(view); wirePanelRows(view); buildRail();
-    closePanel();
+    closePanel(true);
     var out = document.getElementById('va-out');
     if (out) out.addEventListener('click', leaveViewAs);
     document.body.classList.toggle('viewingas', !!VIEWAS);
@@ -2628,6 +2754,25 @@ window.H = (function () {
     var host = document.getElementById('rail-nav');
     if (!host) return;
     host.textContent = '';
+    /* The board is not a section, so it would drop out of the rail with the
+       sections it sits above.  It gets its own entry, first, that simply
+       scrolls to the top. */
+    var board = view.querySelector('.board');
+    if (board) {
+      var bb = document.createElement('button');
+      bb.type = 'button';
+      bb.title = 'Status Board';
+      bb.setAttribute('aria-current', 'page');
+      bb.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' +
+        railIcon('status board') + '</svg><span>Status Board</span>';
+      bb.addEventListener('click', function () {
+        Array.prototype.forEach.call(host.children, function (x) { x.removeAttribute('aria-current'); });
+        bb.setAttribute('aria-current', 'page');
+        try { board.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+        catch (e) { board.scrollIntoView(); }
+      });
+      host.appendChild(bb);
+    }
     var secs = view.querySelectorAll('.psec');
     Array.prototype.forEach.call(secs, function (sec, i) {
       var h = sec.querySelector('.psec-h');
@@ -2638,7 +2783,7 @@ window.H = (function () {
       b.type = 'button';
       b.setAttribute('data-hq', sec.id);
       b.title = name;
-      if (i === 0) b.setAttribute('aria-current', 'page');
+      if (i === 0 && !board) b.setAttribute('aria-current', 'page');
       b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + railIcon(name) + '</svg>' +
         '<span>' + name.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</span>' +
         (cntEl && cntEl.textContent ? '<i class="railn">' + cntEl.textContent + '</i>' : '');
@@ -2670,28 +2815,63 @@ window.H = (function () {
   /* The rail's search box asks for this.  Nothing is indexed and nothing is
      stored — the page is read each time the box is used, so it can never go
      stale and nothing typed is kept. */
+  /* ---- the rail's search --------------------------------------------------
+     ⚠ This was returning {label, sub} while the rail reads {name, where,
+     group} — so every hit drew as a blank line under a heading reading
+     "undefined".  And it only ever looked at .row elements, which the panel
+     rows replaced, so most of the page was unfindable.  Both fixed, and the
+     Status Board is indexed too now that it is not a section. */
   window.__search = function (needle) {
     var out = [];
+    function add(group, name, where, go) {
+      if (!name || name.toLowerCase().indexOf(needle) === -1) return;
+      out.push({ group: group, name: name.trim(), where: where || '', go: go });
+    }
+    function openSection(sec, h) {
+      if (sec && h && !sec.classList.contains('open')) h.click();
+      try { (sec || document.body).scrollIntoView({ block: 'start', behavior: 'smooth' }); }
+      catch (e) { if (sec) sec.scrollIntoView(); }
+    }
+
+    /* the board's company cards */
+    Array.prototype.forEach.call(view.querySelectorAll('.board .hqcard h3'), function (h3) {
+      add('Companies', h3.textContent, 'Status Board', function () {
+        try { h3.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+        catch (e) { h3.scrollIntoView(); }
+      });
+    });
+
     Array.prototype.forEach.call(view.querySelectorAll('.psec'), function (sec) {
       var h = sec.querySelector('.psec-h');
       var secName = h ? ((h.querySelector('span') || {}).textContent || '') : '';
-      if (secName.toLowerCase().indexOf(needle) !== -1) {
-        out.push({ label: secName, sub: 'Go to this section',
-                   go: function () { if (!sec.classList.contains('open')) h.click(); sec.scrollIntoView(); } });
-      }
+      add('Sections', secName, 'Go to this section', function () { openSection(sec, h); });
+
+      /* anything that opens on the right */
+      Array.prototype.forEach.call(sec.querySelectorAll('[data-panel],[data-hrow]'), function (b) {
+        var t = b.querySelector('.t');
+        var name = t ? (t.childNodes[0] ? t.childNodes[0].textContent : t.textContent) : b.textContent;
+        add(secName || 'On This Page', name, secName, function () {
+          openSection(sec, h);
+          setTimeout(function () { b.click(); }, 60);
+        });
+      });
+
+      /* rows that still open in place */
       Array.prototype.forEach.call(sec.querySelectorAll('.row'), function (row) {
         var t = row.querySelector('.rt');
-        if (!t || t.textContent.toLowerCase().indexOf(needle) === -1) return;
-        out.push({ label: t.textContent.trim(), sub: secName, go: function () {
-          if (!sec.classList.contains('open')) h.click();
+        if (!t) return;
+        add(secName || 'On This Page', t.textContent, secName, function () {
+          openSection(sec, h);
           var rh = row.querySelector('.row-h');
           if (rh && !row.classList.contains('open')) rh.click();
-          row.scrollIntoView({ block: 'center' });
-        }});
+          try { row.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+          catch (e) { row.scrollIntoView(); }
+        });
       });
     });
-    return out.slice(0, 40);
+    return out.slice(0, 60);
   };
+
   function busy(msg) {
     say('<div class="loading"><span class="spin" aria-hidden="true"></span>' + esc(msg || 'Reading your documents…') + '</div>');
   }
@@ -2938,7 +3118,7 @@ window.H = (function () {
                 : 'No maximum \u2014 paid per review', 1) +
             fld('Runs', o.startDate + ' to ' + o.endDate) +
             fld('Master Services Agreement', o.msaFlavour) +
-            '</div>' + signedBlock(st[o.id]) +
+            '</div>' + signedBlock(st[o.id]) + signaturePreview(F, st[o.id]) +
             '<div class="dochost" id="d-' + esc(o.id) + '">' + P.orderDoc(F, o) + '</div>' +
             (st[o.id].key === 'executed' ? P.printBtn('d-' + o.id, o.subject) : '');
           return panelRow('ord-' + o.id, o.subject, o.msaFlavour + ' \u00b7 ' +
@@ -3169,190 +3349,215 @@ window.H = (function () {
   }
   function hrs(v) { return (Math.round((Number(v) || 0) * 100) / 100).toFixed(2); }
 
-  /* ---- My Hours ----------------------------------------------------------
-     The week you are in, one row per service order you log against.  The row
-     header carries the hours so a week can be read at a glance; the notes,
-     the health flag and the cover split are inside, where they have room. */
+  /* ---- My Hours -----------------------------------------------------------
+     The week you are in, as a LIST.  Each order opens on the right, where the
+     notes have room and nothing has to be scrolled past.
+
+     ⚠ The week is submitted as a whole, so the values cannot live in the panel:
+     it shows one order at a time and closing it would take that order's entry
+     with it.  HRS.draft is the working copy every screen reads and writes, and
+     the panel edits into it.  Nothing closes over unsaved work without asking. */
+  function seedDraft(mine, ending, wk, back) {
+    var rows = wk ? H.rowsOf(wk)
+      : back ? H.rowsOf(back)
+      : (mine.draft && mine.draft.weekEnding === ending ? (mine.draft.rows || {}) : {});
+    HRS.draft = JSON.parse(JSON.stringify(rows));
+    HRS.draftWeek = ending;
+    HRS.dirty = false;
+  }
+  function dRow(id) {
+    if (!HRS.draft[id]) HRS.draft[id] = { hours: 0 };
+    return HRS.draft[id];
+  }
+  function draftClean() {
+    /* What actually gets saved: rows with nothing in them are dropped, so an
+       order somebody opened and closed again leaves no trace. */
+    var out = {};
+    Object.keys(HRS.draft || {}).forEach(function (id) {
+      var r = HRS.draft[id];
+      var has = Number(r.hours) || (r.thisWeek || '').trim() || (r.upcoming || '').trim() ||
+        r.health || (r['for'] || []).length;
+      if (has) out[id] = r;
+    });
+    return out;
+  }
+
   function hoursSection(C, person, fy, mine, files) {
     var F = C.F;
     var today = new Date();
-    /* Normally the week you are in.  ⚠ But a week MISMO has sent back has to
-       be editable too, or a correction it asked for would have nowhere to be
-       made.  HRS.week is what My Submitted Time sets when somebody chooses to
-       correct one, and it falls back to this week. */
     var ending = HRS.week || H.weekFor(fy, today);
     var wk = H.weekIn(mine, ending);
-    if (wk && wk.state === 'returned') wk = null;   // editable again
+    if (wk && wk.state === 'returned') wk = null;
     var back = H.weekIn(mine, ending);
     back = back && back.state === 'returned' ? back : null;
-    var draft = (mine.draft && mine.draft.weekEnding === ending) ? mine.draft : null;
-    /* A sent-back week opens with what was submitted still in it, so the
-       correction is made TO the week rather than typed out again from memory. */
-    var rows = wk ? H.rowsOf(wk)
-      : back ? H.rowsOf(back)
-      : (draft ? draft.rows || {} : {});
     var sent = !!wk;
     var st = wk ? H.stateOf(wk) : null;
 
+    if (HRS.draftWeek !== ending || !HRS.draft) seedDraft(mine, ending, wk, back);
+
     var orders = (person.orders || []).map(function (id) { return orderById(F, id); })
       .filter(function (o) { return o; });
+    HRS.orders = orders; HRS.C = C; HRS.fy = fy; HRS.person = person;
+    HRS.sent = sent; HRS.files = files;
 
     if (!orders.length) {
       return '<p class="empty"><b>No service order is set up for you to log time against.</b> ' +
-        'Falcon’s work is paid per review rather than by the hour, and some people are set up to ' +
-        'see the company’s hours without logging their own. If that is wrong, ' +
-        '<b>email Jonna Critchley</b> at <a href="mailto:jcritchley@mismo.org">jcritchley@mismo.org</a>.</p>';
+        'If that is wrong, <b>email Jonna Critchley</b> at ' +
+        '<a href="mailto:jcritchley@mismo.org">jcritchley@mismo.org</a>.</p>';
     }
 
     var total = orders.reduce(function (a, o) {
-      return a + (Number((rows[o.id] || {}).hours) || 0); }, 0);
+      return a + (Number((HRS.draft[o.id] || {}).hours) || 0); }, 0);
+    var strad = H.straddle(fy, ending);
 
-    var head = '<p class="lede">The week you are in. One row per service order you work on — ' +
-      'open a row to write the notes and set the health flag.</p>' +
+    var head = '<p class="lede">The week you are in. <b>Choose a service order to enter it</b> — ' +
+      'it opens on the right, with room for the notes.</p>' +
       '<div class="tot"><span class="tot-l">Week Ending ' + esc(ending) + '</span>' +
       '<span class="tot-v">' + hrs(total) + ' hours</span></div>' +
       (HRS.week && HRS.week !== H.weekFor(fy, today)
-        ? '<p class="fineprint"><b>This is not the week you are in.</b> You are correcting an earlier ' +
-          'week. <button class="lnk" type="button" id="h-now">Go back to this week</button></p>' : '') +
-      /* ⚠ This used to claim no week straddles two invoices.  It does — Jonna,
-         29 September — and saying otherwise would have had people logging a
-         week believing it all landed on one. */
+        ? '<p class="fineprint"><b>This is not the week you are in.</b> You are correcting an ' +
+          'earlier week. <button class="lnk" type="button" id="h-now">Go back to this week</button></p>'
+        : '') +
       '<p class="fineprint">' + esc(H.weekSpan(fy, ending)) + '. Weeks end on a Friday.' +
-      (function () {
-        var st = H.straddle(fy, ending);
-        if (!st) return '';
-        return ' <b>This one crosses a month end</b>, so it is split between two invoices — ' +
-          esc(st.firstDays) + ' goes on the ' + esc(st.firstMonth) + ' invoice and ' +
-          esc(st.lastDays) + ' on the ' + esc(st.lastMonth) + ' one. Each row asks how many of ' +
-          'its hours fell in ' + esc(st.firstMonth) + '.';
-      })() + '</p>';
+      (strad
+        ? ' <b>This one crosses a month end</b>, so it is split between two invoices — ' +
+          esc(strad.firstDays) + ' goes on the ' + esc(strad.firstMonth) + ' invoice and ' +
+          esc(strad.lastDays) + ' on the ' + esc(strad.lastMonth) + ' one. Each order asks how ' +
+          'many of its hours fell in ' + esc(strad.firstMonth) + '.'
+        : '') + '</p>';
 
     var state = back
       ? '<div class="wkstate bad"><span class="wk-l">Sent Back to You</span>' +
         '<span class="wk-d">MISMO has sent this week back for you to correct.</span></div>' +
         '<div class="note"><b>Why it came back.</b> ' + esc(back.returnedWhy || 'No reason was given.') +
-        '<br><span class="fineprint">Sent back ' + esc(stamp(back.returnedAt)) +
-        '. What you first submitted is kept \u2014 correcting it here does not erase it.</span></div>'
+        '<br><span class="fineprint">Sent back ' + esc(stamp(back.returnedAt)) + '.</span></div>'
       : sent
-      ? '<div class="wkstate ' + st.tone + '"><span class="wk-l">' + st.label + '</span>' +
+      ? '<div class="wkstate ' + st.tone + '"><span class="wk-l">' + esc(st.label) + '</span>' +
         '<span class="wk-d">' + st.said + '</span></div>' +
         (wk.state === 'submitted'
-          ? '<div class="issacts"><button class="tbtn" type="button" id="h-back">Take It Back to Correct</button></div>' +
-            '<p class="fineprint">It has not been approved yet, so it is still yours. Taking it back needs ' +
-            'nobody’s permission — what you first sent is kept as its own version.</p>'
+          ? '<div class="issacts"><button class="tbtn" type="button" id="h-back">' +
+            'Take It Back to Correct</button></div>'
           : '<p class="fineprint">This week has been ' + esc(st.label.toLowerCase()) +
-            '. To change it, open <b>My Submitted Time</b> below and ask for it to be returned.</p>')
+            '. To change it, open <b>My Submitted Time</b> and ask for it to be returned.</p>')
       : '<div class="wkstate open"><span class="wk-l">Open</span>' +
-        '<span class="wk-d">Not submitted yet. Nothing here has gone to MISMO and you can change any of it.</span></div>';
+        '<span class="wk-d">Not submitted yet. Nothing here has gone to MISMO.</span></div>';
 
-    var body = orders.map(function (o) {
-      var r = rows[o.id] || {};
-      var pace = H.perWeek(fy, o);
+    var list = '<div class="hqrows">' + orders.map(function (o) {
+      var r = HRS.draft[o.id] || {};
       var logged = Number(r.hours) || 0;
-      var bal = pace - logged;
-      var used = H.usedOnOrder(files, o.id);
       var tot = Number(o.estimatedHours) || 0;
+      var used = H.usedOnOrder(files, o.id);
       var pct = tot ? Math.min(100, 100 * used / tot) : 0;
-      var cls = pct > 90 ? 'over' : pct > 70 ? 'hot' : '';
-      var fors = r['for'] || [];
-      var mates = colleagues(F, person.name, H.parse(ending));
-      return '<div class="row"><div class="row-h">' +
-        '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
-        '<span class="rt">' + esc(o.subject) + '</span>' +
-        (r.health ? healthDot(r.health) : '') +
-        '<span class="rs num">' + hrs(logged) + ' hours</span>' +
-        '</div><div class="row-b">' +
-        '<div class="fields">' +
-        '<div class="f narrow"><label for="h-' + esc(o.id) + '">Hours This Week</label>' +
-        '<input id="h-' + esc(o.id) + '" class="hnum" type="number" min="0" step="0.25" ' +
-        'data-hid="' + esc(o.id) + '" value="' + (logged ? hrs(logged) : '') + '"' +
-        (sent ? ' disabled' : '') + '></div>' +
-        /* ⚠ Health is a colour, so it is shown as one.  A full-width dropdown
-           gave four words the same weight as the hours, and the whole point of
-           a health flag is that somebody can see it without reading. */
-        '<div class="f narrow"><label for="hh-' + esc(o.id) + '">Health</label>' +
-        '<div class="healthpick">' +
-        '<select id="hh-' + esc(o.id) + '" class="hsel" data-hid="' + esc(o.id) + '"' +
-        (sent ? ' disabled' : '') + '>' +
-        [['', 'Not set'], ['Green', 'Green'], ['Yellow', 'Yellow'], ['Red', 'Red'], ['N/A', 'N/A']]
-          .map(function (v) {
-            return '<option value="' + v[0] + '"' + (r.health === v[0] ? ' selected' : '') + '>' +
-              v[1] + '</option>'; }).join('') + '</select>' +
-        healthDot(r.health) + '</div></div>' +
-        /* A week that crosses a month end is split by the person who worked it.
-           About eleven weeks a year; the rest never see this. */
-        (function () {
-          var st = H.straddle(fy, ending);
-          if (!st) return '';
-          return '<div class="f narrow"><label for="hm-' + esc(o.id) + '">Of Those, in ' +
-            esc(st.firstMonth) + '</label>' +
-            '<input id="hm-' + esc(o.id) + '" class="hsplit" type="number" min="0" step="0.25" ' +
-            'data-hid="' + esc(o.id) + '" value="' +
-            (r.inFirstMonth != null ? hrs(r.inFirstMonth) : '') + '"' +
-            (sent ? ' disabled' : '') + '></div>';
-        })() +
-        '</div>' +
-        /* ⚠ The two notes sit side by side and are textareas, not one-line
-           boxes.  They are the part MISMO actually reads, and a single line
-           that scrolls sideways is where a status report goes to die. */
-        '<div class="fields notes2">' +
-        '<div class="f"><label for="hn-' + esc(o.id) + '">This Week</label>' +
-        '<textarea id="hn-' + esc(o.id) + '" class="hnote" rows="5" data-hid="' + esc(o.id) + '" ' +
-        'placeholder="What you did"' + (sent ? ' disabled' : '') + '>' +
-        esc(r.thisWeek || '') + '</textarea></div>' +
-        '<div class="f"><label for="hu-' + esc(o.id) + '">Upcoming</label>' +
-        '<textarea id="hu-' + esc(o.id) + '" class="hup" rows="5" data-hid="' + esc(o.id) + '" ' +
-        'placeholder="What is next"' + (sent ? ' disabled' : '') + '>' +
-        esc(r.upcoming || '') + '</textarea></div>' +
-        '</div>' +
-        /* ---- the cover split (Jonna, 29 Sep) ------------------------------
-           Defaults to whoever is typing and stays out of the way.  It earns
-           its place on the one row a month where somebody covered: a company can
-           bill two different rates against the same order, so hours logged
-           under the wrong person can agree while the money does not. */
-        (mates.length && !sent
-          ? '<div class="covwrap" data-cov="' + esc(o.id) + '">' +
-            '<button class="lnk" type="button" data-covtog="' + esc(o.id) + '">' +
-            (fors.length ? 'Some of these hours were a colleague’s — edit the split'
-                         : 'Did somebody else do some of these hours?') + '</button>' +
-            '<div class="covbody' + (fors.length ? ' open' : '') + '">' +
-            '<p class="fineprint">Name the colleague and how many of the hours were theirs. ' +
-            'Whatever is left stays with you. Leave this alone on a normal week.</p>' +
-            '<div class="covrows" data-covrows="' + esc(o.id) + '">' +
-            (fors.length ? fors.map(function (f) { return covRow(o.id, mates, f); }).join('')
-                         : covRow(o.id, mates, null)) +
-            '</div>' +
-            '<button class="lnk" type="button" data-covadd="' + esc(o.id) + '">Add Another Colleague</button>' +
-            '</div></div>'
-          : (fors.length
-            ? '<div class="fields">' + fld('Hours Logged For',
-                H.splitOf(r, person.name).map(function (s) {
-                  return s.person + ' ' + hrs(s.hours); }).join(' · ')) + '</div>'
-            : '')) +
-        '<div class="fields">' +
-        fld('This Order’s Pace', pace ? hrs(pace) + ' hours a week' : 'No hours on this order', 1) +
-        fld('Balance This Week', pace ? (bal >= 0 ? hrs(bal) + ' under' : hrs(-bal) + ' over') : '—', 1) +
-        fld('Used by Everyone', tot ? hrs(used) + ' of ' + hrs(tot) + ' (' + pct.toFixed(0) + '%)' : '—', 1) +
-        fld('Remaining on the Order', tot ? hrs(tot - used) + ' hours' : '—', 1) +
-        '</div>' +
-        '<div class="meterwrap"><span class="meter"><i class="' + cls +
-        '" style="width:' + pct.toFixed(0) + '%"></i></span></div>' +
-        '<p class="fineprint"><b>The bar is the whole order, not your share.</b> When several people ' +
-        'cover the same order, each of you needs to see how much of it is left — that is what stops ' +
-        'an overrun turning up on an invoice.</p>' +
-        '</div></div>';
-    }).join('');
+      var note = (r.thisWeek || '').trim();
+      return '<button class="hqrow hrow" type="button" data-hrow="' + esc(o.id) + '">' +
+        '<span class="t">' + esc(o.subject) +
+        '<small>' + (note ? esc(note.slice(0, 70)) + (note.length > 70 ? '…' : '')
+                          : (logged ? 'No note yet' : 'Nothing entered')) +
+        '</small></span>' +
+        '<span class="r">' + (r.health ? healthDot(r.health) : '') +
+        (pct > 90 ? '<span class="pill bad">' + pct.toFixed(0) + '% used</span>'
+          : pct > 70 ? '<span class="pill warn">' + pct.toFixed(0) + '% used</span>' : '') +
+        '<span class="d hnum-d">' + hrs(logged) + ' h</span>' +
+        '<span class="arr">›</span></span></button>';
+    }).join('') + '</div>';
 
     var acts = sent ? '' :
       '<div id="h-check"></div>' +
-      '<div class="ackbar"><button class="gobtn ghost" type="button" id="h-save">Save Without Sending</button>' +
+      '<div class="ackbar"><button class="gobtn ghost" type="button" id="h-save">' +
+      'Save Without Sending</button>' +
       '<button class="gobtn" type="button" id="h-send">Submit This Week</button>' +
-      '<span class="qc" id="h-msg">' + (draft ? 'Saved, not sent' : 'Nothing entered yet') + '</span></div>' +
+      '<span class="qc" id="h-msg"></span></div>' +
       '<p class="fineprint"><b>Saving keeps it here for you; submitting sends it to MISMO.</b> ' +
-      'A week is never quietly edited — every submission, take-back and return is its own version, ' +
-      'so what an invoice was raised against can always be shown.</p>';
+      'A week is never quietly edited — every submission, take-back and return is its own ' +
+      'version, so what an invoice was raised against can always be shown.</p>';
 
-    return head + state + '<div class="rows">' + body + '</div>' + acts;
+    return head + state + list + acts;
+  }
+
+  /* One order's entry, as it appears in the panel. */
+  function hoursPanel(o) {
+    var C = HRS.C, fy = HRS.fy, person = HRS.person, sent = HRS.sent;
+    var F = C.F;
+    var ending = HRS.draftWeek;
+    var r = HRS.draft[o.id] || {};
+    var pace = H.perWeek(fy, o);
+    var logged = Number(r.hours) || 0;
+    var bal = pace - logged;
+    var used = H.usedOnOrder(HRS.files || [], o.id);
+    var tot = Number(o.estimatedHours) || 0;
+    var pct = tot ? Math.min(100, 100 * used / tot) : 0;
+    var cls = pct > 90 ? 'over' : pct > 70 ? 'hot' : '';
+    var fors = r['for'] || [];
+    var mates = colleagues(F, person.name, H.parse(ending));
+    var strad = H.straddle(fy, ending);
+
+    return '<div class="fields">' +
+      '<div class="f narrow"><label for="ph-num">Hours This Week</label>' +
+      '<input id="ph-num" class="phnum" type="number" min="0" step="0.25" value="' +
+      (logged ? hrs(logged) : '') + '"' + (sent ? ' disabled' : '') + '></div>' +
+      '<div class="f narrow"><label id="ph-hl">Health</label>' +
+      '<div class="hpick" role="radiogroup" aria-labelledby="ph-hl">' +
+      [['Green', 'g'], ['Yellow', 'y'], ['Red', 'r'], ['N/A', 'na']].map(function (v) {
+        return '<button type="button" class="hbtn phhealth ' + v[1] +
+          (r.health === v[0] ? ' on' : '') + '" data-health="' + esc(v[0]) + '" role="radio" ' +
+          'aria-checked="' + (r.health === v[0] ? 'true' : 'false') + '"' +
+          (sent ? ' disabled' : '') + '>' +
+          /* N/A is a word, not a colour — it gets the word once, not twice. */
+          (v[1] === 'na' ? '<span class="hna">N/A</span>'
+            : '<span class="hd"></span><span class="hw">' + esc(v[0]) + '</span>') +
+          '</button>';
+      }).join('') + '</div></div>' +
+      (strad
+        ? '<div class="f narrow"><label for="ph-split">Of Those, in ' + esc(strad.firstMonth) +
+          '</label><input id="ph-split" class="phsplit" type="number" min="0" step="0.25" value="' +
+          (r.inFirstMonth != null ? hrs(r.inFirstMonth) : '') + '"' + (sent ? ' disabled' : '') +
+          '></div>' : '') +
+      '</div>' +
+      (strad ? '<p class="fineprint">' + esc(strad.firstDays) + ' goes on the ' +
+        esc(strad.firstMonth) + ' invoice; ' + esc(strad.lastDays) + ' on the ' +
+        esc(strad.lastMonth) + ' one.</p>' : '') +
+      '<div class="fields notes2">' +
+      '<div class="f"><label for="ph-note">This Week</label>' +
+      '<textarea id="ph-note" class="phnote" rows="6" placeholder="What you did"' +
+      (sent ? ' disabled' : '') + '>' + esc(r.thisWeek || '') + '</textarea></div>' +
+      '<div class="f"><label for="ph-up">Upcoming</label>' +
+      '<textarea id="ph-up" class="phup" rows="6" placeholder="What is next"' +
+      (sent ? ' disabled' : '') + '>' + esc(r.upcoming || '') + '</textarea></div>' +
+      '</div>' +
+      (mates.length && !sent
+        ? '<div class="covwrap"><button class="lnk" type="button" id="ph-covtog">' +
+          (fors.length ? 'Some of these hours were a colleague’s — edit the split'
+                       : 'Did somebody else do some of these hours?') + '</button>' +
+          '<div class="covbody' + (fors.length ? ' open' : '') + '">' +
+          '<p class="fineprint">Name the colleague and how many of the hours were theirs. ' +
+          'Whatever is left stays with you. Leave this alone on a normal week.</p>' +
+          '<div class="covrows" data-covrows="' + esc(o.id) + '">' +
+          (fors.length ? fors.map(function (f) { return covRow(o.id, mates, f); }).join('')
+                       : covRow(o.id, mates, null)) +
+          '</div><button class="lnk" type="button" data-covadd="' + esc(o.id) +
+          '">Add Another Colleague</button></div></div>'
+        : (fors.length
+          ? '<div class="fields">' + fld('Hours Logged For',
+              H.splitOf(r, person.name).map(function (x) {
+                return x.person + ' ' + hrs(x.hours); }).join(' · ')) + '</div>'
+          : '')) +
+      '<div class="fields">' +
+      fld('This Order’s Pace', pace ? hrs(pace) + ' hours a week' : 'No hours on this order', 1) +
+      fld('Balance This Week', pace ? (bal >= 0 ? hrs(bal) + ' under' : hrs(-bal) + ' over') : '—', 1) +
+      fld('Used by Everyone', tot ? hrs(used) + ' of ' + hrs(tot) + ' (' + pct.toFixed(0) + '%)' : '—', 1) +
+      fld('Remaining on the Order', tot ? hrs(tot - used) + ' hours' : '—', 1) +
+      '</div>' +
+      '<div class="meterwrap"><span class="meter"><i class="' + cls +
+      '" style="width:' + pct.toFixed(0) + '%"></i></span></div>' +
+      '<p class="fineprint"><b>The bar is the whole order, not your share.</b> When several people ' +
+      'cover the same order, each of you needs to see how much of it is left — that is what ' +
+      'stops an overrun turning up on an invoice.</p>' +
+      (sent ? '' :
+        '<div class="rowacts"><span class="unsaved" id="ph-unsaved" hidden>Unsaved</span>' +
+        '<button class="gobtn ghost" type="button" id="ph-cancel">Discard</button>' +
+        /* "Keep This Time", not "Keep This Order" — what the button keeps is the
+           hours, and an order is the thing they are logged against. */
+        '<button class="gobtn" type="button" id="ph-keep">Keep This Time</button></div>');
   }
 
   function covRow(oid, mates, f) {
@@ -3573,43 +3778,34 @@ window.H = (function () {
     return out;
   }
 
-  /* ---- reading the screen back -------------------------------------------- */
-  function readRows(person) {
-    var rows = {};
-    $$('#view .hnum').forEach(function (el) {
-      var id = el.dataset.hid, v = Number(el.value);
-      if (!v) return;
-      rows[id] = { hours: Math.round(v * 100) / 100 };
-    });
-    /* Notes and health are kept even on a row with no hours yet — somebody who
-       writes the note first and the number second should not lose the note. */
-    ['hnote:thisWeek', 'hup:upcoming', 'hsel:health'].forEach(function (pair) {
-      var p = pair.split(':');
-      $$('#view .' + p[0]).forEach(function (el) {
-        var id = el.dataset.hid, v = String(el.value || '').trim();
-        if (!v) return;
-        if (!rows[id]) rows[id] = { hours: 0 };
-        rows[id][p[1]] = v;
+  /* ---- reading the panel back into the working copy ----------------------
+     ⚠ Nothing is read from the page any more.  The week lives in HRS.draft and
+     the panel is a view onto one order of it, so closing the panel can never
+     take an entry with it. */
+  function readPanel(o) {
+    var r = {};
+    var n = $('#panel-body .phnum');
+    r.hours = n && n.value !== '' ? Math.round(Number(n.value) * 100) / 100 : 0;
+    var note = $('#panel-body .phnote'), up = $('#panel-body .phup');
+    if (note && note.value.trim()) r.thisWeek = note.value.trim();
+    if (up && up.value.trim()) r.upcoming = up.value.trim();
+    var on = $('#panel-body .phhealth.on');
+    if (on) r.health = on.dataset.health;
+    var sp = $('#panel-body .phsplit');
+    if (sp && sp.value !== '') r.inFirstMonth = Math.round(Number(sp.value) * 100) / 100;
+    var host = $('#panel-body .covrows');
+    if (host) {
+      var list = [];
+      $$('.covrow', host).forEach(function (row) {
+        var pick = $('.covwho', row), h = $('.covhrs', row);
+        var v = Number(h && h.value);
+        if (pick && pick.value && v) list.push({ person: pick.value, hours: Math.round(v * 100) / 100 });
       });
-    });
-    /* The month split, on the weeks that cross a month end. */
-    $$('#view .hsplit').forEach(function (el) {
-      var id = el.dataset.hid, v = el.value;
-      if (v === '' || v == null) return;
-      if (!rows[id]) rows[id] = { hours: 0 };
-      rows[id].inFirstMonth = Math.round(Number(v) * 100) / 100;
-    });
-    $$('#view .covrows').forEach(function (host) {
-      var id = host.dataset.covrows, list = [];
-      $$('.covrow', host).forEach(function (r) {
-        var pick = $('.covwho', r), h = $('.covhrs', r);
-        var n = Number(h && h.value);
-        if (pick && pick.value && n) list.push({ person: pick.value, hours: Math.round(n * 100) / 100 });
-      });
-      if (list.length && rows[id]) rows[id]['for'] = list;
-    });
-    return rows;
+      if (list.length) r['for'] = list;
+    }
+    return r;
   }
+  function sameRow(a, b) { return JSON.stringify(a || {}) === JSON.stringify(b || {}); }
 
   /* Everything that must be true before a week can go to MISMO.  ⚠ Each of
      these is a thing that is cheap to fix now and expensive to fix once it is
@@ -3736,7 +3932,7 @@ window.H = (function () {
 
   /* ---- wiring ------------------------------------------------------------- */
   function wireHours(C, person, fy) {
-    function refresh() { HRS.files = null; hoursHome(); }
+    function refresh() { HRS.draft = null; HRS.files = null; hoursHome(); }
 
     var save = document.getElementById('h-save');
     var send = document.getElementById('h-send');
@@ -3744,24 +3940,125 @@ window.H = (function () {
 
     function count() {
       if (!msg) return;
-      var rows = readRows(person);
-      var n = Object.keys(rows).filter(function (id) { return Number(rows[id].hours); }).length;
-      var t = Object.keys(rows).reduce(function (a, id) { return a + (Number(rows[id].hours) || 0); }, 0);
-      msg.textContent = n ? hrs(t) + ' hours on ' + n + ' order' + (n === 1 ? '' : 's')
-                          : 'Nothing entered yet';
+      var rows = draftClean();
+      var ids = Object.keys(rows).filter(function (id) { return Number(rows[id].hours); });
+      var t = ids.reduce(function (a, id) { return a + (Number(rows[id].hours) || 0); }, 0);
+      msg.textContent = ids.length
+        ? hrs(t) + ' hours on ' + ids.length + ' order' + (ids.length === 1 ? '' : 's') +
+          (HRS.dirty ? ' \u00b7 not saved' : '')
+        : 'Nothing entered yet';
     }
-    $$('#view .hnum, #view .covhrs').forEach(function (el) { el.addEventListener('input', count); });
     count();
+
+    /* ---- one order opens on the right ---------------------------------- */
+    $$('#view [data-hrow]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var o = orderById(C.F, b.dataset.hrow);
+        if (!o) return;
+        HRS.open = o.id;
+        HRS.openWas = JSON.parse(JSON.stringify(HRS.draft[o.id] || {}));
+        openPanel(o.subject, hoursPanel(o));
+        wireHoursPanel(o);
+      });
+    });
+
+    /* Keeping an order's entry means writing it into the working copy — it is
+       NOT a save to MISMO, and the page says so. */
+    function keepOpen(o) {
+      var next = readPanel(o);
+      var had = HRS.draft[o.id];
+      HRS.draft[o.id] = next;
+      if (!sameRow(had, next)) HRS.dirty = true;
+      HRS.open = null;
+      hoursHome();
+    }
+    function panelDirty(o) {
+      return !sameRow(HRS.openWas, readPanel(o));
+    }
+
+    function wireHoursPanel(o) {
+      var unsaved = document.getElementById('ph-unsaved');
+      function mark() { if (unsaved) unsaved.hidden = !panelDirty(o); }
+      $$('#panel-body input, #panel-body textarea, #panel-body select').forEach(function (el) {
+        el.addEventListener('input', mark);
+        el.addEventListener('change', mark);
+      });
+      $$('#panel-body .phhealth').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var was = b.classList.contains('on');
+          $$('#panel-body .phhealth').forEach(function (x) {
+            x.classList.remove('on'); x.setAttribute('aria-checked', 'false'); });
+          if (!was) { b.classList.add('on'); b.setAttribute('aria-checked', 'true'); }
+          mark();
+        });
+      });
+      var tog = document.getElementById('ph-covtog');
+      if (tog) tog.addEventListener('click', function () {
+        var body = tog.parentElement.querySelector('.covbody');
+        if (body) body.classList.toggle('open');
+      });
+      $$('#panel-body [data-covadd]').forEach(function (b) {
+        b.addEventListener('click', function () {
+          var host = $('#panel-body .covrows');
+          if (!host) return;
+          var mates = colleagues(C.F, person.name, H.parse(HRS.draftWeek));
+          var w = document.createElement('div');
+          w.innerHTML = covRow(o.id, mates, null);
+          host.appendChild(w.firstChild);
+          wireCovDel(host.lastChild); mark();
+        });
+      });
+      $$('#panel-body .covrow').forEach(wireCovDel);
+      function wireCovDel(row) {
+        var d = $('.covdel', row);
+        if (d) d.addEventListener('click', function () {
+          var host = row.parentElement;
+          host.removeChild(row);
+          if (!host.children.length) {
+            var mates = colleagues(C.F, person.name, H.parse(HRS.draftWeek));
+            var w = document.createElement('div');
+            w.innerHTML = covRow(o.id, mates, null);
+            host.appendChild(w.firstChild);
+            wireCovDel(host.lastChild);
+          }
+          mark();
+        });
+      }
+      var keep = document.getElementById('ph-keep');
+      if (keep) keep.addEventListener('click', function () { keepOpen(o); });
+      var can = document.getElementById('ph-cancel');
+      if (can) can.addEventListener('click', function () {
+        HRS.open = null; closePanel(true);
+      });
+      mark();
+    }
+
+    /* ⚠ The guard.  A panel can be dismissed by the scrim, the × or Escape,
+       and hours typed into it would go with it.  Nothing closes over unsaved
+       work without asking. */
+    PANEL_GUARD = function () {
+      if (!HRS.open) return null;
+      var o = orderById(C.F, HRS.open);
+      if (!o || !panelDirty(o)) return null;
+      return {
+        save: function () { keepOpen(o); },
+        discard: function () { HRS.open = null; }
+      };
+    };
 
     if (save) save.addEventListener('click', function () {
       save.disabled = true;
-      saveHours(C, person, fy, readRows(person), false)
-        .then(function () { toast('Saved. It has not gone to MISMO.', 'ok'); save.disabled = false; })
+      saveHours(C, person, fy, draftClean(), false)
+        .then(function () {
+          HRS.dirty = false;
+          toast('Saved. It has not gone to MISMO.', 'ok');
+          save.disabled = false; count();
+        })
         .catch(function (e) { save.disabled = false; failed(e); });
     });
 
     if (send) send.addEventListener('click', function () {
-      var rows = readRows(person);
+      var rows = draftClean();
       var bad = weekProblems(C.F, person, rows, fy);
       if (bad.length) { openCheck(bad, function () { doSend(rows); }); return; }
       doSend(rows);
@@ -3769,15 +4066,15 @@ window.H = (function () {
     function doSend(rows) {
       if (send) send.disabled = true;
       saveHours(C, person, fy, rows, true)
-        .then(function () { HRS.week = null; toast('Sent to MISMO.', 'ok'); refresh(); })
+        .then(function () { HRS.week = null; HRS.draft = null; toast('Sent to MISMO.', 'ok'); refresh(); })
         .catch(function (e) { if (send) send.disabled = false; failed(e); });
     }
 
     var back = document.getElementById('h-back');
     if (back) back.addEventListener('click', function () {
       back.disabled = true;
-      takeBack(C, person, fy, H.weekFor(fy, new Date()))
-        .then(function () { toast('Taken back. It is yours again.', 'ok'); refresh(); })
+      takeBack(C, person, fy, HRS.draftWeek)
+        .then(function () { HRS.draft = null; toast('Taken back. It is yours again.', 'ok'); refresh(); })
         .catch(function (e) { back.disabled = false; failed(e); });
     });
 
@@ -3858,6 +4155,36 @@ window.H = (function () {
     });
     var now = document.getElementById('h-now');
     if (now) now.addEventListener('click', function () { HRS.week = null; hoursHome(); });
+
+    /* the health dots */
+    $$('#view .hbtn').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var host = b.parentElement;
+        var hid = b.dataset.hid;
+        var hidden = $('.hsel[data-hid="' + hid + '"]', host);
+        var already = b.classList.contains('on');
+        $$('.hbtn', host).forEach(function (x) {
+          x.classList.remove('on'); x.setAttribute('aria-checked', 'false');
+        });
+        /* Pressing the one already chosen clears it — otherwise a health flag
+           set by accident could never be unset. */
+        if (!already) {
+          b.classList.add('on'); b.setAttribute('aria-checked', 'true');
+          if (hidden) hidden.value = b.dataset.health;
+        } else if (hidden) { hidden.value = ''; }
+        var head = b.closest('.row');
+        if (head) {
+          var dot = $('.row-h .hdot', head);
+          var mk = healthDot(hidden ? hidden.value : '');
+          if (dot) dot.outerHTML = mk;
+          else {
+            var rt = $('.row-h .rt', head);
+            if (rt && mk) rt.insertAdjacentHTML('afterend', mk);
+          }
+        }
+      });
+    });
 
     var mp = document.getElementById('m-pick');
     if (mp) mp.addEventListener('change', function () { HRS.month = mp.value; hoursHome(); });
@@ -4323,6 +4650,38 @@ window.H = (function () {
     return '<div class="f"><label>' + esc(label) + '</label><div class="v' +
       (mono ? ' num' : '') + '">' + esc(v == null || v === '' ? '—' : v) + '</div></div>';
   }
+  /* ⚠ What the signature will look like, before it can be used.
+     Jonna, 29 September: put the signature boxes on the drafts, greyed out, so
+     everyone can be shown during training exactly what signing looks like —
+     without any possibility of signing something that has not been sent yet.
+     The controls are disabled in the markup AND the order is not in To Review,
+     so there is nothing to submit them to. */
+  function signaturePreview(F, st) {
+    if (st.sig) return '';
+    if (st.key === 'sent' || st.key === 'changed') return '';   // the real one is live
+    var why = st.key === 'draft'
+      ? 'This order has not been released yet. ' + esc(F.vpProduct.name) + ' decides first.'
+      : st.key === 'vp' ? 'Released, but MISMO has not sent it yet.'
+      : st.key === 'vphold' ? 'Held by ' + esc(F.vpProduct.name) + '. It stops here until that is resolved.'
+      : st.key === 'preshold' ? 'Held by ' + esc(F.mismoSigner.name) + '.'
+      : st.key === 'acknowledged' ? 'Already accepted \u2014 it is with ' +
+          esc(F.mismoSigner.name) + ' now.'
+      : 'Not open for signing.';
+    return '<div class="sigprev" aria-hidden="false">' +
+      '<div class="sigprev-h">How You Will Accept This</div>' +
+      '<div class="onebar">' +
+      '<div class="f"><label>Type Your Name to Accept</label>' +
+      '<input type="text" disabled placeholder="' + esc(F.signers.order.name) + '"></div>' +
+      '<div class="f"><label>Title</label>' +
+      '<input type="text" disabled value="' + esc(F.signers.order.title) + '"></div>' +
+      '<button class="gobtn" type="button" disabled>Accept This Order</button>' +
+      '</div>' +
+      '<p class="fineprint"><b>Greyed out on purpose.</b> ' + why +
+      ' When it reaches <b>To Review</b>, these come alive and this is exactly what you will see. ' +
+      'Accepting records your name, the date and time, and the order word for word as it stood.</p>' +
+      '</div>';
+  }
+
   function signedBlock(st) {
     if (!st.sig) return '';
     var s = st.sig;
@@ -4478,50 +4837,48 @@ window.H = (function () {
       var body = total === 0
         ? '<p class="empty">Nothing is waiting for your approval. An order reaches you once the ' +
           'contracting company has accepted it.</p>'
-        : '<p class="lede">Each company is its own batch. Approving one company leaves every other ' +
-          'company exactly as it was — their orders are in separate files and are not touched.</p>' +
+        : '<p class="lede">Each company is its own batch. Approving one leaves every other company ' +
+          'exactly as it was. <b>Choose any order to read it in full</b> \u2014 it opens on the right, ' +
+          'with what you can do with it.</p>' +
           '<div class="batchbar"><button class="gobtn" type="button" id="approve-all">' +
           'Approve All ' + total + ' Waiting</button>' +
-          '<span class="qc">' + waiting.length + ' ' + (waiting.length === 1 ? 'company' : 'companies') +
-          ' · signed in as ' + esc(who().name) + ', ' + esc(who().title) + '</span></div>' +
-          '<div class="rows">' + waiting.map(function (C) {
-            return '<div class="row" data-co="' + esc(C.slug) + '"><div class="row-h">' +
-              '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
-              '<span class="rt">' + esc(C.F.company) + '</span>' +
-              '<span class="pill">' + C.waiting.length + ' awaiting you</span>' +
-              '<span class="rs num">' + money0(C.waiting.reduce(function (a, o) {
-                return a + (o.maximumFee || 0);
-              }, 0)) + '</span></div><div class="row-b">' +
-              '<div class="tbl"><table><thead><tr><th>Service Order</th>' +
-              '<th class="n hide-narrow">Rate</th><th class="n hide-narrow">Hours</th>' +
-              '<th class="n">Maximum Fee</th><th class="hide-narrow">Accepted By</th></tr></thead><tbody>' +
+          '<span class="qc">' + waiting.length + ' ' +
+          (waiting.length === 1 ? 'company' : 'companies') + ' \u00b7 signed in as ' +
+          esc(who().name) + ', ' + esc(who().title) + '</span></div>' +
+          '<div class="hqrows">' + waiting.map(function (C) {
+            return '<div class="rgrp">' + esc(C.F.company) +
+              '<span>' + C.waiting.length + '</span>' +
+              '<button class="rgrp-go batch" type="button" data-slug="' + esc(C.slug) + '">' +
+              'Approve These ' + C.waiting.length + '</button></div>' +
               C.waiting.map(function (o) {
-                var s = statusOf(o, C.sigs);
-                return '<tr class="openrow" data-open="' + esc(C.slug + '|' + o.id) + '">' +
-                  '<td>' + esc(o.subject) + '</td>' +
-                  '<td class="n hide-narrow">' + (o.hourlyRate ? money(o.hourlyRate) : '—') + '</td>' +
-                  '<td class="n hide-narrow">' + (o.estimatedHours || '—') + '</td>' +
-                  '<td class="n">' + (o.maximumFee != null ? money(o.maximumFee) : 'Per review') + '</td>' +
-                  '<td class="hide-narrow">' + esc(s.sig ? s.sig.signerName + ' · ' + stamp(s.sig.signedOn) : '—') + '</td></tr>';
-              }).join('') + '</tbody></table></div>' +
-              '<div class="batchbar"><button class="gobtn batch" type="button" data-slug="' + esc(C.slug) + '">' +
-              'Approve These ' + C.waiting.length + ' Orders for ' + esc(C.F.company) + '</button></div>' +
-              '<div class="docstack">' + C.waiting.map(function (o) {
-                return '<div class="row"><div class="row-h"><svg class="chev" viewBox="0 0 24 24" aria-hidden="true">' +
-                  '<path d="M9 6l6 6-6 6"/></svg><span class="rt">' + esc(o.subject) + '</span></div>' +
-                  '<div class="row-b"><div class="dochost">' + P.orderDoc(C.F, o) + '</div>' +
-                  /* ⚠ The President could previously only approve or do nothing.
-                     An objection had nowhere to go, so it reached Jonna by email
-                     or not at all.  This is the VP's hold, with the same rule:
-                     no reason, no hold. */
+                var acc = null;
+                (C.sigs || []).forEach(function (x) {
+                  if (x.orderId === o.id && x.decision === 'Accepted') acc = x;
+                });
+                var doc = '<div class="fields">' +
+                  fld('Company', C.F.company) +
+                  fld('Accepted By', acc ? (acc.signerName || '\u2014') : '\u2014') +
+                  fld('Accepted On', acc && acc.signedOn ? stamp(acc.signedOn) : '\u2014') +
+                  fld('Maximum Fee', o.maximumFee != null ? money(o.maximumFee) : 'Per review', 1) +
+                  '</div>' +
+                  '<div class="dochost">' + P.orderDoc(C.F, o) + '</div>' +
+                  '<div class="decidebar">' +
+                  '<button class="gobtn presone" type="button" data-slug="' + esc(C.slug) +
+                  '" data-id="' + esc(o.id) + '">Approve This One</button>' +
+                  '</div>' +
                   '<div class="onebar">' +
                   '<div class="f"><label>Why Is It Not Working?</label>' +
                   '<input type="text" class="preswhy" data-id="' + esc(o.id) +
                   '" placeholder="This goes back to Jonna with the order"></div>' +
                   '<button class="gobtn ghost preshold" type="button" data-slug="' + esc(C.slug) +
                   '" data-id="' + esc(o.id) + '">Hold This One</button></div>' +
-                  '</div></div>';
-              }).join('') + '</div></div></div>';
+                  '<p class="fineprint"><b>Approving is the second signature</b>, so the order ' +
+                  'becomes Executed at that moment. Your sign-in is the signature \u2014 there is no ' +
+                  'name to type. Holding returns it to Jonna with your reason, and ' +
+                  '<b>a reason is required</b>.</p>';
+                return panelRow('pres-' + o.id, o.subject, C.F.company,
+                  (o.maximumFee != null ? money(o.maximumFee) : 'Per review'), doc);
+              }).join('');
           }).join('') + '</div>';
 
       whoEl.innerHTML = esc(who().name) + ' <i>·</i> ' + esc(who().title);
@@ -4551,7 +4908,25 @@ window.H = (function () {
         });
         return addSignatures(C.slug, recs, 'approved ' + recs.length + ' orders for ' + C.F.company);
       }
-      document.querySelectorAll('.preshold').forEach(function (b) {
+      onPanelOpen(wirePres);
+      wirePres(document);
+      function wirePres(root) {
+      (root || document).querySelectorAll('.presone').forEach(function (b) {
+        if (b.dataset.wired) return; b.dataset.wired = '1';
+        b.addEventListener('click', function () {
+          var C = waiting.filter(function (x) { return x.slug === b.dataset.slug; })[0];
+          var o = C.waiting.filter(function (x) { return x.id === b.dataset.id; })[0];
+          b.disabled = true;
+          addSignatures(C.slug, [signature('MISMO Signer', 'Approved', o, {
+            signerName: who().name, signerTitle: who().title, signerEmail: who().email,
+            via: 'single sign-on'
+          })], 'approved ' + o.subject)
+            .then(function () { toast('Approved \u2014 it is Executed', 'good'); presidentView(); })
+            .catch(function (e) { b.disabled = false; failed(e); });
+        });
+      });
+      (root || document).querySelectorAll('.preshold').forEach(function (b) {
+        if (b.dataset.wired) return; b.dataset.wired = '1';
         b.addEventListener('click', function () {
           var C = waiting.filter(function (x) { return x.slug === b.dataset.slug; })[0];
           var o = C.waiting.filter(function (x) { return x.id === b.dataset.id; })[0];
@@ -4578,7 +4953,8 @@ window.H = (function () {
             .catch(function (e) { b.disabled = false; failed(e); });
         });
       });
-      document.querySelectorAll('.batch').forEach(function (b) {
+      (root || document).querySelectorAll('.batch').forEach(function (b) {
+        if (b.dataset.wired) return; b.dataset.wired = '1';
         b.addEventListener('click', function () {
           var C = waiting.filter(function (x) { return x.slug === b.dataset.slug; })[0];
           b.disabled = true; b.textContent = 'Approving…';
@@ -4587,6 +4963,7 @@ window.H = (function () {
           }).catch(function (e) { b.disabled = false; failed(e); });
         });
       });
+      }   /* wirePres */
       var aa = document.getElementById('approve-all');
       if (aa) aa.addEventListener('click', function () {
         aa.disabled = true; aa.textContent = 'Approving…';
@@ -4613,42 +4990,43 @@ window.H = (function () {
       });
       var body = total === 0
         ? '<p class="empty">Nothing is waiting for your decision.</p>'
-        : '<p class="lede">An order does not go to the contracting company until you have decided on ' +
-          'it. Approving one here releases it for MISMO to send.</p>' +
+        : '<p class="lede">An order does not go to the contracting company until you have decided ' +
+          'on it. <b>Choose any one to read it in full</b> \u2014 it opens on the right, with the ' +
+          'whole document and the two things you can do with it.</p>' +
           '<div class="batchbar"><button class="gobtn" type="button" id="vp-all">' +
           'Approve All ' + total + ' to Send</button><span class="qc">Signed in as ' +
           esc(who().name) + ', ' + esc(who().title) + '</span></div>' +
-          '<div class="rows">' + waiting.map(function (C) {
-            return '<div class="row" data-co="' + esc(C.slug) + '"><div class="row-h">' +
-              '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
-              '<span class="rt">' + esc(C.F.company) + '</span><span class="pill">' +
-              C.waiting.length + ' to decide</span><span class="rs num">' +
-              money0(C.waiting.reduce(function (a, o) { return a + (o.maximumFee || 0); }, 0)) +
-              '</span></div><div class="row-b">' +
-              '<div class="tbl"><table><thead><tr><th>Service Order</th>' +
-              '<th class="n hide-narrow">Rate</th><th class="n hide-narrow">Hours</th>' +
-              '<th class="n">Maximum Fee</th><th class="hide-narrow">Work</th></tr></thead><tbody>' +
+          /* ⚠ A flat list grouped by company, not companies that open to reveal
+             orders that open again.  The old shape buried every document two
+             levels down and meant scrolling past 57 of them to reach one. */
+          '<div class="hqrows">' + waiting.map(function (C) {
+            return '<div class="rgrp">' + esc(C.F.company) +
+              '<span>' + C.waiting.length + '</span>' +
+              '<button class="rgrp-go vpbatch" type="button" data-slug="' + esc(C.slug) + '">' +
+              'Approve These ' + C.waiting.length + '</button></div>' +
               C.waiting.map(function (o) {
-                return '<tr><td>' + esc(o.subject) + '</td><td class="n hide-narrow">' +
-                  (o.hourlyRate ? money(o.hourlyRate) : '—') + '</td><td class="n hide-narrow">' +
-                  (o.estimatedHours || '—') + '</td><td class="n">' +
-                  (o.maximumFee != null ? money(o.maximumFee) : 'Per review') + '</td><td class="hide-narrow">' +
-                  esc(o.category || '—') + '</td></tr>';
-              }).join('') + '</tbody></table></div>' +
-              '<div class="batchbar"><button class="gobtn vpbatch" type="button" data-slug="' +
-              esc(C.slug) + '">Approve ' + C.waiting.length + ' to Send for ' + esc(C.F.company) +
-              '</button></div>' +
-              '<div class="docstack">' + C.waiting.map(function (o) {
-                return '<div class="row"><div class="row-h"><svg class="chev" viewBox="0 0 24 24" aria-hidden="true">' +
-                  '<path d="M9 6l6 6-6 6"/></svg><span class="rt">' + esc(o.subject) + '</span></div>' +
-                  '<div class="row-b"><div class="dochost">' + P.orderDoc(C.F, o) + '</div>' +
+                var doc = '<div class="fields">' +
+                  fld('Company', C.F.company) +
+                  fld('Hourly Rate', o.hourlyRate ? money(o.hourlyRate) : 'Paid per review', 1) +
+                  fld('Estimated Hours', o.estimatedHours || '\u2014', 1) +
+                  fld('Maximum Fee', o.maximumFee != null ? money(o.maximumFee) : 'Per review', 1) +
+                  '</div>' +
+                  '<div class="dochost">' + P.orderDoc(C.F, o) + '</div>' +
+                  '<div class="decidebar">' +
+                  '<button class="gobtn vpone" type="button" data-slug="' + esc(C.slug) +
+                  '" data-id="' + esc(o.id) + '">Release This One to Send</button>' +
+                  '</div>' +
                   '<div class="onebar">' +
                   '<div class="f"><label>Why Are You Holding It?</label>' +
                   '<input type="text" class="holdwhy" data-id="' + esc(o.id) +
                   '" placeholder="This comes back to Jonna with the order"></div>' +
-                  '<button class="ghost vphold" type="button" data-slug="' + esc(C.slug) +
-                  '" data-id="' + esc(o.id) + '">Hold This One</button></div></div></div>';
-              }).join('') + '</div></div></div>';
+                  '<button class="gobtn ghost vphold" type="button" data-slug="' + esc(C.slug) +
+                  '" data-id="' + esc(o.id) + '">Hold This One</button></div>' +
+                  '<p class="fineprint">Releasing lets MISMO send it. Holding stops it and returns ' +
+                  'it to Jonna with your reason \u2014 <b>a reason is required</b>.</p>';
+                return panelRow('vp-' + o.id, o.subject, C.F.company,
+                  (o.maximumFee != null ? money(o.maximumFee) : 'Per review'), doc);
+              }).join('');
           }).join('') + '</div>';
 
       whoEl.innerHTML = esc(who().name) + ' <i>·</i> ' + esc(who().title);
@@ -4680,7 +5058,22 @@ window.H = (function () {
           });
         }), decision + ' — ' + orders.length + ' orders for ' + C.F.company);
       }
-      document.querySelectorAll('.vpbatch').forEach(function (b) {
+      onPanelOpen(wireVp);
+      wireVp(document);
+      function wireVp(root) {
+      (root || document).querySelectorAll('.vpone').forEach(function (b) {
+        if (b.dataset.wired) return; b.dataset.wired = '1';
+        b.addEventListener('click', function () {
+          var C = waiting.filter(function (x) { return x.slug === b.dataset.slug; })[0];
+          var o = C.waiting.filter(function (x) { return x.id === b.dataset.id; })[0];
+          b.disabled = true;
+          decide(C, [o], 'Approved to Send')
+            .then(function () { toast('Released for MISMO to send', 'good'); vpView(); })
+            .catch(function (e) { b.disabled = false; failed(e); });
+        });
+      });
+      (root || document).querySelectorAll('.vpbatch').forEach(function (b) {
+        if (b.dataset.wired) return; b.dataset.wired = '1';
         b.addEventListener('click', function () {
           var C = waiting.filter(function (x) { return x.slug === b.dataset.slug; })[0];
           b.disabled = true;
@@ -4689,7 +5082,8 @@ window.H = (function () {
             .catch(function (e) { b.disabled = false; failed(e); });
         });
       });
-      document.querySelectorAll('.vphold').forEach(function (b) {
+      (root || document).querySelectorAll('.vphold').forEach(function (b) {
+        if (b.dataset.wired) return; b.dataset.wired = '1';
         b.addEventListener('click', function () {
           var C = waiting.filter(function (x) { return x.slug === b.dataset.slug; })[0];
           var o = C.waiting.filter(function (x) { return x.id === b.dataset.id; })[0];
@@ -4710,6 +5104,7 @@ window.H = (function () {
             .catch(function (e) { b.disabled = false; failed(e); });
         });
       });
+      }   /* wireVp */
       var va = document.getElementById('vp-all');
       if (va) va.addEventListener('click', function () {
         va.disabled = true; va.textContent = 'Approving…';
@@ -4956,7 +5351,10 @@ window.H = (function () {
       });
 
       function drawAdmin(approveBody, waiting, by) {
-      say(sect('Status Board', null, board, true) +
+      /* ⚠ The Status Board is not a section any more.  It is the first thing
+         on the page and there is never a reason to fold it away — a collapsible
+         header above it was one more click between Jonna and the answer. */
+      say('<div class="board">' + board + '</div>' +
         sect('Needs You', needs.length, needsBody, needs.length > 0) +
         sect('Time to Approve', waiting, approveBody, waiting > 0) +
         sect('Send Orders', tally.vp || 0, sendBody) +
