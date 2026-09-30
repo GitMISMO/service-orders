@@ -20,16 +20,16 @@
  color-scheme:light;
 }
 @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
- --ground:#0B1826; --surface:#112336; --surface-2:#172D44; --surface-3:#1D3752;
- --border:#243E5A; --border-strong:#3A5A7C; --rule:#1A3048; --line:#1A3048; --sunk:#172D44;
- --ink:#EEF3F8; --ink-2:#B9C8D6; --ink-3:#8C9FB1;
- --good:#72C08E; --bad:#F08579; --warn:#E0A83C; --accent-soft:#173A57;
+ --ground:#061722; --surface:#0d2837; --surface-2:#123143; --surface-3:#173c52;
+ --border:#1f4a63; --border-strong:#2f6688; --rule:#173547; --line:#173547; --sunk:#123143;
+ --ink:#e9f4fb; --ink-2:#a6c5d9; --ink-3:#7a9db4;
+ --good:#4fc79b; --bad:#f08579; --warn:#e0a83c; --accent-soft:#173c52;
  color-scheme:dark; } }
 :root[data-theme="dark"]{
- --ground:#0B1826; --surface:#112336; --surface-2:#172D44; --surface-3:#1D3752;
- --border:#243E5A; --border-strong:#3A5A7C; --rule:#1A3048; --line:#1A3048; --sunk:#172D44;
- --ink:#EEF3F8; --ink-2:#B9C8D6; --ink-3:#8C9FB1;
- --good:#72C08E; --bad:#F08579; --warn:#E0A83C; --accent-soft:#173A57;
+ --ground:#061722; --surface:#0d2837; --surface-2:#123143; --surface-3:#173c52;
+ --border:#1f4a63; --border-strong:#2f6688; --rule:#173547; --line:#173547; --sunk:#123143;
+ --ink:#e9f4fb; --ink-2:#a6c5d9; --ink-3:#7a9db4;
+ --good:#4fc79b; --bad:#f08579; --warn:#e0a83c; --accent-soft:#173c52;
  color-scheme:dark; }
 
 *{box-sizing:border-box}
@@ -967,9 +967,9 @@ body.railmini .hq nav button .railbadge.slot1{top:22px; margin-left:0}
 .pill.good{background:rgba(15,123,92,.14);color:var(--good)}
 .pill.warn{background:rgba(162,112,26,.16);color:var(--warn)}
 .pill.quiet{background:transparent;border:1px solid var(--border);color:var(--ink-3)}
-:root[data-theme="dark"] .pill.good{background:rgba(114,192,142,.16)}
+:root[data-theme="dark"] .pill.good{background:rgba(79,199,155,.16)}
 :root[data-theme="dark"] .pill.warn{background:rgba(224,168,60,.18)}
-@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .pill.good{background:rgba(114,192,142,.16)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .pill.good{background:rgba(79,199,155,.16)}
  :root:not([data-theme="light"]) .pill.warn{background:rgba(224,168,60,.18)} }
 
 /* ── tables ───────────────────────────────────────────────── */
@@ -1243,6 +1243,69 @@ body.railmini .railout{justify-content:center;padding:11px 0 8px}
 
 @media(max-width:560px){
   .covrow select.covwho,.covrow input.covhrs{flex:1 1 100%;width:100%;max-width:none}
+}
+
+/* ===== View As ============================================================
+   ⚠ Sticky, not repeated per section: it has to be impossible to forget whose
+   screen you are on, and a banner that scrolls away fails at exactly the
+   moment somebody is deep in a training session. */
+.vabar{position:sticky;top:0;z-index:40;display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+  padding:10px 16px;margin:0 0 14px;border-radius:0 0 10px 10px;
+  background:var(--navy);color:#fff;box-shadow:0 2px 10px rgba(6,32,47,.22)}
+.vabar .va-l{font-family:var(--mono);font-size:9px;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--sky);white-space:nowrap}
+.vabar .va-c{font-weight:700;font-size:14px;white-space:nowrap}
+.vabar .va-r{font-size:12.4px;color:var(--sky-soft);min-width:0;overflow-wrap:anywhere}
+.vabar .va-ro{margin-left:auto;font-family:var(--mono);font-size:9px;letter-spacing:.1em;
+  text-transform:uppercase;background:var(--warn);color:#2a1d05;border-radius:999px;
+  padding:3px 10px;white-space:nowrap}
+.vabar .va-out{font:inherit;font-size:12.4px;background:transparent;color:#fff;cursor:pointer;
+  border:1px solid rgba(255,255,255,.45);border-radius:6px;padding:5px 11px;white-space:nowrap}
+.vabar .va-out:hover{background:rgba(255,255,255,.12);border-color:#fff}
+.vabar .va-out:focus-visible{outline:2px solid var(--sky);outline-offset:1px}
+
+@media(max-width:560px){
+  .vabar{gap:6px 10px;padding:9px 12px}
+  .vabar .va-ro{margin-left:0}
+  .vabar .va-out{width:100%}
+}
+
+/* ===== The Status Board, in the HQ shape ==================================
+   Built on the shared .headline / .tiles / .cards / .hqcard rules in
+   style.css.  Only the two things the portal adds are here. */
+
+/* A company card is not a link — nothing opens from it — so it loses the
+   pointer and the hover lift the clickable HQ cards carry. */
+.hqcard.flat{cursor:default}
+.hqcard.flat:hover{border-color:var(--border)}
+
+/* The pipeline along the bottom of a company card.  ⚠ A stage with nothing in
+   it is greyed rather than dropped, so all five cards line up and the shape of
+   the pipeline reads the same on every one. */
+.stepline{display:flex;flex-wrap:wrap;gap:4px}
+.stp{display:inline-flex;align-items:center;gap:4px;border-radius:4px;padding:2px 6px;
+  font-size:11px;font-weight:600;background:var(--sky-wash);color:var(--navy-mid);
+  border:1px solid transparent;white-space:nowrap}
+.stp i{font-style:normal;font-variant-numeric:tabular-nums;font-weight:700}
+.stp.none{background:transparent;border-color:var(--border);color:var(--ink-3);font-weight:500}
+.stp.none i{color:var(--ink-3)}
+:root[data-theme="dark"] .stp{background:var(--surface-3);color:var(--sky-soft)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .stp{background:var(--surface-3);color:var(--sky-soft)}
+}
+
+/* Four tiles across is right at 1400px and wrong on a phone. */
+@media(max-width:900px){ .tiles{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media(max-width:560px){ .tiles{grid-template-columns:1fr} }
+@media(max-width:1100px){ .cards{grid-template-columns:repeat(2,minmax(0,1fr))} }
+@media(max-width:700px){ .cards{grid-template-columns:1fr} }
+
+/* ⚠ In dark mode the navy headline sits on a navy ground and all but
+   disappears.  The tiles inside carry their own borders so it never looked
+   broken — it just stopped reading as a block. */
+:root[data-theme="dark"] .headline{border:1px solid var(--border-strong)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .headline{border:1px solid var(--border-strong)}
 }
 </style>
 </head>
@@ -2220,7 +2283,44 @@ window.H = (function () {
  * ------------------------------------------------------------------------- */
 (function () {
   'use strict';
-  var R = window.MISMO_RELAY, P = window.MISMO_PORTAL_PARTS;
+  var R0 = window.MISMO_RELAY, P = window.MISMO_PORTAL_PARTS;
+
+  /* =========================================================================
+   * VIEW AS — Jonna seeing a company's own screen, for training
+   *
+   * She is platformAdmin with admin on all five project keys, so the page can
+   * read any company's real files from her own sign-in.  ⚠ This is not
+   * impersonation and borrows nobody's password: it is reading files she
+   * already has the right to read and drawing them in the company's layout.
+   *
+   * ⚠ IT IS READ-ONLY, AND THAT IS THE WHOLE POINT.  Training means pressing
+   * the buttons.  If the buttons wrote, a training session would accept live
+   * service orders and submit live time — and an acknowledgment recorded while
+   * Jonna drove the screen would be worthless while looking genuine.
+   *
+   * The lock is ONE GUARD AT THE RELAY BOUNDARY, not a disabled attribute per
+   * button.  Every write in this file goes through R.update or R.commit, so
+   * refusing them here makes the whole mode read-only by construction — a
+   * button added later is covered without anybody remembering to.
+   * ======================================================================= */
+  var VIEWAS = null;          // { slug, company, role, as } or null
+
+  var R = (function () {
+    var w = {};
+    Object.keys(R0).forEach(function (k) { w[k] = R0[k]; });
+    function refuse(what) {
+      var e = new Error('Nothing saves while you are viewing as somebody else.');
+      e.readOnly = true; e.what = what;
+      return Promise.reject(e);
+    }
+    w.update = function (proj, path) {
+      return VIEWAS ? refuse(path) : R0.update.apply(R0, arguments);
+    };
+    w.commit = function (proj) {
+      return VIEWAS ? refuse('commit') : R0.commit.apply(R0, arguments);
+    };
+    return w;
+  })();
   var esc = P.esc, money = P.money, money0 = P.money0, stamp = P.stamp;
   var statusOf = P.statusOf, pill = P.pill, sect = P.sect;
   var feeTotal = P.feeTotal, feeWords = P.feeWords;
@@ -2237,7 +2337,23 @@ window.H = (function () {
   var whoEl = document.getElementById('who');
   var ME = null;                      // never a permission — only a display name
 
-  function say(html) { view.innerHTML = html; P.wireSections(view); P.wireRows(view); buildRail(); }
+  /* Who the CONTRACTOR-side screens are being drawn for.  Normally the signed-in
+     person; in View As, the company being trained.  ⚠ The MISMO-side screens
+     never use this — they always act as the real signed-in person, and View As
+     never reaches them. */
+  function who() { return (VIEWAS && VIEWAS.as) || ME; }
+
+  function say(html) {
+    /* ⚠ The View As banner is prepended here rather than by each view, so a
+       screen added later cannot forget it — and it is STICKY rather than
+       repeated per section, so scrolling never leaves it behind.  It must be
+       impossible to forget whose screen you are on. */
+    view.innerHTML = viewAsBanner() + html;
+    P.wireSections(view); P.wireRows(view); buildRail();
+    var out = document.getElementById('va-out');
+    if (out) out.addEventListener('click', leaveViewAs);
+    document.body.classList.toggle('viewingas', !!VIEWAS);
+  }
 
   /* ---------- the left rail -------------------------------------------------
      The other MISMO pages carry a fixed list of sections.  This page cannot:
@@ -2448,9 +2564,15 @@ window.H = (function () {
   /* =========================================================================
    * The contracting company's view
    * ======================================================================= */
+  /* ⚠ Decision 26: a facilitator sees HOURS and never money.  Not the rate, not
+     the maximum fee, not a total — and not the order document either, because
+     the rate is written on it.  The maximum fee is held back for the same
+     reason the rate is: fee divided by hours IS the rate. */
+  function isFac() { return !!(VIEWAS && VIEWAS.role === 'facilitator'); }
+
   function contractorView() {
     busy();
-    loadCompany(ME.slug).then(function (C) {
+    loadCompany(who().slug).then(function (C) {
       var F = C.F, sigs = C.sigs;
       var st = {};
       F.orders.forEach(function (o) { st[o.id] = statusOf(o, sigs); });
@@ -2516,6 +2638,42 @@ window.H = (function () {
         ? F.orders.filter(function (o) { return (o.fiscalYear || F.fiscalYear) === pickedYear; })
         : F.orders;
       var yearTotal = feeTotal(yearOrders);
+
+      /* ---- the facilitator's rate-free list (decision 26) ----------------
+         ⚠ Built as its OWN markup rather than the signer's list with the money
+         columns hidden.  A hidden column is a style; this is a screen that
+         never has the figure in it at all — which is the difference between a
+         rule and a hope, because the leak would be a character, not a layout. */
+      function facListHtml() { return '<p class="lede">Every service order you can log time against this fiscal year, ' +
+        'and how much of each one is left.</p>' +
+        '<div class="tot"><span class="tot-l">This Fiscal Year, ' + esc(pickedYear || '') + '</span>' +
+        '<span class="tot-v">' + facHours(yearOrders, HRS.files) + '</span></div>' +
+        '<p class="fineprint">Every order you may work on this fiscal year. One added later in the ' +
+        'year lands in these figures too. MISMO\u2019s fiscal year runs 1 October to 30 September.</p>' +
+        '<div class="tbl"><table><thead><tr><th>Service Order</th>' +
+        '<th class="n">Allotted</th><th class="n">Used</th><th class="n">Remaining</th>' +
+        '<th style="width:150px">Of the Order</th></tr></thead><tbody>' +
+        yearOrders.map(function (o) {
+          var tot = Number(o.estimatedHours) || 0;
+          var used = H.usedOnOrder(HRS.files || [], o.id);
+          var pct = tot ? Math.min(100, 100 * used / tot) : 0;
+          var cls = pct > 90 ? 'over' : pct > 70 ? 'hot' : '';
+          return '<tr><td>' + esc(o.subject) + '</td>' +
+            '<td class="n">' + (tot ? hrs(tot) : '\u2014') + '</td>' +
+            '<td class="n">' + hrs(used) + '</td>' +
+            '<td class="n">' + (tot ? hrs(tot - used) : '\u2014') + '</td>' +
+            '<td><div class="meterwrap"><span class="meter"><i class="' + cls +
+            '" style="width:' + pct.toFixed(0) + '%"></i></span>' +
+            '<span class="fineprint">' + pct.toFixed(0) + '%</span></div></td></tr>';
+        }).join('') + '</tbody></table></div>' +
+        '<div class="note"><b>No money on this screen, and no way to work it out.</b> A facilitator ' +
+        'sees hours only \u2014 no rate, no maximum fee, and no order to open, because the order itself ' +
+        'carries the rate. <b>The maximum fee is held back for the same reason:</b> fee divided by ' +
+        'hours is the rate.</div>' +
+        '<p class="fineprint"><b>The bar is the whole order, not one person\u2019s share.</b> When ' +
+        'several people cover the same order, each of them needs to see how much of it is left \u2014 ' +
+        'that is what stops an overrun turning up on an invoice.</p>'; }
+
       var all = '<p class="lede">Every service order MISMO has raised for you this fiscal year, ' +
         'with its status, rate, hours and maximum fee. Open one to read it in full.</p>' +
         '<div class="tot"><span class="tot-l">' +
@@ -2550,7 +2708,7 @@ window.H = (function () {
         }).join('') + '</div>';
 
       /* ---- My Agreements ------------------------------------------------- */
-      var agreements = R.read(keyFor(ME.slug), 'agreements/' + ME.slug + '.json')
+      var agreements = R.read(keyFor(who().slug), 'agreements/' + who().slug + '.json')
         .then(function (a) { return a.data.agreements || []; })
         .catch(function () { return []; });
 
@@ -2581,13 +2739,13 @@ window.H = (function () {
               '</div></div>';
           }).join('') + '</div>';
 
-        whoEl.innerHTML = esc(ME.name) + ' <i>·</i> ' + esc(F.company);
+        whoEl.innerHTML = esc(who().name) + ' <i>·</i> ' + esc(F.company);
         /* ---- hours -------------------------------------------------------
            The person record is what says whether this account logs time and
            against which orders.  ⚠ An account with no record is NOT quietly
            attached to somebody else's hours — it simply sees no hours
            sections, and Help says who to ask. */
-        var person = loggingPerson(F, ME);
+        var person = loggingPerson(F, who());
         var fy = F.fiscalYear || 'FY 2027';
         HCTX = person ? { C: C, person: person, fy: fy } : null;
         var hoursBits = Promise.resolve('');
@@ -2612,14 +2770,20 @@ window.H = (function () {
         }
 
         hoursBits.then(function (hb) {
-          say(
-            sect('To Review', toReview.length, review) +
-            hb +
-            sect('My Service Orders', yearOrders.length, all) +
-            sect('My Agreements', F.letters.length, ag) +
-            sect('Help', null, helpFor('contractor', F))
+          /* ⚠ A facilitator's screen DROPS To Review and My Agreements rather
+             than showing them empty: they do not accept orders and they do not
+             sign the MSA, and both of those screens carry fees. */
+          say(isFac()
+            ? hb +
+              sect('My Service Orders', yearOrders.length, facListHtml()) +
+              sect('Help', null, helpFor('facilitator', F))
+            : sect('To Review', toReview.length, review) +
+              hb +
+              sect('My Service Orders', yearOrders.length, all) +
+              sect('My Agreements', F.letters.length, ag) +
+              sect('Help', null, helpFor('contractor', F))
           );
-          wireReview(C, st, toReview);
+          if (!isFac()) wireReview(C, st, toReview);
           if (person) wireHours(C, person, fy);
           var fyEl2 = document.getElementById('fy-pick');
           if (fyEl2) fyEl2.addEventListener('change', function () {
@@ -2717,6 +2881,28 @@ window.H = (function () {
     return (F.people || []).filter(function (p) {
       return p.name !== me && active(p, on);
     });
+  }
+
+  /* The fiscal-year band on a facilitator's screen.  ⚠ Hours, never a fee —
+     the signer's band says dollars and this one must not, or decision 26 leaks
+     through the one line nobody thinks of as a figure. */
+  function facHours(orders, files) {
+    var tot = 0, used = 0, n = 0;
+    (orders || []).forEach(function (o) {
+      var t = Number(o.estimatedHours) || 0;
+      if (!t) return;
+      tot += t; used += H.usedOnOrder(files || [], o.id); n++;
+    });
+    if (!n) return 'No hours on these orders';
+    return hrs(tot - used) + ' hours left of ' + hrs(tot) + ' across ' + n +
+      ' order' + (n === 1 ? '' : 's');
+  }
+
+  /* One step of the pipeline on a company card.  ⚠ A step with nothing in it is
+     shown greyed rather than hidden, so the five cards line up and the shape of
+     the pipeline reads the same on every one of them. */
+  function stepChip(label, n) {
+    return '<span class="stp' + (n ? '' : ' none') + '"><i>' + n + '</i>' + esc(label) + '</span>';
   }
 
   function orderById(F, id) {
@@ -3038,7 +3224,10 @@ window.H = (function () {
           fld('This Month', hrs(rec.hours) + ' hours', 1) +
           fld('This Fiscal Year', hrs(used) + ' of ' + (tot ? hrs(tot) : '—'), 1) +
           fld('Remaining', tot ? hrs(tot - used) + ' hours' : 'No hours on this order', 1) +
-          fld('Maximum Fee', o && o.maximumFee != null ? money(o.maximumFee) : 'Paid per review', 1) +
+          /* ⚠ Decision 26 reaches into the month view too.  A time manager sees
+             the fee; a facilitator never does, on any screen. */
+          (isFac() ? '' :
+            fld('Maximum Fee', o && o.maximumFee != null ? money(o.maximumFee) : 'Paid per review', 1)) +
           '</div>' +
           '<div class="meterwrap"><span class="meter"><i class="' + cls +
           '" style="width:' + pct.toFixed(0) + '%"></i></span></div>' +
@@ -3609,6 +3798,159 @@ window.H = (function () {
     });
   }
 
+
+  /* ---- the banner --------------------------------------------------------
+     ⚠ It must be impossible to forget which screen you are on.  The banner is
+     rendered at the top of EVERY section, not once at the top of the page, so
+     scrolling never leaves it behind. */
+  function viewAsBanner() {
+    if (!VIEWAS) return '';
+    return '<div class="vabar">' +
+      '<span class="va-l">Viewing As</span>' +
+      '<span class="va-c">' + esc(VIEWAS.company) + '</span>' +
+      '<span class="va-r">' + esc(VIEWAS.person || '') + ' · ' +
+        (VIEWAS.role === 'facilitator'
+          ? 'a facilitator — no rate, no fee, hours only'
+          : 'the signer — everything they see') + '</span>' +
+      '<span class="va-ro">Nothing saves</span>' +
+      '<button class="va-out" type="button" id="va-out">Back to My View</button>' +
+      '</div>';
+  }
+
+  /* ---- the picker --------------------------------------------------------
+     Only an account holding every project key sees this, which today is Jonna.
+     ⚠ The VP and the President are deliberately left out: they hold the keys
+     and could be given it, but nobody has asked, and the narrower the better
+     until somebody does. */
+  function canViewAs() {
+    if (!ME || ME.kind !== 'admin') return false;
+    /* ⚠ Not just "routed to the admin view" — the relay's own access map has to
+       say admin on every key.  The kind is worked out by elimination at sign-in;
+       the access map is what the relay actually granted. */
+    var acc = ME.access || {};
+    return (ME.keys || []).length >= 2 && (ME.keys || []).every(function (k) {
+      return acc[k] === 'admin';
+    });
+  }
+
+  function viewAsSection(list) {
+    return '<p class="lede">See a company’s own screen, drawn from their real records, so you ' +
+      'can train them on what they will actually see. <b>Nothing you press while you are in it ' +
+      'saves anything.</b></p>' +
+      '<div class="fields">' +
+      '<div class="f"><label for="va-co">Company</label><select id="va-co">' +
+      '<option value="">Choose a company</option>' +
+      list.map(function (C) {
+        return '<option value="' + esc(C.slug) + '">' + esc(C.F.company) + '</option>';
+      }).join('') + '</select></div>' +
+      '<div class="f"><label for="va-who">Whose Screen</label><select id="va-who">' +
+      '<option value="">Choose the company first</option></select></div>' +
+      '</div>' +
+      '<div class="issacts"><button class="tbtn" type="button" id="va-go">Open Their Screen</button></div>' +
+      '<div class="note"><b>It is read-only, and that is the point.</b> Training means pressing the ' +
+      'buttons. If they wrote, a training session would accept live service orders and submit live ' +
+      'time — and an acknowledgment recorded while you were driving the screen would be worthless ' +
+      'while looking genuine. Every write is refused at the source, not by greying out a button.</div>' +
+      '<div class="note ok"><b>You are not borrowing anybody’s password.</b> You hold all five ' +
+      'project keys, so the page is reading records you already have the right to read and drawing ' +
+      'them in the company’s layout instead of yours.</div>' +
+      '<p class="fineprint"><b>A facilitator’s screen carries no dollar figure at all</b> — no ' +
+      'rate, no maximum fee, no total, and the order itself cannot be opened, because the rate is ' +
+      'written on it. That is decision 26, and it is why there are two screens to choose between ' +
+      'rather than one.</p>';
+  }
+
+  /* Everybody at one company whose screen is worth looking at: the order signer
+     first, then everyone who logs time.  ⚠ The screen type is DERIVED from who
+     they are rather than chosen separately — the signer gets the signer's
+     screen and everybody else gets the rate-free one, which is the rule rather
+     than a setting somebody could get wrong during a training session. */
+  function viewAsPeople(C) {
+    var F = C.F, out = [];
+    var signer = F.signers && F.signers.order;
+    if (signer) {
+      out.push({ key: 'signer', name: signer.name, title: signer.title,
+                 role: 'signer', what: 'the signer \u2014 everything they see' });
+    }
+    (F.people || []).forEach(function (pr) {
+      if (!active(pr, H.parse(H.weekFor(F.fiscalYear || 'FY 2027', new Date())))) return;
+      if (signer && pr.name === signer.name) return;    // already above
+      if (!(pr.orders || []).length && !pr.timeManager) return;
+      out.push({ key: pr.slug, name: pr.name, role: 'facilitator',
+                 what: (pr.orders || []).length
+                   ? 'logs ' + pr.orders.length + ' order' + (pr.orders.length === 1 ? '' : 's') +
+                     ' \u2014 hours only, no money'
+                   : 'time manager \u2014 hours only, no money' });
+    });
+    return out;
+  }
+
+  function wireViewAs(list) {
+    var co = document.getElementById('va-co');
+    var whoEl2 = document.getElementById('va-who');
+    function fill() {
+      if (!whoEl2) return;
+      var C = null;
+      list.forEach(function (x) { if (co && x.slug === co.value) C = x; });
+      if (!C) {
+        whoEl2.innerHTML = '<option value="">Choose the company first</option>';
+        return;
+      }
+      whoEl2.innerHTML = viewAsPeople(C).map(function (pp) {
+        return '<option value="' + esc(pp.key) + '">' + esc(pp.name) + ' \u2014 ' +
+          esc(pp.what) + '</option>';
+      }).join('');
+    }
+    if (co) co.addEventListener('change', fill);
+    fill();
+
+    var go = document.getElementById('va-go');
+    if (go) go.addEventListener('click', function () {
+      if (!co || !co.value) { toast('Choose a company first'); if (co) co.focus(); return; }
+      var C = null;
+      list.forEach(function (x) { if (x.slug === co.value) C = x; });
+      if (!C) return;
+      var pick = null;
+      viewAsPeople(C).forEach(function (pp) {
+        if (whoEl2 && pp.key === whoEl2.value) pick = pp;
+      });
+      if (!pick) { toast('Choose whose screen to open'); return; }
+      enterViewAs(C, pick);
+    });
+  }
+
+  function enterViewAs(C, pick) {
+    var F = C.F;
+    /* The identity the contractor screens are drawn for.  ⚠ For a facilitator
+       it is that PERSON, not the company's signer — otherwise My Hours would
+       show the signer's rows (often none at all) and the training session would
+       be looking at the wrong screen. */
+    var rec = null;
+    (F.people || []).forEach(function (pr) { if (pr.slug === pick.key) rec = pr; });
+    VIEWAS = {
+      slug: C.slug,
+      company: F.company,
+      role: pick.role,
+      person: pick.name,
+      as: { slug: C.slug, name: pick.name,
+            title: rec ? '' : (F.signers.order.title || ''),
+            email: rec ? (rec.email || '') : (F.signers.order.email || ''),
+            project: keyFor(C.slug) }
+    };
+    HRS = { files: null, mine: null, sha: null, person: null, month: null, week: null };
+    HCTX = null;
+    ISS_YEAR = null;
+    contractorView();
+  }
+
+  function leaveViewAs() {
+    VIEWAS = null;
+    HRS = { files: null, mine: null, sha: null, person: null, month: null, week: null };
+    HCTX = null;
+    ISS_YEAR = null;
+    adminView();
+  }
+
   /* what the nudge outbox is holding, and whether anything has gone out */
   function outboxLine(outbox) {
     var waiting = (outbox || []).filter(function (n) { return !n.sent; });
@@ -3709,13 +4051,13 @@ window.H = (function () {
 
     go.addEventListener('click', function () {
       var ids = ticked();
-      var who = { signerName: nameEl.value.trim(), signerTitle: titleEl.value.trim(), signerEmail: ME.email };
+      var who = { signerName: nameEl.value.trim(), signerTitle: titleEl.value.trim(), signerEmail: who().email };
       var recs = ids.map(function (id) {
         var o = C.F.orders.filter(function (x) { return x.id === id; })[0];
         return signature('Consultant', 'Accepted', o, who);
       });
       go.disabled = true; go.textContent = 'Accepting…';
-      addSignatures(ME.slug, recs, 'accepted ' + recs.length + ' orders')
+      addSignatures(who().slug, recs, 'accepted ' + recs.length + ' orders')
         .then(function () {
           toast(recs.length + (recs.length === 1 ? ' order accepted' : ' orders accepted'), 'good');
           contractorView();
@@ -3730,8 +4072,8 @@ window.H = (function () {
         if (!nm || nm.value.trim().length < 2) { nm && nm.focus(); toast('Type your name first'); return; }
         var o = C.F.orders.filter(function (x) { return x.id === id; })[0];
         b.disabled = true;
-        addSignatures(ME.slug, [signature('Consultant', 'Accepted', o,
-          { signerName: nm.value.trim(), signerTitle: (titleEl && titleEl.value.trim()) || ME.title, signerEmail: ME.email })],
+        addSignatures(who().slug, [signature('Consultant', 'Accepted', o,
+          { signerName: nm.value.trim(), signerTitle: (titleEl && titleEl.value.trim()) || who().title, signerEmail: who().email })],
           'accepted ' + o.subject)
           .then(function () { toast('Accepted', 'good'); contractorView(); })
           .catch(function (e) { b.disabled = false; failed(e); });
@@ -3751,11 +4093,11 @@ window.H = (function () {
         if (!q || q.value.trim().length < 2) { if (q) q.focus(); toast('Type the question first'); return; }
         b.disabled = true;
         var asked = q.value.trim();
-        addSignatures(ME.slug, [signature('Consultant', 'Question', o,
-          { signerName: ME.name, signerEmail: ME.email, question: asked })],
+        addSignatures(who().slug, [signature('Consultant', 'Question', o,
+          { signerName: who().name, signerEmail: who().email, question: asked })],
           'question raised on ' + o.subject)
           .then(function () {
-            return notify(ME.slug, notice('Question Raised', o, C.F.company, ME.name, asked));
+            return notify(who().slug, notice('Question Raised', o, C.F.company, who().name, asked));
           })
           .then(function () { toast('Sent back to MISMO with your question'); contractorView(); })
           .catch(function (e) { b.disabled = false; failed(e); });
@@ -4014,21 +4356,104 @@ window.H = (function () {
         question: 'Question Raised', acknowledged: 'Acknowledged', changed: 'Changed Since Acknowledged',
         executed: 'Executed' };
 
-      var board = '<div class="stats">' + Object.keys(LABEL).map(function (k) {
-        return '<div class="stat' + (['question', 'changed', 'vphold'].indexOf(k) >= 0 && tally[k] ? ' warn' : '') +
-          '"><span class="lab">' + esc(LABEL[k]) + '</span><span class="val">' + (tally[k] || 0) + '</span></div>';
-      }).join('') + '</div>' +
-        '<div class="tbl"><table><thead><tr><th>Company</th><th class="n">Orders</th>' +
-        '<th class="n">Ready to Send</th><th class="n">Sent</th><th class="n">Acknowledged</th>' +
-        '<th class="n">Executed</th><th class="n">Needs You</th></tr></thead><tbody>' +
+      /* ---- the Status Board, in the Website Migration HQ shape -------------
+         ⚠ Eight equal white boxes gave every status the same weight, so the one
+         that needed Jonna looked exactly like the six that did not.  The HQ
+         shape says where the whole thing STANDS first, in a sentence, then
+         four figures worth acting on, then a card per company. */
+      var totalOrders = list.reduce(function (a, C) { return a + C.F.orders.length; }, 0);
+      var totalLetters = list.reduce(function (a, C) { return a + C.F.letters.length; }, 0);
+      var needsCount = (tally.question || 0) + (tally.changed || 0) + (tally.vphold || 0);
+      var moving = (tally.sent || 0) + (tally.acknowledged || 0);
+      var boardValue = list.reduce(function (a, C) {
+        return a + C.F.orders.reduce(function (b, o) { return b + (o.maximumFee || 0); }, 0);
+      }, 0);
+
+      /* One line saying where it all is.  It changes as the year moves, so it is
+         built from the tallies rather than written once. */
+      var standing;
+      if (tally.executed === totalOrders && totalOrders) {
+        standing = '<em>Every order is executed.</em> The fiscal year is fully papered.';
+      } else if (!tally.vp && !tally.sent && !tally.acknowledged && !tally.executed) {
+        standing = '<em>' + totalOrders + ' orders</em> are drafted and <em>none has been released</em> yet.';
+      } else {
+        var bits = [];
+        if (tally.vp) bits.push('<em>' + tally.vp + '</em> ready for you to send');
+        if (tally.sent) bits.push('<em>' + tally.sent + '</em> with the companies');
+        if (tally.acknowledged) bits.push('<em>' + tally.acknowledged + '</em> accepted and waiting on ' +
+          esc((list[0].F.mismoSigner || {}).name || 'the President'));
+        if (tally.executed) bits.push('<em>' + tally.executed + '</em> executed');
+        standing = bits.length ? bits.join(' · ') + '.' : '<em>Nothing is moving yet.</em>';
+      }
+      if (needsCount) {
+        standing += ' <em class="hl-late">' + needsCount + '</em> ' +
+          (needsCount === 1 ? 'has stopped and needs' : 'have stopped and need') + ' you.';
+      }
+
+      var board =
+        '<div class="vhead"><div class="grow"><h1>Where Everything Has Got To</h1>' +
+        '<p>Every FY 2027 service order across all five contracting companies, and what is ' +
+        'waiting on whom.</p></div></div>' +
+
+        '<div class="headline">' +
+        '<div class="hl-date">Fiscal Year 2027 · 1 October 2026 to 30 September 2027</div>' +
+        '<p class="hl-say">' + standing + '</p>' +
+        '<div class="tiles">' +
+          '<div class="tile"><b>' + totalOrders + '</b><span>Service Orders</span>' +
+            '<small>' + totalLetters + ' agreements as well</small></div>' +
+          '<div class="tile"><b>' + money0(boardValue) + '</b><span>Maximum Fee</span>' +
+            '<small>certification work is paid per review</small></div>' +
+          '<div class="tile' + (tally.vp ? ' warn' : '') + '"><b>' + (tally.vp || 0) + '</b>' +
+            '<span>Ready for You to Send</span>' +
+            '<small>' + (tally.draft || 0) + ' still with ' +
+            esc(((list[0].F.vpProduct) || {}).name || 'the VP') + '</small></div>' +
+          '<div class="tile' + (needsCount ? ' warn' : '') + '"><b>' + needsCount + '</b>' +
+            '<span>Stopped, Needing You</span>' +
+            '<small>' + (tally.question || 0) + ' questions · ' + (tally.vphold || 0) +
+            ' held · ' + (tally.changed || 0) + ' changed</small></div>' +
+        '</div></div>' +
+
+        '<div class="sect-t">Company by Company</div><div class="cards">' +
         list.map(function (C) {
-          var c = function (k) { return C.F.orders.filter(function (o) { return C.st[o.id].key === k; }).length; };
-          var needs = c('question') + c('changed') + c('vphold');
-          return '<tr><td>' + esc(C.F.company) + '</td><td class="n">' + C.F.orders.length +
-            '</td><td class="n">' + c('vp') + '</td><td class="n">' + c('sent') +
-            '</td><td class="n">' + c('acknowledged') + '</td><td class="n">' + c('executed') +
-            '</td><td class="n' + (needs ? ' bad' : '') + '">' + needs + '</td></tr>';
-        }).join('') + '</tbody></table></div>';
+          var c = function (k) {
+            return C.F.orders.filter(function (o) { return C.st[o.id].key === k; }).length;
+          };
+          var mine = c('question') + c('changed') + c('vphold');
+          var n = C.F.orders.length;
+          var done = c('executed');
+          /* What this company is actually waiting on, said as a sentence rather
+             than left for somebody to work out from six columns. */
+          var next;
+          if (mine) {
+            next = '<b>' + mine + ' stopped and waiting on you.</b> See Needs You.';
+          } else if (c('vp')) {
+            next = '<b>' + c('vp') + ' ready to send.</b> Nothing else is holding them up.';
+          } else if (c('sent')) {
+            next = '<b>' + c('sent') + ' sent</b>, waiting on ' + esc(C.F.signers.order.name) + '.';
+          } else if (c('acknowledged')) {
+            next = '<b>' + c('acknowledged') + ' accepted</b>, waiting on ' +
+              esc((C.F.mismoSigner || {}).name || 'the President') + '.';
+          } else if (done === n && n) {
+            next = '<b>All executed.</b> Nothing outstanding.';
+          } else {
+            next = '<b>' + c('draft') + ' still in draft</b>, with ' +
+              esc(((C.F.vpProduct) || {}).name || 'the VP') + '.';
+          }
+          return '<div class="hqcard flat"><h3>' + esc(C.F.company) + '</h3>' +
+            '<p>' + esc(C.F.signers.order.name) + ' · ' + esc(C.F.signers.order.title) + '</p>' +
+            /* ⚠ The pipeline goes INSIDE the footer, not beside it.  A card in
+               .cards is a three-row subgrid so its rows line up across all five;
+               a fourth child lands in the third row's cell and draws on top of
+               whatever is already there. */
+            '<div class="cfoot">' +
+              '<div class="stepline">' +
+                stepChip('Draft', c('draft')) + stepChip('Ready', c('vp')) +
+                stepChip('Sent', c('sent')) + stepChip('Accepted', c('acknowledged')) +
+                stepChip('Executed', done) +
+              '</div>' +
+              '<div class="next">' + next + '</div>' +
+            '</div></div>';
+        }).join('') + '</div>';
 
       /* Needs You — a question or a hold is no use as a number, so the words are
          here, beside the order they are about. */
@@ -4132,8 +4557,10 @@ window.H = (function () {
         sect('Time to Approve', waiting, approveBody, waiting > 0) +
         sect('Send Orders', tally.vp || 0, sendBody) +
         sect('Executed Documents', null, archive) +
+        (canViewAs() ? sect('View As', null, viewAsSection(list)) : '') +
         sect('Help', null, helpFor('admin', list[0] && list[0].F)));
       if (by) wireApprove(list, by, adminView);
+      if (canViewAs()) wireViewAs(list);
 
       document.querySelectorAll('.sendco').forEach(function (b) {
         b.addEventListener('click', function () {
@@ -4204,6 +4631,27 @@ window.H = (function () {
   }
   function helpFor(kind, F) {
     var name = ME && ME.name ? ME.name : 'you';
+    if (kind === 'facilitator') {
+      return blk('Signing In', steps([
+        'Go to <b>resources.mismo.org/service-orders/</b>.',
+        'Type the email address MISMO set you up with, and the password they sent you separately.',
+        'Press <b>Sign In</b>. Your session lasts four hours and ends when you close the tab.']))
+        + blk('Logging Your Time', steps([
+        'Open <b>My Hours</b>. It shows the week you are in, with one row for every service order you work on.',
+        'Click a row to open it. Put the hours in <b>Hours This Week</b>, write one line in <b>This Week</b>, and set <b>Health</b>.',
+        '<b>Upcoming</b> is what is next \u2014 it is what MISMO reads to see what is coming.',
+        'If a colleague did some of those hours, open <b>Did somebody else do some of these hours?</b> and name them with their share.',
+        'Press <b>Save Without Sending</b> as often as you like; press <b>Submit This Week</b> when the week is done.']))
+        + blk('Seeing Whether an Order Is Running Out', steps([
+        'Open <b>My Service Orders</b>. It shows <b>Allotted</b>, <b>Used</b> and <b>Remaining</b> in hours for every order you work on.',
+        'Those are the whole order, not your share \u2014 when several of you cover the same order, that is the only figure that tells you whether it is close to running out.',
+        'The bar turns amber past 70% and red past 90%. <b>Tell MISMO before it runs out</b>, not after it appears on an invoice.']))
+        + blk('What You Cannot See, and Why', steps([
+        'This screen carries <b>no money at all</b> \u2014 no hourly rate, no maximum fee, no total, and the service order itself cannot be opened.',
+        'The order document is held back because <b>the rate is written on it</b>.',
+        'The maximum fee is held back for the same reason: <b>the fee divided by the hours is the rate</b>, so showing one shows the other.',
+        'Your hours, and how much of each order is left, are everything you need to do the work \u2014 and they are all here.']));
+    }
     if (kind === 'contractor') {
       return blk('Signing In', steps([
         'Go to <b>resources.mismo.org/service-orders/</b>.',
@@ -4324,11 +4772,20 @@ window.H = (function () {
    * Failure, and the closed door
    * ======================================================================= */
   function failed(e) {
+    /* ⚠ First, before anything else: a write refused because she is viewing as
+       somebody else is not a failure and must never read like one.  Pressing
+       the button is the point of a training session. */
+    if (e && e.readOnly) {
+      toast('Nothing saves while you are viewing as ' +
+            ((VIEWAS && VIEWAS.company) || 'somebody else') + '.', 'warn');
+      return;
+    }
     if (e && e.closed) { closed(e); return; }
     if (e && e.status === 409) { toast('Somebody else saved at the same moment — try again', 'warn'); return; }
     toast('That did not save. Nothing has changed.', 'warn');
   }
   function closed(e) {
+    if (e && e.readOnly) { failed(e); return; }
     if (e && e.status === 409) { toast('Somebody else saved first — reloading'); return; }
     if (e && e.needsLogin) { signInView(); return; }
     /* A session that has run out, or been withdrawn, is not an error the person
