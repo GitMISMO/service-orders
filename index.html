@@ -5529,6 +5529,8 @@ window.H = (function () {
     { k: 'endDate',          label: 'End Date',               type: 'text' },
     { k: 'services',         label: 'Services',               type: 'area' },
     { k: 'deliverables',     label: 'Deliverables',           type: 'area' },
+    { k: 'deliverySchedule', label: 'Delivery Schedule',      type: 'area' },
+    { k: 'paymentSchedule',  label: 'Payment Schedule',       type: 'area' },
     { k: 'tasksFromMismo',   label: 'What MISMO Provides',    type: 'area' },
     { k: 'modifications',    label: 'Agreed Modifications',   type: 'area' },
     { k: 'subject',          label: 'Service Order Title',    type: 'text' }
@@ -5611,11 +5613,13 @@ window.H = (function () {
       { k: 'maximumFee',     label: 'Maximum Fee',          type: 'text' },
       { k: 'startDate',      label: 'Start Date',           type: 'text' },
       { k: 'endDate',        label: 'End Date',             type: 'text' },
-      { k: 'description',    label: 'Description',          type: 'area' },
-      { k: 'services',       label: 'Services',             type: 'area' },
-      { k: 'deliverables',   label: 'Deliverables',         type: 'area' },
-      { k: 'tasksFromMismo', label: 'What MISMO Provides',  type: 'area' },
-      { k: 'modifications',  label: 'Agreed Modifications', type: 'area' }
+      { k: 'description',      label: 'Description',          type: 'area' },
+      { k: 'services',         label: 'Services',             type: 'area' },
+      { k: 'deliverables',     label: 'Deliverables',         type: 'area' },
+      { k: 'deliverySchedule', label: 'Delivery Schedule',    type: 'area' },
+      { k: 'paymentSchedule',  label: 'Payment Schedule',     type: 'area' },
+      { k: 'tasksFromMismo',   label: 'What MISMO Provides',  type: 'area' },
+      { k: 'modifications',    label: 'Agreed Modifications', type: 'area' }
     ].map(function (f) {
       var input = f.type === 'area'
         ? '<textarea class="nof" rows="3" data-k="' + esc(f.k) + '"></textarea>'
