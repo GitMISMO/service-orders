@@ -2626,10 +2626,19 @@ window.H = (function () {
     } else {
       if (has(o.deliverySchedule)) s('Delivery Schedule', '<p>' + esc(o.deliverySchedule) + '</p>');
       s('Duration of Order', '<p>' + esc(o.startDate) + ' to ' + esc(o.endDate) + '</p>');
-      if (has(o.paymentSchedule)) s('Payment Schedule', '<p>' + esc(o.paymentSchedule) + '</p>');
-      s('Estimate of Total Fees for Time and Material / Maximum Fee',
-        '<p>Hourly Rate: ' + money(o.hourlyRate) + '<br>Estimated Hours: ' + esc(o.estimatedHours) +
-        '<br>Maximum Fee Allowed: ' + money(o.maximumFee) + '</p>');
+      /* A payment schedule and a fee estimate are two ways of saying the same
+         thing, and an order that carries both says it twice and invites the
+         question of which one governs. The schedule wins: it is the specific
+         statement. The rate and maximum fee stay ON the order — they are still
+         what the hours are measured against on screen — they just do not print
+         a second, vaguer answer underneath the first. */
+      if (has(o.paymentSchedule)) {
+        s('Payment Schedule', '<p>' + esc(o.paymentSchedule) + '</p>');
+      } else {
+        s('Estimate of Total Fees for Time and Material / Maximum Fee',
+          '<p>Hourly Rate: ' + money(o.hourlyRate) + '<br>Estimated Hours: ' + esc(o.estimatedHours) +
+          '<br>Maximum Fee Allowed: ' + money(o.maximumFee) + '</p>');
+      }
     }
     s('Tasks or Resources Needed From MISMO', '<p>' + esc(o.tasksFromMismo) + '</p>');
     s('Any Agreed Modifications to Master Agreement Terms', '<p>' + esc(o.modifications || 'None') + '</p>');
