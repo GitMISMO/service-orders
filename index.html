@@ -3053,6 +3053,53 @@ window.H = (function () {
     return F;
   }
 
+  /* ---- orders raised in this page, not by the generator -----------------
+     A new order has no forecast row behind it — it is work that came up after
+     the forecast was built.  It is kept in the same local file as the
+     revisions, for one reason worth stating plainly: that path is already
+     declared writable, so adding this needs NO relay configuration change.  A
+     new path would have needed one, and a path the relay has not been told
+     about is refused, which is how the page got taken down once already. */
+  function applyAdditions(F, additions) {
+    (additions || []).forEach(function (a) {
+      if (!a || !a.id) return;
+      if ((F.orders || []).some(function (o) { return o.id === a.id; })) return;  // never twice
+      /* ⚠ A COPY. The record goes into the order list and everything after this
+         writes onto it — the send date, the revisions, the derived rev number.
+         Adding the caller's own object would quietly edit the loaded file in
+         memory, so a second pass over the same data would see an order that had
+         already been changed. */
+      F.orders = (F.orders || []).concat([JSON.parse(JSON.stringify(a))]);
+    });
+    return F;
+  }
+
+  /* ---- when an order was sent -------------------------------------------
+     ⚠ This USED to be written onto the order itself, in orders/<slug>.json.
+     That stopped working the day `orders/` became read-only — and read-only is
+     the point: it is what stops a contracting company rewriting its own rate.
+     But the relay's permissions are per PROJECT, not per person, so a folder
+     closed to them is closed to MISMO too, and pressing "Send These 8" was
+     refused.  The date therefore lives here instead, with everything else this
+     page writes.  Nothing the page writes goes in the generator's file. */
+  function applySent(F, sent) {
+    if (!sent) return F;
+    (F.orders || []).forEach(function (o) {
+      // an older sentOn already on the order wins: it is the original record
+      if (!o.sentOn && sent[o.id]) o.sentOn = sent[o.id];
+    });
+    return F;
+  }
+
+  /* Order matters: additions first so a new order can also be revised and
+     sent, revisions last so the newest terms are what everything else reads. */
+  function applyLocal(F, local) {
+    local = local || {};
+    F = applyAdditions(F, local.additions);
+    F = applySent(F, local.sent);
+    return applyRevisions(F, local.revisions);
+  }
+
   function loadCompany(slug) {
     return Promise.all([
       R.read(keyFor(slug), 'orders/' + slug + '.json'),
@@ -3082,8 +3129,10 @@ window.H = (function () {
           throw e;
         })
     ]).then(function (r) {
-      var revisions = (r[2].data && r[2].data.revisions) || [];
-      return { slug: slug, sha: r[0].sha, F: applyRevisions(r[0].data, revisions),
+      var local = r[2].data || {};
+      var revisions = local.revisions || [];
+      var F = applyLocal(r[0].data, local);
+      return { slug: slug, sha: r[0].sha, F: F, local: local,
                sigSha: r[1].sha, sigs: r[1].data.signatures || [], revisions: revisions };
     });
   }
@@ -5529,6 +5578,72 @@ window.H = (function () {
       '<b>Nothing is overwritten and nothing is deleted.</b></p>';
   }
 
+  /* =========================================================================
+   * Raising a new service order
+   * =========================================================================
+   * The 57 FY2027 orders were generated from the forecast workbook. This is for
+   * the ones that are not in it — work that came up after the forecast was
+   * built.
+   *
+   * FREE-STANDING, by Jonna's decision, 1 October 2026: it names no forecast
+   * line and no budget is checked. ⚠ So an order raised here commits money the
+   * forecast does not know about, and nothing on this page will say so. That is
+   * accepted for now and to be revisited once the financial system is running.
+   *
+   * It enters the flow at the beginning, like any other order: Draft, which IS
+   * the VP's queue. Nothing is routed — the status is derived.
+   */
+  function newOrderForm(list) {
+    var companies = list.map(function (C) {
+      return '<option value="' + esc(C.slug) + '">' + esc(C.F.company) + '</option>';
+    }).join('');
+    /* Every MSA flavour on the system, so the order can say which agreement it
+       is written under. Filtered to the chosen company when one is picked. */
+    var msas = {};
+    list.forEach(function (C) {
+      msas[C.slug] = (C.F.letters || []).map(function (l) { return l.msaFlavour; });
+    });
+
+    var fields = [
+      { k: 'subject',        label: 'Service Order Title',  type: 'text', req: true },
+      { k: 'hourlyRate',     label: 'Hourly Rate',          type: 'text' },
+      { k: 'estimatedHours', label: 'Estimated Hours',      type: 'text' },
+      { k: 'maximumFee',     label: 'Maximum Fee',          type: 'text' },
+      { k: 'startDate',      label: 'Start Date',           type: 'text' },
+      { k: 'endDate',        label: 'End Date',             type: 'text' },
+      { k: 'description',    label: 'Description',          type: 'area' },
+      { k: 'services',       label: 'Services',             type: 'area' },
+      { k: 'deliverables',   label: 'Deliverables',         type: 'area' },
+      { k: 'tasksFromMismo', label: 'What MISMO Provides',  type: 'area' },
+      { k: 'modifications',  label: 'Agreed Modifications', type: 'area' }
+    ].map(function (f) {
+      var input = f.type === 'area'
+        ? '<textarea class="nof" rows="3" data-k="' + esc(f.k) + '"></textarea>'
+        : '<input type="text" class="nof" data-k="' + esc(f.k) + '">';
+      return '<div class="f' + (f.type === 'area' ? ' wide' : '') + '"><label>' +
+        esc(f.label) + (f.req ? ' *' : '') + '</label>' + input + '</div>';
+    }).join('');
+
+    return '<p class="lede">For work that is not on the FY 2027 forecast. ' +
+      '<b>It starts as a Draft, which means it goes to ' +
+      esc(((list[0].F.vpProduct) || {}).name || 'the VP') + ' for a decision first</b>, ' +
+      'exactly like the generated ones — then you send it, they accept it, ' +
+      esc(((list[0].F.mismoSigner) || {}).name || 'the President') + ' approves it.</p>' +
+      '<div class="revgrid">' +
+      '<div class="f"><label>Contracting Company *</label><select class="nof" data-k="__slug">' +
+      '<option value="">Choose one…</option>' + companies + '</select></div>' +
+      '<div class="f"><label>Written Under Which Agreement</label>' +
+      '<select class="nof" data-k="msaFlavour" id="no-msa"><option value="">Choose a company first</option>' +
+      '</select></div>' + fields + '</div>' +
+      '<div class="onebar"><div class="f"><label>Why This Order Exists</label>' +
+      '<input type="text" class="nowhy" placeholder="Goes on the record and travels with the order"></div>' +
+      '<button class="gobtn no-go" type="button">Raise This Order</button></div>' +
+      '<p class="fineprint">⚠ <b>This order names no forecast line</b>, so nothing here checks ' +
+      'it against the budget. A title and a company are required; everything else can be filled in ' +
+      'later by revising it. <b>Nothing is sent to anybody by raising it.</b></p>' +
+      '<script type="application/json" id="no-msas">' + JSON.stringify(msas) + '<\/script>';
+  }
+
   function adminView() {
     busy('Reading every company…');
     Promise.all([
@@ -5769,6 +5884,7 @@ window.H = (function () {
       say('<div class="board">' + board + '</div>' +
         sect('Needs You', needs.length, needsBody, needs.length > 0) +
         sect('Time to Approve', waiting, approveBody, waiting > 0) +
+        sect('New Service Order', null, newOrderForm(list)) +
         sect('Send Orders', tally.vp || 0, sendBody) +
         sect('Executed Documents', null, archive) +
         (canViewAs() ? sect('View As', null, viewAsSection(list)) : '') +
@@ -5779,6 +5895,81 @@ window.H = (function () {
       onPanelOpen(wireAdminControls);
       wireAdminControls(document);
       function wireAdminControls(root) {
+      /* ---- raising a new order ------------------------------------------ */
+      (root || document).querySelectorAll('select.nof[data-k="__slug"]').forEach(function (sel) {
+        if (sel.dataset.wired) return; sel.dataset.wired = '1';
+        sel.addEventListener('change', function () {
+          var host = document.getElementById('no-msas');
+          var map = {}; try { map = JSON.parse(host ? host.textContent : '{}'); } catch (e) {}
+          var msa = document.getElementById('no-msa');
+          if (!msa) return;
+          var opts = (map[sel.value] || []);
+          msa.innerHTML = opts.length
+            ? opts.map(function (f) { return '<option value="' + esc(f) + '">' + esc(f) + '</option>'; }).join('')
+            : '<option value="">No agreement on file</option>';
+        });
+      });
+
+      (root || document).querySelectorAll('.no-go').forEach(function (b) {
+        if (b.dataset.wired) return; b.dataset.wired = '1';
+        b.addEventListener('click', function () {
+          var vals = {};
+          document.querySelectorAll('.nof').forEach(function (el) {
+            vals[el.dataset.k] = String(el.value == null ? '' : el.value).trim();
+          });
+          var whyEl = document.querySelector('.nowhy');
+          var why = whyEl ? String(whyEl.value || '').trim() : '';
+          var slug = vals.__slug;
+
+          if (!slug) { toast('Choose the contracting company first'); return; }
+          if (!vals.subject) { toast('Give the order a title first'); return; }
+
+          var C = list.filter(function (x) { return x.slug === slug; })[0];
+          if (!C) { toast('That company could not be found'); return; }
+
+          /* A readable id that cannot collide with a generated one. The
+             generated set never uses this prefix. */
+          var id = 'new-' + Date.now().toString(36);
+          var order = {
+            id: id,
+            source: 'Raised in the portal',
+            subject: vals.subject,
+            msaFlavour: vals.msaFlavour || ((C.F.letters || [])[0] || {}).msaFlavour || '',
+            hourlyRate: vals.hourlyRate === '' ? null : Number(vals.hourlyRate.replace(/[^0-9.\-]/g, '')),
+            estimatedHours: vals.estimatedHours === '' ? null : Number(vals.estimatedHours.replace(/[^0-9.\-]/g, '')),
+            maximumFee: vals.maximumFee === '' ? null : Number(vals.maximumFee.replace(/[^0-9.\-]/g, '')),
+            startDate: vals.startDate, endDate: vals.endDate,
+            description: vals.description,
+            services: vals.services, deliverables: vals.deliverables,
+            tasksFromMismo: vals.tasksFromMismo, modifications: vals.modifications,
+            /* ⚠ No forecast line and no budget check — Jonna's decision,
+               1 Oct 2026, to be revisited when the financial system is up. */
+            forecastLine: null,
+            raisedBy: who().name, raisedOn: new Date().toISOString(), raisedWhy: why
+          };
+          ['hourlyRate', 'estimatedHours', 'maximumFee'].forEach(function (k) {
+            if (order[k] != null && !isFinite(order[k])) order[k] = null;
+          });
+
+          b.disabled = true; b.textContent = 'Raising…';
+          R.update(keyFor(slug), 'revisions/' + slug + '.json', function (cur) {
+            var next = JSON.parse(JSON.stringify(cur || {}));
+            next.company = next.company || slug;
+            next.additions = (next.additions || []).concat([order]);
+            return next;
+          }, 'new order: ' + order.subject, { revisions: [] })
+            .then(function () {
+              toast('Raised — it is with ' +
+                (((C.F.vpProduct) || {}).name || 'the VP') + ' for a decision', 'good');
+              adminView();
+            })
+            .catch(function (e) {
+              b.disabled = false; b.textContent = 'Raise This Order';
+              failed(e);
+            });
+        });
+      });
+
       /* ---- saving a revision ------------------------------------------- */
       (root || document).querySelectorAll('.rev-go').forEach(function (b) {
         if (b.dataset.wired) return; b.dataset.wired = '1';
@@ -5874,13 +6065,20 @@ window.H = (function () {
           var C = list.filter(function (x) { return x.slug === b.dataset.slug; })[0];
           var when = new Date().toISOString();
           b.disabled = true; b.textContent = 'Sending…';
-          R.update(keyFor(C.slug), 'orders/' + C.slug + '.json', function (cur) {
-            var next = JSON.parse(JSON.stringify(cur));
-            next.orders.forEach(function (o) {
-              if (C.st[o.id] && C.st[o.id].key === 'vp') o.sentOn = when;
+          /* ⚠ NOT orders/<slug>.json. That file is read-only to this page now —
+             deliberately, so a contracting company cannot rewrite its own rate —
+             and the relay scopes by project, not by person, so it is read-only
+             to MISMO as well. Writing the send date here keeps the generator's
+             file untouched and keeps this button working. */
+          R.update(keyFor(C.slug), 'revisions/' + C.slug + '.json', function (cur) {
+            var next = JSON.parse(JSON.stringify(cur || {}));
+            next.company = next.company || C.slug;
+            next.sent = next.sent || {};
+            C.F.orders.forEach(function (o) {
+              if (C.st[o.id] && C.st[o.id].key === 'vp' && !next.sent[o.id]) next.sent[o.id] = when;
             });
             return next;
-          }, 'sent orders to ' + C.F.company)
+          }, 'sent orders to ' + C.F.company, { revisions: [] })
             .then(function () { toast('Sent to ' + C.F.signers.order.name, 'good'); adminView(); })
             .catch(function (e) { b.disabled = false; failed(e); });
         });
@@ -6087,6 +6285,19 @@ window.H = (function () {
     if (e && e.readOnly) {
       toast('Nothing saves while you are viewing as ' +
             ((VIEWAS && VIEWAS.company) || 'somebody else') + '.', 'warn');
+      return;
+    }
+    /* ⚠ A refused PATH is not a refused PERSON, and must never sign anybody out.
+       The relay answers 403 for both "your session is over" and "this page is
+       not allowed to touch that folder", and treating them alike turned a
+       missing line of configuration into an apparent lockout — twice, with the
+       typing lost both times because the page reloaded. Say which folder, keep
+       them signed in, keep what they typed on screen. */
+    if (e && e.status === 403 &&
+        (e.code === 'PATH_NOT_WRITABLE' || e.code === 'PATH_NOT_READABLE')) {
+      var p = (e.body && e.body.path) || 'that folder';
+      toast('This page is not allowed to save to ' + p +
+            ' — nothing was lost. The relay’s project settings need that path.', 'warn');
       return;
     }
     if (e && e.closed) { closed(e); return; }
