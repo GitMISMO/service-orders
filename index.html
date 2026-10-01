@@ -3057,7 +3057,30 @@ window.H = (function () {
     return Promise.all([
       R.read(keyFor(slug), 'orders/' + slug + '.json'),
       R.read(keyFor(slug), 'signatures/' + slug + '.json'),
+      /* ⚠ An OPTIONAL read, and it must never be able to take the page down.
+         `revisions/` has to be declared in the project's writable list before
+         the relay will serve it; until it is, the relay answers 403
+         PATH_NOT_READABLE, not 404 — and readOr alone only forgives a 404. The
+         first build of this made it a plain read, so on a site where the folder
+         was not yet declared EVERY view failed to load and the page fell back
+         to the sign-in screen, which looked like being locked out.
+
+         403 is safe to treat as "none": the relay refuses that path for writing
+         by exactly the same rule, so if it cannot be read, no revision can ever
+         have been written to it. Anything else — a 502, a dead network — is
+         raised, because a revision that exists and cannot be read would show
+         the OLD terms on screen as though nothing had been revised. */
       R.readOr(keyFor(slug), 'revisions/' + slug + '.json', { revisions: [] })
+        .catch(function (e) {
+          if (e && e.status === 403) {
+            if (window.console && console.warn) {
+              console.warn('revisions/ is not declared writable for ' + keyFor(slug) +
+                ' — revisions are off until it is');
+            }
+            return { sha: null, data: { revisions: [] }, absent: true, unconfigured: true };
+          }
+          throw e;
+        })
     ]).then(function (r) {
       var revisions = (r[2].data && r[2].data.revisions) || [];
       return { slug: slug, sha: r[0].sha, F: applyRevisions(r[0].data, revisions),
