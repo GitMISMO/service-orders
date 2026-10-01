@@ -99,6 +99,18 @@ h1,h2,h3,h4{letter-spacing:-.012em;margin:0}
 
 /* ── fields, separate not blobs ──────────────────────────────── */
 .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px 20px;margin:14px 0 4px}
+/* The revise form. Separate fields, never one box — each binding term is its own
+   input, so revising is editing a figure rather than retyping a document. The
+   inputs inherit .f input; only the grid and the prose boxes are new. The prose
+   terms span the full width because a three-line Services box in a 190px column
+   is unreadable. */
+.revgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px 20px;margin:12px 0 4px}
+.revgrid .f.wide{grid-column:1/-1}
+.revgrid textarea{font:inherit;font-size:13.5px;font-family:var(--display);line-height:1.5;
+ color:var(--ink);background:var(--surface);border:1px solid var(--border);border-radius:6px;
+ padding:5px 8px;width:100%;min-width:0;box-sizing:border-box;resize:vertical}
+.revgrid textarea:hover{border-color:var(--border-strong)}
+.revgrid textarea:focus{outline:2px solid var(--sky);outline-offset:-1px;background:var(--surface-2)}
 .f{display:flex;flex-direction:column;gap:2px;min-width:0}
 .f label{font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;
  color:var(--ink-3);font-weight:600}
@@ -2451,6 +2463,31 @@ window.H = (function () {
     var held = last('Consultant', 'Question');
     var vp = last('VP Product Decision');
 
+    /* ⚠ A revision made AFTER a stop answers that stop.
+       A hold and a question are both "this order is wrong" — once the order has
+       been changed, the objection is about wording that no longer exists.  So a
+       stop older than the revision stops counting, and the order falls back
+       through to Draft, which is precisely the VP's queue.  Nothing had to be
+       routed anywhere: the queue is derived.
+
+       An APPROVAL is deliberately not cleared this way.  An executed order that
+       needs changing is a Modification, not a revision, and must not quietly
+       become undone by editing it. */
+    var revAt = o.revisedOn ? Date.parse(o.revisedOn) : 0;
+    function answeredByRevision(rec) {
+      return !!(rec && revAt && Date.parse(rec.signedOn) < revAt);
+    }
+    if (presLast && presLast.decision === 'Held' && answeredByRevision(presLast)) presLast = null;
+    if (answeredByRevision(held)) held = null;
+    if (vp && vp.decision === 'Held' && answeredByRevision(vp)) vp = null;
+
+    /* A revision to the BINDING terms un-sends the order as well.  The company
+       was sent different terms; it has to go back through the VP and be sent
+       again, not sit reading "Sent" against wording nobody has seen.  A change
+       outside the binding terms leaves it exactly where it was. */
+    var sentOn = o.sentOn;
+    if (revAt && o.revisionBinding && (!sentOn || Date.parse(sentOn) < revAt)) sentOn = null;
+
     if (presLast && presLast.decision === 'Approved') {
       return { key: 'executed', label: 'Executed', tone: 'good', sig: presLast, ack: ack };
     }
@@ -2462,7 +2499,16 @@ window.H = (function () {
       /* Decision 33.  Only the BINDING terms bring an order back: rate, hours,
          maximum fee, fee type, dates, Services, Deliverables, the MSA it is
          written under, the parties, what MISMO provides, agreed modifications
-         and the standing text.  contentHash is the hash of exactly those. */
+         and the standing text.  contentHash is the hash of exactly those.
+
+         ⚠ A revision changes the terms WITHOUT changing contentHash, because
+         that hash is computed by the generator and this page cannot recompute
+         it.  So the revision number is compared as well.  Both default to 0,
+         which is why signatures written before revisions existed still read as
+         unchanged rather than every one of them turning amber. */
+      if ((ack.rev || 0) !== (o.rev || 0)) {
+        return { key: 'changed', label: 'Changed Since Acknowledged', tone: 'warn', sig: ack };
+      }
       if (ack.contentHash !== o.contentHash) {
         return { key: 'changed', label: 'Changed Since Acknowledged', tone: 'warn', sig: ack };
       }
@@ -2472,9 +2518,9 @@ window.H = (function () {
       return { key: 'acknowledged', label: 'Acknowledged', tone: 'good', sig: ack, amended: amended };
     }
     if (held && (!vp || true)) {
-      if (o.sentOn) return { key: 'question', label: 'Question Raised', tone: 'warn', sig: held };
+      if (sentOn) return { key: 'question', label: 'Question Raised', tone: 'warn', sig: held };
     }
-    if (o.sentOn) return { key: 'sent', label: 'Sent', tone: '' };
+    if (sentOn) return { key: 'sent', label: 'Sent', tone: '' };
     if (vp && vp.decision === 'Approved to Send') {
       return { key: 'vp', label: 'Released to Send', tone: '', sig: vp };
     }
@@ -2965,13 +3011,71 @@ window.H = (function () {
   })();
   function keyFor(slug) { return SLUG_TO_KEY[slug] || ('so-' + slug); }
 
+  /* ---- revisions --------------------------------------------------------
+     The binding terms a person changed after an order was stopped.
+
+     ⚠ They live in their OWN file and never in orders/<slug>.json.  The
+     generator rewrites that file from the forecast every time it runs, so a
+     revision written there would be silently wiped the next time somebody
+     regenerated the set — and nobody would see it go.  Same rule that keeps
+     signatures out of it.
+
+     The file is a list, never a replacement: every revision of an order is
+     kept, newest last, so what changed and when is on the record permanently.
+     Only the newest is applied. */
+  var BINDING = ['hourlyRate', 'estimatedHours', 'maximumFee', 'feeType',
+    'startDate', 'endDate', 'services', 'deliverables', 'modifications',
+    'tasksFromMismo', 'paymentSchedule', 'deliverySchedule', 'description'];
+
+  function touchesBinding(changes) {
+    return Object.keys(changes || {}).some(function (k) { return BINDING.indexOf(k) >= 0; });
+  }
+
+  /* Applied onto the generated order in memory.  Nothing is written back. */
+  function applyRevisions(F, revisions) {
+    var byOrder = {};
+    (revisions || []).forEach(function (rv) {
+      if (!rv || !rv.orderId) return;
+      byOrder[rv.orderId] = (byOrder[rv.orderId] || []).concat([rv]);
+    });
+    (F.orders || []).forEach(function (o) {
+      var list = byOrder[o.id] || [];
+      o.rev = list.length;                       // 0 = exactly as generated
+      if (!list.length) return;
+      var latest = list[list.length - 1];
+      Object.keys(latest.changes || {}).forEach(function (k) { o[k] = latest.changes[k]; });
+      o.revisedOn = latest.revisedOn;
+      o.revisedBy = latest.revisedBy;
+      o.revisionNote = latest.note;
+      o.revisionHistory = list;
+      o.revisionBinding = list.some(function (rv) { return touchesBinding(rv.changes); });
+    });
+    return F;
+  }
+
   function loadCompany(slug) {
     return Promise.all([
       R.read(keyFor(slug), 'orders/' + slug + '.json'),
-      R.read(keyFor(slug), 'signatures/' + slug + '.json')
+      R.read(keyFor(slug), 'signatures/' + slug + '.json'),
+      R.readOr(keyFor(slug), 'revisions/' + slug + '.json', { revisions: [] })
     ]).then(function (r) {
-      return { slug: slug, sha: r[0].sha, F: r[0].data, sigSha: r[1].sha, sigs: r[1].data.signatures || [] };
+      var revisions = (r[2].data && r[2].data.revisions) || [];
+      return { slug: slug, sha: r[0].sha, F: applyRevisions(r[0].data, revisions),
+               sigSha: r[1].sha, sigs: r[1].data.signatures || [], revisions: revisions };
     });
+  }
+
+  /* ---- writing a revision ------------------------------------------------
+     Appends one record.  parentSha travels with the save and a 409 re-reads and
+     re-applies, exactly as a signature does, so two people revising different
+     orders in the same minute do not overwrite each other. */
+  function addRevision(slug, record) {
+    return R.update(keyFor(slug), 'revisions/' + slug + '.json', function (cur) {
+      var next = JSON.parse(JSON.stringify(cur || {}));
+      next.company = next.company || slug;
+      next.revisions = (next.revisions || []).concat([record]);
+      return next;
+    }, 'revised ' + record.order, { revisions: [] });
   }
   function loadAll(slugs) { return Promise.all(slugs.map(loadCompany)); }
 
@@ -3038,6 +3142,7 @@ window.H = (function () {
       decision: decision,
       contentHash: o.contentHash,          // the binding terms
       recordHash: o.recordHash,            // the whole order, for amendment detection
+      rev: o.rev || 0,                     // which revision of it was signed for
       contentAccepted: o.contentSummary,   // the one line, for a list
       orderAccepted: snapshotOf(o),        // the evidence
       signedOn: new Date().toISOString()
@@ -5325,6 +5430,82 @@ window.H = (function () {
   /* =========================================================================
    * Jonna — the status board, sending, and the executed-document archive
    * ======================================================================= */
+  /* =========================================================================
+   * Revising a stopped order
+   * =========================================================================
+   * An order comes back — the VP held it, the President held it, or the
+   * contracting company asked a question.  Before this existed there was
+   * nothing to do about it: the reason was recorded and the order sat there.
+   *
+   * Three things make this work and they are worth stating:
+   *
+   *  1. SEPARATE FIELDS, not one box.  Each binding term is its own input,
+   *     pre-filled with what the order says now, so revising is editing a
+   *     figure rather than retyping a document.
+   *  2. ONLY WHAT CHANGED IS WRITTEN.  Fields left alone are not recorded, so
+   *     the revision reads as "the rate went from 150 to 140", not as a second
+   *     copy of the order.
+   *  3. IT GOES BACK TO THE VP BY ITSELF.  His queue is every order reading
+   *     Draft, and a revision answers the stop that was holding it elsewhere.
+   *     Nothing is routed; the status is derived.
+   */
+  var REVFIELDS = [
+    { k: 'hourlyRate',       label: 'Hourly Rate',            type: 'money' },
+    { k: 'estimatedHours',   label: 'Estimated Hours',        type: 'num' },
+    { k: 'maximumFee',       label: 'Maximum Fee',            type: 'money' },
+    { k: 'startDate',        label: 'Start Date',             type: 'text' },
+    { k: 'endDate',          label: 'End Date',               type: 'text' },
+    { k: 'services',         label: 'Services',               type: 'area' },
+    { k: 'deliverables',     label: 'Deliverables',           type: 'area' },
+    { k: 'tasksFromMismo',   label: 'What MISMO Provides',    type: 'area' },
+    { k: 'modifications',    label: 'Agreed Modifications',   type: 'area' },
+    { k: 'subject',          label: 'Service Order Title',    type: 'text' }
+  ];
+
+  function revValue(o, f) {
+    var v = o[f.k];
+    if (v == null) return '';
+    if (Array.isArray(v)) return v.join('\n');
+    return String(v);
+  }
+
+  function reviseBlock(n) {
+    var o = n.order, p = 'rv' + n.idx;
+    var hist = (o.revisionHistory || []).length
+      ? '<p class="fineprint">' + (o.revisionHistory || []).map(function (rv, i) {
+          return 'Revision ' + (i + 1) + ' — ' + esc(rv.revisedBy || '') + ', ' +
+            esc(stamp(rv.revisedOn)) + ': ' + esc(rv.note || '');
+        }).join('<br>') + '</p>'
+      : '';
+    var fields = REVFIELDS.map(function (f) {
+      var v = revValue(o, f);
+      var input = f.type === 'area'
+        ? '<textarea class="revf" rows="3" data-p="' + p + '" data-k="' + esc(f.k) + '">' + esc(v) + '</textarea>'
+        : '<input type="text" class="revf" data-p="' + p + '" data-k="' + esc(f.k) +
+          '" value="' + esc(v) + '">';
+      return '<div class="f' + (f.type === 'area' ? ' wide' : '') + '"><label>' +
+        esc(f.label) + '</label>' + input + '</div>';
+    }).join('');
+
+    return '<h4 class="subh">Revise This Order</h4>' +
+      '<p class="lede">Change only what is wrong. Anything you leave alone is not recorded. ' +
+      '<b>Changing a binding term — the rate, the hours, the maximum fee, the dates, Services, ' +
+      'Deliverables, what MISMO provides or the agreed modifications — sends it back to ' +
+      esc(((n.C.F.vpProduct) || {}).name || 'the VP') + ' for a fresh decision</b>, because the terms ' +
+      'he decided on are not the terms any more. Changing only the title does not.</p>' +
+      hist +
+      '<div class="revgrid">' + fields + '</div>' +
+      '<div class="onebar"><div class="f"><label>What Changed, and Why</label>' +
+      '<input type="text" class="revwhy" data-p="' + p + '" ' +
+      'placeholder="Goes on the record beside the hold and travels with the order"></div>' +
+      '<button class="gobtn rev-go" type="button" data-p="' + p + '" data-slug="' + esc(n.C.slug) +
+      '" data-id="' + esc(o.id) + '">Save the Revision</button></div>' +
+      '<p class="fineprint">⚠ <b>A reason is required</b> — it is what ' +
+      esc(((n.C.F.vpProduct) || {}).name || 'the VP') + ' reads when the order reaches him again. ' +
+      'The hold and its reason stay on the record; the revision sits beside them. ' +
+      '<b>Nothing is overwritten and nothing is deleted.</b></p>';
+  }
+
   function adminView() {
     busy('Reading every company…');
     Promise.all([
@@ -5467,6 +5648,7 @@ window.H = (function () {
           '<p class="lede">Every order that has stopped and is waiting on you, with what was said ' +
           'about it. None of these moves on its own \u2014 choose one to read it in full.</p>' +
           '<div class="hqrows">' + needs.map(function (n, i) {
+            n.idx = i;
             var sig = n.st.sig || {};
             var said = n.st.key === 'question' ? (sig.question || '')
               : (n.st.key === 'vphold' || n.st.key === 'preshold') ? (sig.note || '')
@@ -5482,6 +5664,7 @@ window.H = (function () {
               '</div>' +
               '<h4 class="subh">What They Said</h4>' +
               '<p class="saidbox">' + esc(said) + '</p>' +
+              reviseBlock(n) +
               '<div class="dochost">' + P.orderDoc(n.C.F, n.order) + '</div>';
             return panelRow('needs-' + i, n.order.subject, n.company + ' \u00b7 ' + (sig.signerName || ''),
               esc(said).slice(0, 60) + (said.length > 60 ? '\u2026' : ''), body, pill(n.st));
@@ -5573,6 +5756,95 @@ window.H = (function () {
       onPanelOpen(wireAdminControls);
       wireAdminControls(document);
       function wireAdminControls(root) {
+      /* ---- saving a revision ------------------------------------------- */
+      (root || document).querySelectorAll('.rev-go').forEach(function (b) {
+        if (b.dataset.wired) return; b.dataset.wired = '1';
+        b.addEventListener('click', function () {
+          var p = b.dataset.p, slug = b.dataset.slug, id = b.dataset.id;
+          var C = list.filter(function (x) { return x.slug === slug; })[0];
+          if (!C) return;
+          var o = C.F.orders.filter(function (x) { return x.id === id; })[0];
+          if (!o) return;
+
+          var whyEl = document.querySelector('.revwhy[data-p="' + p + '"]');
+          var why = whyEl ? String(whyEl.value || '').trim() : '';
+          /* ⚠ Refused without a reason, the same way a hold is.  A revision with
+             no note tells the VP that the order changed and nothing about why,
+             which is the thing he most needs when it lands back on him. */
+          if (!why) {
+            toast('Say what changed and why first');
+            if (whyEl) { whyEl.focus(); }
+            return;
+          }
+
+          /* Only genuinely different values are recorded.  A field typed back to
+             what it already said is not a change. */
+          var changes = {}, before = {};
+          document.querySelectorAll('.revf[data-p="' + p + '"]').forEach(function (el) {
+            var k = el.dataset.k;
+            var f = REVFIELDS.filter(function (x) { return x.k === k; })[0] || { k: k, type: 'text' };
+            var typed = String(el.value == null ? '' : el.value).trim();
+            var now = revValue(o, f).trim();
+            if (typed === now) return;
+            before[k] = o[k] == null ? null : o[k];
+            if (f.type === 'money' || f.type === 'num') {
+              var num = typed === '' ? null : Number(typed.replace(/[^0-9.\-]/g, ''));
+              if (typed !== '' && !isFinite(num)) { changes[k] = typed; return; }
+              changes[k] = num;
+            } else if (Array.isArray(o[k])) {
+              changes[k] = typed === '' ? [] : typed.split('\n');
+            } else {
+              changes[k] = typed;
+            }
+          });
+
+          if (!Object.keys(changes).length) {
+            toast('Nothing was changed');
+            return;
+          }
+
+          var binding = touchesBinding(changes);
+          var record = {
+            orderId: o.id,
+            order: o.subject,
+            rev: (o.rev || 0) + 1,
+            changes: changes,
+            before: before,
+            binding: binding,
+            note: why,
+            answering: { status: (C.st[o.id] || {}).label || '', said: ((C.st[o.id] || {}).sig || {}).note ||
+                         ((C.st[o.id] || {}).sig || {}).question || '' },
+            revisedBy: who().name,
+            revisedOn: new Date().toISOString()
+          };
+
+          b.disabled = true; b.textContent = 'Saving…';
+          addRevision(slug, record)
+            .then(function () {
+              /* The nudge is the VP's, not Jonna's — it is him the order is
+                 going back to.  A revision that changes nothing binding stays
+                 where it is, so nobody is nudged about it. */
+              if (!binding) return null;
+              return notify(slug, {
+                kind: 'revised', orderId: o.id, order: o.subject, company: C.F.company,
+                who: who().name, said: why, raisedOn: record.revisedOn,
+                forAttentionOf: ((C.F.vpProduct) || {}).email || 'jkearns@mismo.org',
+                sent: false, sentOn: null
+              });
+            })
+            .then(function () {
+              toast(binding
+                ? 'Revised — back with ' + (((C.F.vpProduct) || {}).name || 'the VP') + ' for a decision'
+                : 'Revised — nothing binding changed, so it stays where it is', 'good');
+              adminView();
+            })
+            .catch(function (e) {
+              b.disabled = false; b.textContent = 'Save the Revision';
+              failed(e);
+            });
+        });
+      });
+
       (root || document).querySelectorAll('.sendco').forEach(function (b) {
         if (b.dataset.wired) return; b.dataset.wired = '1';
         b.addEventListener('click', function () {
