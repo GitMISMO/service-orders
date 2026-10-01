@@ -2579,17 +2579,48 @@ window.H = (function () {
       '</b> (&ldquo;' + esc(party) + '&rdquo;) and the Mortgage Industry Standards Maintenance ' +
       'Organization, Inc. (&ldquo;MISMO&rdquo;).</p>';
     h += '<div class="sec"><div class="sn">Description</div><p>' + esc(o.description) + '</p></div>';
-    var n = 0, R_ = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII'];
-    function s(title, body) { h += '<div class="sec"><div class="sn">' + R_[n++] + '. ' + title + '</div>' + body + '</div>'; }
-    function ul(a) { return '<ul>' + (a || []).map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>'; }
+    /* ⚠ Was seven, and seven was exactly enough until an order could carry both
+       schedules AND the fee estimate — nine sections, and the eighth numbered
+       itself "undefined." Numerals are generated rather than listed so adding a
+       section can never silently run off the end again. */
+    var n = 0;
+    function numeral(i) {
+      var ones = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+      var tens = ['', 'X', 'XX', 'XXX'];
+      return tens[Math.floor(i / 10)] + ones[i % 10];
+    }
+    function s(title, body) {
+      h += '<div class="sec"><div class="sn">' + numeral(++n) + '. ' + title + '</div>' + body + '</div>';
+    }
+    /* ⚠ Takes a list OR one block of text, one line per item.
+       The generated orders hold Services and Deliverables as lists. An order
+       raised in this page is typed into a box, so it arrives as text — and
+       `(a || []).map` threw on it, which took down the whole view for everyone
+       including the VP. A renderer that only accepts one of two real shapes is
+       a renderer that breaks on real data, so it accepts both. */
+    function ul(a) {
+      var items = Array.isArray(a) ? a
+        : (a == null || String(a).trim() === '') ? []
+          : String(a).split('\n');
+      items = items.filter(function (x) { return String(x).trim() !== ''; });
+      if (!items.length) return '<p>—</p>';
+      return '<ul>' + items.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>';
+    }
+    function has(v) { return v != null && String(v).trim() !== ''; }
     s('Services', ul(o.services));
     s('Deliverables', ul(o.deliverables));
+    /* Certification orders are paid per review and always carry the two
+       schedules. Any other order shows them only when it has them — which is
+       how an order raised in this page gets them onto the document without
+       pretending to be a certification order. */
     if (o.source === 'certification') {
       s('Delivery Schedule', '<p>' + esc(o.deliverySchedule) + '</p>');
       s('Duration of Order', '<p>' + esc(o.startDate) + ' to ' + esc(o.endDate) + '</p>');
       s('Payment Schedule', '<p>' + esc(o.paymentSchedule) + '</p>');
     } else {
+      if (has(o.deliverySchedule)) s('Delivery Schedule', '<p>' + esc(o.deliverySchedule) + '</p>');
       s('Duration of Order', '<p>' + esc(o.startDate) + ' to ' + esc(o.endDate) + '</p>');
+      if (has(o.paymentSchedule)) s('Payment Schedule', '<p>' + esc(o.paymentSchedule) + '</p>');
       s('Estimate of Total Fees for Time and Material / Maximum Fee',
         '<p>Hourly Rate: ' + money(o.hourlyRate) + '<br>Estimated Hours: ' + esc(o.estimatedHours) +
         '<br>Maximum Fee Allowed: ' + money(o.maximumFee) + '</p>');
@@ -5536,6 +5567,16 @@ window.H = (function () {
     { k: 'subject',          label: 'Service Order Title',    type: 'text' }
   ];
 
+  /* One typed block of text to the list shape the generated orders use.
+     Blank lines are dropped, so a stray newline does not become an empty
+     bullet on a signed document. */
+  function asList(v) {
+    if (Array.isArray(v)) return v;
+    if (v == null) return [];
+    return String(v).split('\n').map(function (x) { return x.trim(); })
+      .filter(function (x) { return x !== ''; });
+  }
+
   function revValue(o, f) {
     var v = o[f.k];
     if (v == null) return '';
@@ -5944,7 +5985,14 @@ window.H = (function () {
             maximumFee: vals.maximumFee === '' ? null : Number(vals.maximumFee.replace(/[^0-9.\-]/g, '')),
             startDate: vals.startDate, endDate: vals.endDate,
             description: vals.description,
-            services: vals.services, deliverables: vals.deliverables,
+            /* ⚠ LISTS, not text. The generated orders hold these two as lists
+               and the document renders them as bullets. Storing a typed block
+               of text here is what broke every view the first time. One line
+               per bullet. */
+            services: asList(vals.services),
+            deliverables: asList(vals.deliverables),
+            deliverySchedule: vals.deliverySchedule,
+            paymentSchedule: vals.paymentSchedule,
             tasksFromMismo: vals.tasksFromMismo, modifications: vals.modifications,
             /* ⚠ No forecast line and no budget check — Jonna's decision,
                1 Oct 2026, to be revisited when the financial system is up. */
