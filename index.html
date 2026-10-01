@@ -2613,7 +2613,13 @@ window.H = (function () {
        schedules. Any other order shows them only when it has them — which is
        how an order raised in this page gets them onto the document without
        pretending to be a certification order. */
-    if (o.source === 'certification') {
+    /* Paid per review: the two schedules ARE the commercial terms, and there is
+       no hourly rate or maximum fee to state. Printing "$0.00" on one of these
+       is worse than printing nothing — it reads as a priced order worth nothing.
+       The generated certification orders say so with source; an order raised in
+       this page says so with feeType, and both mean the same document. */
+    var perReview = o.source === 'certification' || o.feeType === 'perReview';
+    if (perReview) {
       s('Delivery Schedule', '<p>' + esc(o.deliverySchedule) + '</p>');
       s('Duration of Order', '<p>' + esc(o.startDate) + ' to ' + esc(o.endDate) + '</p>');
       s('Payment Schedule', '<p>' + esc(o.paymentSchedule) + '</p>');
@@ -5552,7 +5558,13 @@ window.H = (function () {
    *     Draft, and a revision answers the stop that was holding it elsewhere.
    *     Nothing is routed; the status is derived.
    */
+  var FEETYPES = [
+    { v: 'hourly',    label: 'Hourly rate, up to a maximum fee' },
+    { v: 'perReview', label: 'Paid per review — a fee schedule, no hourly rate' }
+  ];
+
   var REVFIELDS = [
+    { k: 'feeType',          label: 'How It Is Paid',         type: 'pick', opts: FEETYPES },
     { k: 'hourlyRate',       label: 'Hourly Rate',            type: 'money' },
     { k: 'estimatedHours',   label: 'Estimated Hours',        type: 'num' },
     { k: 'maximumFee',       label: 'Maximum Fee',            type: 'money' },
@@ -5585,7 +5597,11 @@ window.H = (function () {
   }
 
   function reviseBlock(n) {
-    var o = n.order, p = 'rv' + n.idx;
+    /* ⚠ The prefix keeps two revise forms for the SAME order apart — one in
+       Needs You, one in Revise an Order. Without it both sets of inputs answer
+       to the same selector and the save reads whichever the browser hands back
+       first, which is not necessarily the one being typed into. */
+    var o = n.order, p = (n.pfx || 'rv') + n.idx;
     var hist = (o.revisionHistory || []).length
       ? '<p class="fineprint">' + (o.revisionHistory || []).map(function (rv, i) {
           return 'Revision ' + (i + 1) + ' — ' + esc(rv.revisedBy || '') + ', ' +
@@ -5594,10 +5610,25 @@ window.H = (function () {
       : '';
     var fields = REVFIELDS.map(function (f) {
       var v = revValue(o, f);
-      var input = f.type === 'area'
-        ? '<textarea class="revf" rows="3" data-p="' + p + '" data-k="' + esc(f.k) + '">' + esc(v) + '</textarea>'
-        : '<input type="text" class="revf" data-p="' + p + '" data-k="' + esc(f.k) +
+      var input;
+      if (f.type === 'pick') {
+        /* An order the generator produced carries no feeType. It is read from
+           `source` instead, exactly as the document reads it, so the box opens
+           showing what the order actually IS rather than defaulting to hourly
+           and inviting somebody to save that over a per-review order. */
+        var cur = v || (o.source === 'certification' ? 'perReview' : 'hourly');
+        input = '<select class="revf" data-p="' + p + '" data-k="' + esc(f.k) + '">' +
+          f.opts.map(function (opt) {
+            return '<option value="' + esc(opt.v) + '"' +
+              (opt.v === cur ? ' selected' : '') + '>' + esc(opt.label) + '</option>';
+          }).join('') + '</select>';
+      } else if (f.type === 'area') {
+        input = '<textarea class="revf" rows="3" data-p="' + p + '" data-k="' + esc(f.k) + '">' +
+          esc(v) + '</textarea>';
+      } else {
+        input = '<input type="text" class="revf" data-p="' + p + '" data-k="' + esc(f.k) +
           '" value="' + esc(v) + '">';
+      }
       return '<div class="f' + (f.type === 'area' ? ' wide' : '') + '"><label>' +
         esc(f.label) + '</label>' + input + '</div>';
     }).join('');
@@ -5679,6 +5710,14 @@ window.H = (function () {
       '<option value="">Choose one…</option>' + companies + '</select></div>' +
       '<div class="f"><label>Written Under Which Agreement</label>' +
       '<select class="nof" data-k="msaFlavour" id="no-msa"><option value="">Choose a company first</option>' +
+      '</select></div>' +
+      /* ⚠ This decides what the printed order says. An hourly order states a
+         rate, estimated hours and a maximum fee. A per-review order states a
+         delivery schedule and a fee schedule and NO rate at all — printing
+         "$0.00" on one of those reads as a job worth nothing. */
+      '<div class="f"><label>How It Is Paid</label><select class="nof" data-k="feeType">' +
+      '<option value="hourly">Hourly rate, up to a maximum fee</option>' +
+      '<option value="perReview">Paid per review — a fee schedule, no hourly rate</option>' +
       '</select></div>' + fields + '</div>' +
       '<div class="onebar"><div class="f"><label>Why This Order Exists</label>' +
       '<input type="text" class="nowhy" placeholder="Goes on the record and travels with the order"></div>' +
@@ -5853,6 +5892,51 @@ window.H = (function () {
               esc(said).slice(0, 60) + (said.length > 60 ? '\u2026' : ''), body, pill(n.st));
           }).join('') + '</div>';
 
+      /* ---- Revise an Order ------------------------------------------------
+         ⚠ Needs You only ever holds orders somebody has STOPPED. An order you
+         have just raised, or one sitting in the VP's queue, is not stopped — so
+         before this section existed there was no way to correct one at all, and
+         a new order with a field left blank could only be fixed by somebody
+         holding it first. Everything not yet executed is editable here.
+
+         The consequences are the status rules, unchanged: a binding change to a
+         sent order un-sends it, a binding change to an accepted one marks it
+         Changed Since Acknowledged, and an executed order is not here at all —
+         that is a Modification. */
+      var reviseAny = (function () {
+        var rows = [], k = 0;
+        list.forEach(function (C) {
+          C.F.orders.forEach(function (o) {
+            var s = C.st[o.id];
+            if (s.key === 'executed') return;
+            rows.push({ company: C.F.company, order: o, st: s, C: C, idx: k++, pfx: 'ra' });
+          });
+        });
+        if (!rows.length) {
+          return { count: 0, body: '<p class="empty">Every order is executed. Nothing left to revise ' +
+            '— a change to an executed order is a Modification, not a revision.</p>' };
+        }
+        return {
+          count: rows.length,
+          body: '<p class="lede">Any order that is not yet executed, whether or not anybody has ' +
+            'stopped it. <b>Choose one to read it in full and change its terms.</b> Changing a binding ' +
+            'term sends it back to ' + esc(((list[0].F.vpProduct) || {}).name || 'the VP') +
+            ' for a fresh decision — and if it had already been sent or accepted, that acceptance ' +
+            'no longer stands and it goes back round.</p>' +
+            '<div class="hqrows">' + rows.map(function (n) {
+              var body = '<div class="fields">' +
+                fld('Company', n.company) +
+                fld('Status', n.st.label) +
+                fld('Maximum Fee', n.order.maximumFee != null ? money(n.order.maximumFee) : 'Per review', 1) +
+                '</div>' + reviseBlock(n) +
+                '<div class="dochost">' + P.orderDoc(n.C.F, n.order) + '</div>';
+              return panelRow('ra-' + n.idx, n.order.subject, n.company,
+                (n.order.maximumFee != null ? money(n.order.maximumFee) : 'Per review'),
+                body, pill(n.st));
+            }).join('') + '</div>'
+        };
+      })();
+
       var sendBody = '<p class="lede">An order can be sent once ' + esc(list[0].F.vpProduct.name) +
         ' has released it. Sending writes the date onto the order; the contracting company sees it ' +
         'the next time they sign in. Choose a company to see what is ready.</p>' +
@@ -5929,6 +6013,7 @@ window.H = (function () {
       say('<div class="board">' + board + '</div>' +
         sect('Needs You', needs.length, needsBody, needs.length > 0) +
         sect('Time to Approve', waiting, approveBody, waiting > 0) +
+        sect('Revise an Order', reviseAny.count, reviseAny.body) +
         sect('New Service Order', null, newOrderForm(list)) +
         sect('Send Orders', tally.vp || 0, sendBody) +
         sect('Executed Documents', null, archive) +
@@ -5978,6 +6063,7 @@ window.H = (function () {
           var order = {
             id: id,
             source: 'Raised in the portal',
+            feeType: vals.feeType === 'perReview' ? 'perReview' : 'hourly',
             subject: vals.subject,
             msaFlavour: vals.msaFlavour || ((C.F.letters || [])[0] || {}).msaFlavour || '',
             hourlyRate: vals.hourlyRate === '' ? null : Number(vals.hourlyRate.replace(/[^0-9.\-]/g, '')),
@@ -6051,6 +6137,11 @@ window.H = (function () {
             var f = REVFIELDS.filter(function (x) { return x.k === k; })[0] || { k: k, type: 'text' };
             var typed = String(el.value == null ? '' : el.value).trim();
             var now = revValue(o, f).trim();
+            /* The picker opens showing what the order already is, worked out
+               from `source` when the field itself is empty. Compare against
+               that same value, or every save would record a feeType "change"
+               nobody made and send the order back to the VP for it. */
+            if (f.type === 'pick' && !now) now = (o.source === 'certification' ? 'perReview' : 'hourly');
             if (typed === now) return;
             before[k] = o[k] == null ? null : o[k];
             if (f.type === 'money' || f.type === 'num') {
