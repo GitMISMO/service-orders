@@ -1813,6 +1813,16 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
       });
   }
 
+  /* The same read, WITHOUT parsing. read() assumes JSON and would throw on the
+     first byte of a PDF, so anything that is not JSON — an executed agreement,
+     a scanned MSA — has to come back through here as base64. */
+  function readRaw(project, path) {
+    return send('GET', '/' + enc(project) + '/file/' + encPath(path), null)
+      .then(function (r) {
+        return { sha: r.sha, size: r.size, base64: String(r.content || '').replace(/\s/g, '') };
+      });
+  }
+
   /* Read a file that may not exist yet, without turning a 404 into an error. */
   function readOr(project, path, fallback) {
     return read(project, path).catch(function (e) {
@@ -2049,7 +2059,7 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
     base: BASE,
     boot: boot, whoami: whoami, loginAny: loginAny,
     login: login, signOut: signOut, signedIn: signedIn, session: session,
-    read: read, readOr: readOr,
+    read: read, readOr: readOr, readRaw: readRaw,
     commit: commit, update: update,
     jsonFile: jsonFile, binaryFile: binaryFile,
     limits: { filesPerCommit: 50, bodyBytes: 1000000 },
@@ -3150,6 +3160,51 @@ window.H = (function () {
     return applyRevisions(F, local.revisions);
   }
 
+  /* ---- fetching a filed document --------------------------------------
+     ⚠ The agreements live in a PRIVATE repository. There is no URL a browser
+     can follow to one — that is the whole point of keeping them there. An
+     ordinary <a href> could never have worked, whatever it pointed at.
+     The file has to come back through the relay, which checks who is asking,
+     and is then handed to the browser as a download it already holds. */
+  function fetchAndSave(slug, path, filename) {
+    return R.readRaw(keyFor(slug), path).then(function (r) {
+      var bin = atob(r.base64);
+      var bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      var url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = filename || path.split('/').pop();
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      /* Released on the next turn of the loop — revoking it immediately can
+         cancel the download in some browsers before it has started. */
+      setTimeout(function () { URL.revokeObjectURL(url); }, 30000);
+      return r;
+    });
+  }
+
+  function wireDownloads(root) {
+    (root || document).querySelectorAll('.dlfile').forEach(function (b) {
+      if (b.dataset.wired) return; b.dataset.wired = '1';
+      b.addEventListener('click', function () {
+        var was = b.textContent;
+        b.disabled = true; b.textContent = 'Fetching…';
+        fetchAndSave(b.dataset.slug, b.dataset.path, b.dataset.name)
+          .then(function () { b.disabled = false; b.textContent = was; })
+          .catch(function (e) {
+            b.disabled = false; b.textContent = was;
+            if (e && e.missing) {
+              toast('That file is recorded but is not in the repository', 'warn');
+              return;
+            }
+            failed(e);
+          });
+      });
+    });
+  }
+
   function loadCompany(slug) {
     return Promise.all([
       R.read(keyFor(slug), 'orders/' + slug + '.json'),
@@ -3482,9 +3537,24 @@ window.H = (function () {
               fld('Signed for MISMO by', F.mismoSigner.name + ' \u2014 ' + F.mismoSigner.title) +
               (e ? fld('Executed On', e.executedOn) + fld('DocuSign Envelope', e.envelopeId) : '') +
               '</div>' +
-              (e ? '<p class="fineprint">The executed copy, with its Certificate of Completion, is ' +
-                'the record. <a class="dl" href="' + esc(e.href || '#') +
-                '">Download the signed PDF</a></p>' : '') +
+              /* ⚠ A button, not a link, and it reads `file` — which is the field
+                 the filing actually writes. The old anchor read `href`, a field
+                 nothing has ever set, so it always fell back to "#" and did
+                 nothing when clicked. Even with the right value it could not
+                 have worked: these PDFs are in a private repository and only
+                 the relay can fetch one. */
+              (e && e.file
+                ? '<div class="printrow"><button class="printbtn dlfile" type="button"' +
+                  ' data-slug="' + esc(who().slug) + '" data-path="' + esc(e.file) +
+                  '" data-name="' + esc(l.company + ' - ' + l.msaFlavour + ' MSA Extension (Executed).pdf') +
+                  '"><svg viewBox="0 0 24 24" aria-hidden="true">' +
+                  '<path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>Download the Signed PDF</button>' +
+                  '<span class="fineprint">The executed copy, with its Certificate of Completion, ' +
+                  'is the record.</span></div>'
+                : e
+                  ? '<p class="fineprint">Recorded as executed on ' + esc(e.executedOn) +
+                    ', but no file is attached to it.</p>'
+                  : '') +
               '<div class="dochost" id="l-' + esc(l.id) + '">' + P.letterDoc(F, l) + '</div>' +
               P.printBtn('l-' + l.id, l.company + ' \u2014 ' + l.msaFlavour + ' MSA Extension');
             return panelRow('agr-' + l.id, l.msaFlavour + ' Master Services Agreement',
@@ -3549,6 +3619,10 @@ window.H = (function () {
           );
           if (!isFac()) wireReview(C, st, toReview);
           wireSigned(C, F);
+          /* Both: the agreements sit in rows that open on the right, so the
+             button does not exist until the panel does. */
+          onPanelOpen(wireDownloads);
+          wireDownloads(document);
           if (person) wireHours(C, person, fy);
           var fyEl2 = document.getElementById('fy-pick');
           if (fyEl2) fyEl2.addEventListener('change', function () {
