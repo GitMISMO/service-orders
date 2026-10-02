@@ -108,6 +108,13 @@ h1,h2,h3,h4{letter-spacing:-.012em;margin:0}
    so the button is found before the two pages of text rather than after. */
 .printrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0 6px}
 .printrow .fineprint{margin:0}
+/* An executed agreement reads as settled rather than as a job half done. */
+.execbox.done{border-left:3px solid var(--good);padding-left:12px}
+.refile{margin-top:10px}
+.refile summary{font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+ color:var(--ink-3);cursor:pointer;padding:4px 0}
+.refile summary:hover{color:var(--ink)}
+.refile[open] summary{margin-bottom:4px}
 .revgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px 20px;margin:12px 0 4px}
 .revgrid .f.wide{grid-column:1/-1}
 .revgrid textarea{font:inherit;font-size:13.5px;font-family:var(--display);line-height:1.5;
@@ -3233,11 +3240,22 @@ window.H = (function () {
           }
           throw e;
         })
+      ,
+      /* What has actually been filed. Optional in exactly the same way and for
+         exactly the same reasons as the local file above — a company with
+         nothing filed yet has no such file, and the page must not care. */
+      R.readOr(keyFor(slug), 'agreements/' + slug + '.json', { agreements: [] })
+        .catch(function (e) {
+          if (e && e.status === 403) return { sha: null, data: { agreements: [] }, absent: true };
+          throw e;
+        })
     ]).then(function (r) {
       var local = r[2].data || {};
       var revisions = local.revisions || [];
       var F = applyLocal(r[0].data, local);
-      return { slug: slug, sha: r[0].sha, F: F, local: local,
+      var executed = {};
+      (((r[3].data) || {}).agreements || []).forEach(function (a) { executed[a.msaFlavour] = a; });
+      return { slug: slug, sha: r[0].sha, F: F, local: local, executed: executed,
                sigSha: r[1].sha, sigs: r[1].data.signatures || [], revisions: revisions };
     });
   }
@@ -6062,10 +6080,50 @@ window.H = (function () {
                only as files in an old chat. The renderer and the print button
                are the same ones the company sees; nothing new is drawn. */
             var host = 'ltr-' + C.slug + '-' + String(l.msaFlavour).toLowerCase().replace(/[^a-z0-9]+/g, '');
-            return '<div class="execbox"><div class="fields">' +
+            var ex = (C.executed || {})[l.msaFlavour];
+            var head = '<div class="fields">' +
               fld('Agreement', l.msaFlavour + ' Master Services Agreement') +
               fld('Signed for the Company by', l.signer.name + ' \u2014 ' + l.signer.title) +
-              fld('Extends To', l.extendTo) + '</div>' +
+              fld('Extends To', l.extendTo) +
+              (ex ? fld('Executed On', ex.executedOn) +
+                    fld('DocuSign Envelope', ex.envelopeId || '\u2014') +
+                    fld('Filed By', (ex.filedBy || '\u2014')) : '') +
+              '</div>';
+
+            /* \u26a0 ONCE IT IS EXECUTED THE BOX CHANGES COMPLETELY.
+               The unsigned letter and the upload controls are not just
+               redundant at that point, they are hazards: the blank letter is
+               the one document nobody should send again, and a second File It
+               invites overwriting the executed record by accident. Both go.
+               What is left is the executed copy and a way to read it. */
+            if (ex) {
+              return '<div class="execbox done">' + head +
+                (ex.file
+                  ? '<div class="printrow"><button class="printbtn dlfile" type="button"' +
+                    ' data-slug="' + esc(C.slug) + '" data-path="' + esc(ex.file) +
+                    '" data-name="' + esc(C.F.company + ' - ' + l.msaFlavour + ' MSA Extension (Executed).pdf') +
+                    '"><svg viewBox="0 0 24 24" aria-hidden="true">' +
+                    '<path d="M12 3v12m0 0l-4-4m4 4l4-4M4 19h16"/></svg>Download the Executed Document</button>' +
+                    '<span class="fineprint">The signed copy with its Certificate of Completion. ' +
+                    'This is the record.</span></div>'
+                  : '<p class="fineprint">Recorded as executed, but no file is attached to it.</p>') +
+                /* Not a trap: a wrong file filed by mistake has to be fixable,
+                   and the only honest way to fix it is to file the right one.
+                   It is folded away so it is never the obvious thing to press. */
+                '<details class="refile"><summary>Replace the filed copy</summary>' +
+                '<div class="onebar"><div class="f"><label>Executed PDF From DocuSign</label>' +
+                '<input type="file" accept="application/pdf" class="exec-file" data-slug="' +
+                esc(C.slug) + '" data-flav="' + esc(l.msaFlavour) + '"></div>' +
+                '<div class="f"><label>DocuSign Envelope ID</label>' +
+                '<input type="text" class="exec-env" data-flav="' + esc(l.msaFlavour) +
+                '" value="' + esc(ex.envelopeId || '') + '"></div>' +
+                '<button class="gobtn exec-go" type="button" data-slug="' + esc(C.slug) +
+                '" data-flav="' + esc(l.msaFlavour) + '">Replace It</button></div>' +
+                '<p class="fineprint">The previous copy stays in the repository\u2019s history \u2014 ' +
+                'nothing is destroyed \u2014 but this becomes the one on record.</p></details></div>';
+            }
+
+            return '<div class="execbox">' + head +
               '<div class="printrow">' + P.printBtn(host, l.msaFlavour + ' MSA Extension Letter \u2014 ' + C.F.company) +
               '<span class="fineprint">Signature lines are left blank \u2014 DocuSign fills them.</span></div>' +
               '<div class="dochost" id="' + host + '">' + P.letterDoc(C.F, l) + '</div>' +
@@ -6080,9 +6138,18 @@ window.H = (function () {
               'Completion \u2014 that certificate is the evidence of execution and the part an ' +
               'auditor asks for.</p></div>';
           }).join('');
+          var doneCount = C.F.letters.filter(function (l) {
+            return !!(C.executed || {})[l.msaFlavour];
+          }).length;
+          var total = C.F.letters.length;
           return panelRow('arch-' + C.slug, C.F.company,
             C.F.letters.map(function (l) { return l.msaFlavour; }).join(' \u00b7 '),
-            C.F.letters.length + ' agreement' + (C.F.letters.length === 1 ? '' : 's'), body);
+            doneCount + ' of ' + total + ' executed', body,
+            doneCount === total
+              ? '<span class="pill good">Executed</span>'
+              : doneCount
+                ? '<span class="pill warn">' + doneCount + ' of ' + total + '</span>'
+                : '<span class="pill">Awaiting Signature</span>');
         }).join('') + '</div>';
 
       whoEl.innerHTML = esc(ME.name) + ' <i>·</i> ' + esc(ME.title);
@@ -6122,6 +6189,8 @@ window.H = (function () {
 
       onPanelOpen(wireAdminControls);
       wireAdminControls(document);
+      onPanelOpen(wireDownloads);
+      wireDownloads(document);
       function wireAdminControls(root) {
       /* ---- raising a new order ------------------------------------------ */
       (root || document).querySelectorAll('select.nof[data-k="__slug"]').forEach(function (sel) {
