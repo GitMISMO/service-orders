@@ -6270,8 +6270,13 @@ window.H = (function () {
                only shows when somebody opens the file. */
             R.commit(keyFor(slug), [R.binaryFile(path, b64)], 'executed ' + flav + ' MSA')
               .then(function () {
+                /* ⚠ The fallback is not optional. The FIRST executed agreement
+                   filed for a company writes this file into existence, and
+                   without a fallback `cur` arrives undefined and the copy
+                   throws — so filing would have failed for every company until
+                   somebody had already filed for it, which never happens. */
                 return R.update(keyFor(slug), 'agreements/' + slug + '.json', function (cur) {
-                  var next = JSON.parse(JSON.stringify(cur));
+                  var next = JSON.parse(JSON.stringify(cur || { agreements: [] }));
                   next.agreements = (next.agreements || []).filter(function (a) {
                     return a.msaFlavour !== flav;
                   }).concat([{
@@ -6280,7 +6285,7 @@ window.H = (function () {
                     filedBy: ME.name, filedOn: new Date().toISOString()
                   }]);
                   return next;
-                }, 'filed executed ' + flav + ' MSA');
+                }, 'filed executed ' + flav + ' MSA', { agreements: [] });
               })
               .then(function () { toast('Filed — ' + flav + ' is now in their My Agreements', 'good'); adminView(); })
               .catch(function (e) { b.disabled = false; b.textContent = 'File It'; failed(e); });
