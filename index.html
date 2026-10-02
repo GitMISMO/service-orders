@@ -104,6 +104,10 @@ h1,h2,h3,h4{letter-spacing:-.012em;margin:0}
    inputs inherit .f input; only the grid and the prose boxes are new. The prose
    terms span the full width because a three-line Services box in a 190px column
    is unreadable. */
+/* The download button sits above its letter, with the one-line note beside it,
+   so the button is found before the two pages of text rather than after. */
+.printrow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:12px 0 6px}
+.printrow .fineprint{margin:0}
 .revgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px 20px;margin:12px 0 4px}
 .revgrid .f.wide{grid-column:1/-1}
 .revgrid textarea{font:inherit;font-size:13.5px;font-family:var(--display);line-height:1.5;
@@ -5971,15 +5975,26 @@ window.H = (function () {
                          : '<span class="pill quiet">none</span>');
         }).join('') + '</div>';
 
-      var archive = '<p class="lede">The executed documents, kept permanently. This archive is ' +
-        'yours and the contracting company\u2019s \u2014 it is not returned to the President\u2019s ' +
-        'sign-in. Choose a company to file or read one.</p>' +
+      var archive = '<p class="lede">Each MSA extension letter, ready to download and send to ' +
+        'DocuSign \u2014 and the place the executed copy comes back to afterwards. The executed ' +
+        'archive is yours and the contracting company\u2019s; it is not returned to the ' +
+        'President\u2019s sign-in. Choose a company.</p>' +
         '<div class="hqrows">' + list.map(function (C) {
           var body = C.F.letters.map(function (l) {
+            /* \u26a0 The blank letter, with the Download as PDF button that was
+               already built but only ever wired into the contracting company's
+               own screen. Jonna is the one who sends these to DocuSign, so she
+               had no way to get at them inside the portal at all \u2014 they existed
+               only as files in an old chat. The renderer and the print button
+               are the same ones the company sees; nothing new is drawn. */
+            var host = 'ltr-' + C.slug + '-' + String(l.msaFlavour).toLowerCase().replace(/[^a-z0-9]+/g, '');
             return '<div class="execbox"><div class="fields">' +
               fld('Agreement', l.msaFlavour + ' Master Services Agreement') +
               fld('Signed for the Company by', l.signer.name + ' \u2014 ' + l.signer.title) +
               fld('Extends To', l.extendTo) + '</div>' +
+              '<div class="printrow">' + P.printBtn(host, l.msaFlavour + ' MSA Extension Letter \u2014 ' + C.F.company) +
+              '<span class="fineprint">Signature lines are left blank \u2014 DocuSign fills them.</span></div>' +
+              '<div class="dochost" id="' + host + '">' + P.letterDoc(C.F, l) + '</div>' +
               '<div class="onebar"><div class="f"><label>Executed PDF From DocuSign</label>' +
               '<input type="file" accept="application/pdf" class="exec-file" data-slug="' +
               esc(C.slug) + '" data-flav="' + esc(l.msaFlavour) + '"></div>' +
