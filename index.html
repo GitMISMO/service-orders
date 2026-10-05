@@ -779,7 +779,6 @@ body.railmini .panel.wide{width:min(1320px, calc(100vw - var(--rail-mini,62px) -
 .cards > .hqcard{display:grid;grid-row:span 3;grid-template-rows:subgrid;row-gap:10px;align-content:start}
 .hqcard .cfoot{display:flex;flex-direction:column;gap:10px;align-self:start;min-width:0}
 .hqcard .cfoot .next{margin-top:0}
-
 .hqtop{position:sticky;top:env(safe-area-inset-top,0px);z-index:97;height:var(--hq-h);
   background:var(--navy);color:#fff;display:flex;align-items:center;gap:0;
   padding:0 22px;box-shadow:0 1px 0 rgba(80,164,219,.28);
@@ -1570,6 +1569,31 @@ td.hcol .hdot{margin:0 auto}
   .signtbl th.dl-col,.signtbl td.dl-col{padding-right:8px}
   .signtbl .gobtn.ghost{padding:5px 9px}
 }
+
+
+/* ── weeks still owed ───────────────────────────────────────────────────────
+   Decision 40. A missed week used to be unreachable, so this band is the only
+   thing standing between somebody and putting last week's hours on this
+   month's invoice. It sits ABOVE everything else in My Hours on purpose. */
+.owed{background:var(--surface);border:1px solid var(--warn);border-left:3px solid var(--warn);
+  border-radius:8px;padding:13px 16px;margin:0 0 18px}
+.owed-h{display:flex;align-items:center;gap:9px;font-size:13.5px;font-weight:600;color:var(--ink)}
+.owed-n{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;
+  padding:0 6px;border-radius:11px;background:var(--warn);color:#fff;font-size:11.5px;font-weight:700}
+:root[data-theme="dark"] .owed-n{color:var(--navy-deep)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .owed-n{color:var(--navy-deep)} }
+.owedrows{display:flex;flex-direction:column;margin:10px 0 0}
+.owedrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;
+  padding:9px 0;border-top:1px solid var(--rule)}
+.owedrow .owed-w{font-size:13.5px;font-weight:600;color:var(--ink);white-space:nowrap}
+.owedrow .owed-s{font-size:12.5px;color:var(--ink-3);flex:1 1 180px;min-width:0}
+.owedrow .gobtn{margin-left:auto}
+@media(max-width:560px){
+  .owedrow{gap:6px 10px}
+  .owedrow .owed-s{flex:1 1 100%;order:3}
+  .owedrow .gobtn{margin-left:0;width:100%;order:4}
+}
+.owed .fineprint{margin-top:11px}
 </style>
 </head>
 <body>
@@ -2381,6 +2405,121 @@ window.H = (function () {
   };
   function stateOf(wk) { return STATES[(wk && wk.state) || 'submitted'] || STATES.submitted; }
 
+  /* ---- the weeks a person still owes -------------------------------------
+     ⚠ Jonna, 5 October: a contractor who missed a week had no way back to it.
+     My Hours only ever opened the week they were in, so the only thing they
+     could do was pile the missing hours onto the current week — which puts
+     them on the wrong month's invoice and undoes the month split.
+
+     Decision 40: they may open ANY week whose month has not been invoiced.
+     Once a month is invoiced it closes, the same rule as Invoiced and Paid —
+     a correction goes on the next period.
+
+     All of this is DERIVED.  Nothing about a missed week is stored: it is the
+     absence of a submission, worked out from the weeks that are there. */
+
+  /* A month is closed to this person once any of their weeks in it has gone on
+     an invoice.  Per person and per month, because one company's October can
+     be invoiced while another's is not. */
+  function closedMonths(file) {
+    var shut = {};
+    ((file && file.weeks) || []).forEach(function (w) {
+      if (w.state === 'invoiced' || w.state === 'paid') shut[monthOf(w.weekEnding)] = w.state;
+    });
+    return shut;
+  }
+
+  /* Did somebody else carry this person's hours that week?  A week a colleague
+     covered is NOT a week they owe — getting this wrong is what made the
+     Smartsheet alert fire every month. */
+  function coveredWeeks(files, personName) {
+    var cov = {};
+    (files || []).forEach(function (f) {
+      ((f && f.weeks) || []).forEach(function (w) {
+        var rows = rowsOf(w);
+        for (var id in rows) {
+          if (!rows.hasOwnProperty(id)) continue;
+          (rows[id]['for'] || []).forEach(function (s) {
+            if (s.person === personName && Number(s.hours)) cov[w.weekEnding] = 1;
+          });
+        }
+      });
+    });
+    return cov;
+  }
+
+  /* Every week ending this person can still open, newest first.
+       file   — their own hours file
+       files  — everybody's, so a week a colleague covered is not counted
+       isOn   — function(date) -> was this person active that week
+       today  — passed in so a test can stand somewhere else in the year
+     A week MISMO sent back IS owed, so it is listed — but the band labels it
+     "Sent back to you" rather than "Not submitted", because the two are not
+     the same thing and the person needs to know which it is.  It also keeps
+     its own Correct This Week button in My Submitted Time; both routes land
+     on the same week. */
+  function openWeeks(fy, file, files, isOn, today) {
+    var now = today || new Date();
+    var sent = {};
+    ((file && file.weeks) || []).forEach(function (w) {
+      if (w.state !== 'returned') sent[w.weekEnding] = 1;
+    });
+    var cov = coveredWeeks(files, file && file.person);
+    var shut = closedMonths(file);
+    var out = [];
+    weekEndings(fy).forEach(function (d) {
+      if (d > now) return;                          // not reached yet
+      var e = print(d);
+      if (sent[e] || cov[e]) return;                // submitted, or covered
+      if (shut[monthOf(e)]) return;                 // that month is on an invoice
+      if (isOn && !isOn(d)) return;                 // before they started, or after they left
+      out.push(e);
+    });
+    return out.reverse();
+  }
+
+  /* The weeks they cannot open any more, with the reason — so a gap in an
+     invoiced month is explained rather than silently absent. */
+  function shutWeeks(fy, file, files, isOn, today) {
+    var now = today || new Date();
+    var sent = {};
+    ((file && file.weeks) || []).forEach(function (w) { sent[w.weekEnding] = 1; });
+    var cov = coveredWeeks(files, file && file.person);
+    var shut = closedMonths(file);
+    var out = [];
+    weekEndings(fy).forEach(function (d) {
+      if (d > now) return;
+      var e = print(d);
+      if (sent[e] || cov[e]) return;
+      if (isOn && !isOn(d)) return;
+      var why = shut[monthOf(e)];
+      if (why) out.push({ weekEnding: e, month: monthLabel(monthOf(e)), state: why });
+    });
+    return out.reverse();
+  }
+
+  /* ---- drafts, one per week ----------------------------------------------
+     ⚠ Was a single slot.  Saving a draft for a second week overwrote the
+     first, so somebody who saved Friday's week without sending it and then
+     typed anything the following week lost what they had written.  Now keyed
+     by week ending.  The old single-slot shape is still read, so nothing
+     already saved is lost on the way over. */
+  function draftFor(file, ending) {
+    if (!file) return null;
+    if (file.drafts && file.drafts[ending]) return file.drafts[ending];
+    if (file.draft && file.draft.weekEnding === ending) return file.draft;
+    return null;
+  }
+  function draftsIn(file) {
+    var out = {};
+    if (!file) return out;
+    if (file.draft && file.draft.weekEnding) out[file.draft.weekEnding] = file.draft;
+    for (var k in (file.drafts || {})) {
+      if (file.drafts.hasOwnProperty(k)) out[k] = file.drafts[k];
+    }
+    return out;
+  }
+
   return {
     parse: parse, print: print, longDate: longDate, addDays: addDays, sameDay: sameDay,
     fyBounds: fyBounds, fyOf: fyOf,
@@ -2392,7 +2531,9 @@ window.H = (function () {
     splitOf: splitOf, splitOver: splitOver,
     usedOnOrder: usedOnOrder, usedByPerson: usedByPerson,
     monthOf: monthOf, monthLabel: monthLabel, monthsIn: monthsIn, monthRows: monthRows,
-    STATES: STATES, stateOf: stateOf
+    STATES: STATES, stateOf: stateOf,
+    openWeeks: openWeeks, shutWeeks: shutWeeks, closedMonths: closedMonths,
+    coveredWeeks: coveredWeeks, draftFor: draftFor, draftsIn: draftsIn
   };
 })();
 </script>
@@ -3786,9 +3927,10 @@ window.H = (function () {
      with it.  HRS.draft is the working copy every screen reads and writes, and
      the panel edits into it.  Nothing closes over unsaved work without asking. */
   function seedDraft(mine, ending, wk, back) {
+    var d = H.draftFor(mine, ending);
     var rows = wk ? H.rowsOf(wk)
       : back ? H.rowsOf(back)
-      : (mine.draft && mine.draft.weekEnding === ending ? (mine.draft.rows || {}) : {});
+      : (d ? (d.rows || {}) : {});
     HRS.draft = JSON.parse(JSON.stringify(rows));
     HRS.draftWeek = ending;
     HRS.dirty = false;
@@ -3838,13 +3980,63 @@ window.H = (function () {
       return a + (Number((HRS.draft[o.id] || {}).hours) || 0); }, 0);
     var strad = H.straddle(fy, ending);
 
-    var head = '<p class="lede">The week you are in. <b>Choose a service order to enter it</b> — ' +
+    /* ---- weeks still owed ------------------------------------------------
+       ⚠ Decision 40, 5 October.  My Hours used to open the week you were in
+       and nothing else, so a missed week was unreachable and the only thing a
+       person could do was put those hours on the current week — landing them
+       on the wrong month's invoice.  Any week whose month has not been
+       invoiced can be opened from here. */
+    var owed = H.openWeeks(fy, mine, files, function (d) { return active(person, d); }, today)
+      .filter(function (e) { return e !== ending; });
+    var shut = H.shutWeeks(fy, mine, files, function (d) { return active(person, d); }, today);
+
+    var owedBand = '';
+    if (owed.length) {
+      owedBand = '<div class="owed"><div class="owed-h">' +
+        '<span class="owed-n">' + owed.length + '</span>' +
+        '<span>' + (owed.length === 1 ? 'An earlier week is still open'
+                                      : owed.length + ' earlier weeks are still open') +
+        '</span></div>' +
+        '<div class="owedrows">' + owed.map(function (e) {
+          var w = H.weekIn(mine, e);
+          var sentBack = w && w.state === 'returned';
+          return '<div class="owedrow">' +
+            '<span class="owed-w">Week Ending ' + esc(e) + '</span>' +
+            '<span class="owed-s">' + esc(H.weekSpan(fy, e)) + '</span>' +
+            (sentBack ? '<span class="pill bad">Sent Back to You</span>'
+                      : '<span class="pill warn">Not Submitted</span>') +
+            '<button class="gobtn ghost" type="button" data-wkfix="' + esc(e) + '">' +
+            (sentBack ? 'Correct This Week' : 'Log This Week') + '</button></div>';
+        }).join('') + '</div>' +
+        '<p class="fineprint">Opening one brings it up here with whatever you had already saved in ' +
+        'it. <b>Hours go on the invoice for the month the week falls in</b>, not the month you ' +
+        'type them \u2014 so a week logged late still lands in the right place.</p></div>';
+    }
+    if (shut.length) {
+      var shutMonths = [];
+      shut.forEach(function (w) {
+        if (shutMonths.indexOf(w.month) < 0) shutMonths.push(w.month);
+      });
+      owedBand += '<div class="note"><b>' + shut.length + ' earlier ' +
+        (shut.length === 1 ? 'week has' : 'weeks have') + ' closed.</b> ' +
+        esc(shutMonths.join(' and ')) + ' ' + (shutMonths.length === 1 ? 'has' : 'have') +
+        ' been invoiced, so ' + (shut.length === 1 ? 'that week does' : 'those weeks do') +
+        ' not reopen \u2014 a correction goes on the next period. If something is missing, ' +
+        '<b>email Jonna Critchley</b> at ' +
+        '<a href="mailto:jcritchley@mismo.org">jcritchley@mismo.org</a>.</div>';
+    }
+
+    var head = owedBand +
+      '<p class="lede">The week you are in. <b>Choose a service order to enter it</b> — ' +
       'it opens on the right, with room for the notes.</p>' +
       '<div class="tot"><span class="tot-l">Week Ending ' + esc(ending) + '</span>' +
       '<span class="tot-v">' + hrs(total) + ' hours</span></div>' +
       (HRS.week && HRS.week !== H.weekFor(fy, today)
-        ? '<p class="fineprint"><b>This is not the week you are in.</b> You are correcting an ' +
-          'earlier week. <button class="lnk" type="button" id="h-now">Go back to this week</button></p>'
+        ? '<div class="note warn"><b>This is not the week you are in.</b> You are ' +
+          (sent ? 'looking at' : back ? 'correcting' : 'logging') + ' an earlier week' +
+          ' \u2014 anything you enter goes on the <b>' +
+          esc(H.monthLabel(H.monthOf(ending))) + '</b> invoice, not this month\u2019s. ' +
+          '<button class="lnk" type="button" id="h-now">Go back to this week</button></div>'
         : '') +
       '<p class="fineprint">' + esc(H.weekSpan(fy, ending)) + '. Weeks end on a Friday.' +
       (strad
@@ -4307,9 +4499,20 @@ window.H = (function () {
         /* Saving a draft must not drop what a take-back put there, or saving
            once between taking a week back and resending it would lose the
            earlier submission. */
-        var held = (next.draft && next.draft.weekEnding === ending && next.draft.tookBack) || null;
-        next.draft = { weekEnding: ending, rows: rows, savedAt: new Date().toISOString() };
-        if (held) next.draft.tookBack = held;
+        /* ⚠ One draft PER WEEK.  This was a single slot, so saving a draft for
+           a second week silently overwrote the first — somebody who saved
+           Friday's week without sending it and then typed anything the
+           following week lost what they had written, notes and all. */
+        var prev = H.draftFor(next, ending);
+        var held = (prev && prev.tookBack) || null;
+        next.drafts = next.drafts || {};
+        /* carry an old single-slot draft over the first time we write */
+        if (next.draft && next.draft.weekEnding && !next.drafts[next.draft.weekEnding]) {
+          next.drafts[next.draft.weekEnding] = next.draft;
+        }
+        next.drafts[ending] = { weekEnding: ending, rows: rows, savedAt: new Date().toISOString() };
+        if (held) next.drafts[ending].tookBack = held;
+        next.draft = null;
         return next;
       }
       next.weeks = next.weeks || [];
@@ -4330,14 +4533,18 @@ window.H = (function () {
            take-back-and-resubmit would quietly erase the submission it
            replaced — and "every submission is its own version" would be a
            promise this page does not keep. */
-        var carried = (next.draft && next.draft.weekEnding === ending && next.draft.tookBack) || [];
+        var prevD = H.draftFor(next, ending);
+        var carried = (prevD && prevD.tookBack) || [];
         next.weeks.push({ weekEnding: ending, state: 'submitted', submittedAt: at, rows: rows,
           versions: carried, returnRequest: null,
           history: (carried.length
             ? [{ at: at, what: 'resubmitted after taking it back', by: person.name }]
             : [{ at: at, what: 'submitted', by: person.name }]) });
       }
-      next.draft = null;
+      /* ⚠ Clear only THIS week's draft.  Clearing the lot would throw away a
+         draft the person is part-way through for another week. */
+      if (next.drafts) delete next.drafts[ending];
+      if (next.draft && next.draft.weekEnding === ending) next.draft = null;
       return next;
     }, (submit ? 'hours submitted' : 'hours saved') + ': ' + person.name + ' week ending ' + ending);
   }
@@ -4354,9 +4561,12 @@ window.H = (function () {
         keep = w; return false;
       });
       if (keep) {
-        next.draft = { weekEnding: ending, rows: keep.rows, savedAt: new Date().toISOString(),
+        next.drafts = next.drafts || {};
+        next.drafts[ending] = { weekEnding: ending, rows: keep.rows,
+          savedAt: new Date().toISOString(),
           tookBack: (keep.versions || []).concat([{ at: keep.submittedAt, rows: keep.rows,
             state: keep.state }]) };
+        if (next.draft && next.draft.weekEnding === ending) next.draft = null;
       }
       return next;
     }, 'week taken back: ' + person.name + ' ' + ending);
