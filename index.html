@@ -978,22 +978,22 @@ button,input,select,textarea,optgroup{font-family:inherit}
 @media(max-width:640px){ .hqtop .who{display:none} }
 
 /* ── collapsible sections, Title Case, closed by default ──── */
-.psec{background:var(--surface);border:1px solid var(--border);border-radius:11px;
- margin:0 0 18px;overflow:hidden;box-shadow:0 1px 2px rgba(6,32,47,.05)}
-.psec-h{display:flex;align-items:center;gap:11px;margin:0;padding:15px 18px;cursor:pointer;
- font-size:15px;font-weight:600;background:var(--surface);user-select:none}
-.psec-h:hover{background:var(--surface-2)}
-.psec-h:focus-visible{outline:2px solid var(--sky);outline-offset:-2px}
-.psec.open .psec-h{background:var(--sky-wash);border-bottom:1px solid var(--rule)}
-:root[data-theme="dark"] .psec.open .psec-h{background:var(--surface-3)}
-@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .psec.open .psec-h{background:var(--surface-3)} }
-.psec-h .chev{width:16px;height:16px;flex:0 0 auto;stroke:var(--ink-3);fill:none;stroke-width:2;
- stroke-linecap:round;stroke-linejoin:round;transition:transform .16s}
-.psec.open .psec-h .chev{transform:rotate(90deg)}
-.psec-h .cnt{margin-left:auto;font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;
- font-weight:600;color:var(--ink-3);background:var(--surface-3);border-radius:20px;padding:3px 10px}
-.psec-b{display:none;padding:16px 18px 20px}
-.psec.open .psec-b{display:block}
+/* ── a section is a PAGE ──────────────────────────────────────────────
+   One is shown at a time; the rail chooses which. There is no fold, so the
+   heading is a title and not a control: no pointer, no hover, no chevron,
+   nothing to press. The card border goes with the fold — a page is the page,
+   not a box sitting on one. */
+.psec{display:none;margin:0}
+.psec.current{display:block}
+.psec-h{display:flex;align-items:baseline;gap:11px;margin:0 0 4px;padding:0;
+ font-size:21px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
+.psec-h .cnt{font-family:var(--mono);font-size:10.5px;letter-spacing:.06em;
+ font-weight:600;color:var(--ink-3);background:var(--surface-3);border-radius:4px;padding:3px 10px;
+ position:relative;top:-2px}
+.psec-b{display:block;padding:0}
+/* The page title and the first thing under it need air between them, but a
+   lede immediately after the title should not be pushed away from it. */
+.psec-b > .lede:first-child{margin-top:10px}
 .subh{font-size:12.5px;font-family:var(--mono);letter-spacing:.08em;text-transform:uppercase;
  color:var(--ink-3);margin:22px 0 9px;font-weight:600}
 
@@ -2695,29 +2695,81 @@ window.H = (function () {
 
   /* ---------- collapsible section, closed by default ---------------------- */
   var SEQ = 0;
+  /* ⚠ A SECTION IS A PAGE NOW, not a collapsible.
+     It was a fold on one long page, and the rail scrolled you up and down it:
+     twenty-five sections on five views, every one of them a click to open and
+     then a scroll to find. One section is on screen at a time, the rail
+     switches between them, and nothing on a page is hidden behind a header.
+
+     The signature is deliberately unchanged, so all twenty-five call sites are
+     untouched. `openByDefault` no longer means anything — a page is either the
+     one you are on or it is not — and it is accepted and ignored rather than
+     removed, so nothing has to be edited to keep working.
+
+     The heading is a plain <h2>: not a button, not focusable, no chevron.
+     There is nothing to press, because pressing it did the thing the rail now
+     does. */
   function sect(title, count, body, openByDefault) {
     var id = 'sec' + (++SEQ);
-    return '<section class="psec' + (openByDefault ? ' open' : '') + '" id="' + id + '">' +
-      '<h2 class="psec-h" tabindex="0" role="button" aria-expanded="' + (openByDefault ? 'true' : 'false') + '">' +
-      '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
+    return '<section class="psec" id="' + id + '" data-name="' + esc(title) + '">' +
+      '<h2 class="psec-h">' +
       '<span>' + esc(title) + '</span>' +
       (count == null ? '' : '<span class="cnt">' + esc(String(count)) + '</span>') +
       '</h2><div class="psec-b">' + body + '</div></section>';
   }
-  function wireSections(root) {
-    (root || document).querySelectorAll('.psec-h').forEach(function (h) {
-      if (h.dataset.wired) return;
-      h.dataset.wired = '1';
-      var go = function () {
-        var s = h.parentElement;
-        s.classList.toggle('open');
-        h.setAttribute('aria-expanded', s.classList.contains('open') ? 'true' : 'false');
-      };
-      h.addEventListener('click', go);
-      h.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); }
-      });
+
+  /* Which page is showing. Remembered by NAME, not by position: a view
+     re-renders after every save, and the sections can change count between
+     renders — Needs You empties, a company stops being overdue. Remembering
+     position would land her on a different page than the one she was reading
+     every time she saved something. */
+  var PAGE_KEY = 'page';
+  function rememberedPage() {
+    try { return R.store.get(PAGE_KEY) || ''; } catch (e) { return ''; }
+  }
+  function showPage(sec, opts) {
+    if (!sec) return;
+    var root = sec.parentElement;
+    if (!root) return;
+    Array.prototype.forEach.call(root.querySelectorAll('.psec'), function (s) {
+      s.classList.toggle('current', s === sec);
     });
+    try { R.store.put(PAGE_KEY, sec.getAttribute('data-name') || ''); } catch (e) {}
+    var host = document.getElementById('rail-nav');
+    if (host) {
+      Array.prototype.forEach.call(host.children, function (x) {
+        x.toggleAttribute('aria-current', x.getAttribute('data-hq') === sec.id);
+        if (x.getAttribute('data-hq') === sec.id) x.setAttribute('aria-current', 'page');
+        else x.removeAttribute('aria-current');
+      });
+    }
+    /* A page change starts at the top of the new page. Not smooth: this is a
+       change of place, not a journey through one. */
+    if (!(opts && opts.keepScroll)) {
+      try { window.scrollTo(0, 0); } catch (e) {}
+    }
+  }
+  function pageOf(el) { return el && el.closest ? el.closest('.psec') : null; }
+  /* Used by the search and by anything that has to reach something on another
+     page: show its page first, or the thing is scrolled to while invisible. */
+  function revealIn(el) {
+    var p = pageOf(el);
+    if (p && !p.classList.contains('current')) showPage(p, { keepScroll: true });
+    return p;
+  }
+
+  function wireSections(root) {
+    /* Pick the page to show: the one she was on if it is still here, else the
+       first. Nothing is wired onto the heading — it is not interactive. */
+    var host = root || document;
+    var all = host.querySelectorAll('.psec');
+    if (!all.length) return;
+    if (host.querySelector('.psec.current')) return;
+    var want = rememberedPage(), pick = null;
+    Array.prototype.forEach.call(all, function (s) {
+      if (!pick && want && s.getAttribute('data-name') === want) pick = s;
+    });
+    (pick || all[0]).classList.add('current');
   }
   /* a row opens and shuts on a click on the row itself — no Edit, no Close */
   function wireRows(root) {
@@ -2841,6 +2893,7 @@ window.H = (function () {
     esc: esc, money: money, money0: money0, stamp: stamp, statusOf: statusOf, pill: pill,
     feeTotal: feeTotal, feeWords: feeWords,
     sect: sect, wireSections: wireSections, wireRows: wireRows,
+    showPage: showPage, pageOf: pageOf, revealIn: revealIn,
     orderDoc: orderDoc, letterDoc: letterDoc, printBtn: printBtn, ORDER_OF: ORDER_OF
   };
 })();
@@ -3033,6 +3086,21 @@ window.H = (function () {
        so clearing it here is what stops a stale view wiring a live panel. */
     PANEL_AFTER = []; PANEL_GUARD = null;
     view.innerHTML = viewAsBanner() + html;
+    /* ⚠ The Status Board is not built by sect(), so in a paged shell it would
+       sit above every page and show on all of them. It becomes its own page,
+       first, wrapped here rather than in the view — one place to do it, and a
+       view added later cannot forget. */
+    var bd = view.querySelector('.board');
+    if (bd && !bd.closest('.psec')) {
+      var wrap = document.createElement('section');
+      wrap.className = 'psec';
+      wrap.id = 'sec-board';
+      wrap.setAttribute('data-name', 'Status Board');
+      wrap.innerHTML = '<h2 class="psec-h"><span>Status Board</span></h2>' +
+        '<div class="psec-b"></div>';
+      bd.parentNode.insertBefore(wrap, bd);
+      wrap.querySelector('.psec-b').appendChild(bd);
+    }
     P.wireSections(view); P.wireRows(view); wirePanelRows(view); buildRail();
     closePanel(true);
     var out = document.getElementById('va-out');
@@ -3073,45 +3141,31 @@ window.H = (function () {
     var host = document.getElementById('rail-nav');
     if (!host) return;
     host.textContent = '';
-    /* The board is not a section, so it would drop out of the rail with the
-       sections it sits above.  It gets its own entry, first, that simply
-       scrolls to the top. */
-    var board = view.querySelector('.board');
-    if (board) {
-      var bb = document.createElement('button');
-      bb.type = 'button';
-      bb.title = 'Status Board';
-      bb.setAttribute('aria-current', 'page');
-      bb.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' +
-        railIcon('status board') + '</svg><span>Status Board</span>';
-      bb.addEventListener('click', function () {
-        Array.prototype.forEach.call(host.children, function (x) { x.removeAttribute('aria-current'); });
-        bb.setAttribute('aria-current', 'page');
-        try { board.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
-        catch (e) { board.scrollIntoView(); }
-      });
-      host.appendChild(bb);
-    }
+    /* ⚠ The board is a page of its own now (wrapped in say()), so it is one of
+       the sections below rather than a special case above them. One kind of
+       entry in the rail, and the entry for the page you are on is the one
+       marked — because it IS where you are, not somewhere you scrolled past. */
     var secs = view.querySelectorAll('.psec');
-    Array.prototype.forEach.call(secs, function (sec, i) {
+    Array.prototype.forEach.call(secs, function (sec) {
       var h = sec.querySelector('.psec-h');
       if (!h) return;
-      var name = (h.querySelector('span') || {}).textContent || '';
+      var name = sec.getAttribute('data-name') || (h.querySelector('span') || {}).textContent || '';
       var cntEl = h.querySelector('.cnt');
       var b = document.createElement('button');
       b.type = 'button';
       b.setAttribute('data-hq', sec.id);
       b.title = name;
-      if (i === 0 && !board) b.setAttribute('aria-current', 'page');
+      if (sec.classList.contains('current')) b.setAttribute('aria-current', 'page');
       b.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + railIcon(name) + '</svg>' +
         '<span>' + name.replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</span>' +
         (cntEl && cntEl.textContent ? '<i class="railn">' + cntEl.textContent + '</i>' : '');
       b.addEventListener('click', function () {
-        if (!sec.classList.contains('open')) h.click();
-        Array.prototype.forEach.call(host.children, function (x) { x.removeAttribute('aria-current'); });
-        b.setAttribute('aria-current', 'page');
-        try { sec.scrollIntoView({ block: 'start', behavior: 'smooth' }); }
-        catch (e) { sec.scrollIntoView(); }
+        P.showPage(sec);
+        /* ⚠ On a phone the rail sits OVER the page, and it is open whenever the
+           body is not `railmini` — so getting it out of the way after a choice
+           means ADDING that class, not removing one. It has to go: otherwise
+           she picks a page and is still looking at the menu. */
+        if (window.innerWidth <= 900) document.body.classList.add('railmini');
       });
       host.appendChild(b);
     });
@@ -3146,31 +3200,34 @@ window.H = (function () {
       if (!name || name.toLowerCase().indexOf(needle) === -1) return;
       out.push({ group: group, name: name.trim(), where: where || '', go: go });
     }
-    function openSection(sec, h) {
-      if (sec && h && !sec.classList.contains('open')) h.click();
-      try { (sec || document.body).scrollIntoView({ block: 'start', behavior: 'smooth' }); }
-      catch (e) { if (sec) sec.scrollIntoView(); }
+    /* ⚠ Show the hit's PAGE before scrolling to it. Scrolling to something on a
+       page that is not displayed scrolls to nothing, which is what a search hit
+       on another section would now do. */
+    function openSection(sec) {
+      if (sec) P.showPage(sec);
+      try { window.scrollTo(0, 0); } catch (e) {}
     }
 
-    /* the board's company cards */
+    /* the board's company cards — the board is a page now, so reach it the
+       same way as anything else */
     Array.prototype.forEach.call(view.querySelectorAll('.board .hqcard h3'), function (h3) {
       add('Companies', h3.textContent, 'Status Board', function () {
+        P.revealIn(h3);
         try { h3.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
         catch (e) { h3.scrollIntoView(); }
       });
     });
 
     Array.prototype.forEach.call(view.querySelectorAll('.psec'), function (sec) {
-      var h = sec.querySelector('.psec-h');
-      var secName = h ? ((h.querySelector('span') || {}).textContent || '') : '';
-      add('Sections', secName, 'Go to this section', function () { openSection(sec, h); });
+      var secName = sec.getAttribute('data-name') || '';
+      add('Pages', secName, 'Go to this page', function () { openSection(sec); });
 
       /* anything that opens on the right */
       Array.prototype.forEach.call(sec.querySelectorAll('[data-panel],[data-hrow]'), function (b) {
         var t = b.querySelector('.t');
         var name = t ? (t.childNodes[0] ? t.childNodes[0].textContent : t.textContent) : b.textContent;
         add(secName || 'On This Page', name, secName, function () {
-          openSection(sec, h);
+          openSection(sec);
           setTimeout(function () { b.click(); }, 60);
         });
       });
@@ -3180,7 +3237,7 @@ window.H = (function () {
         var t = row.querySelector('.rt');
         if (!t) return;
         add(secName || 'On This Page', t.textContent, secName, function () {
-          openSection(sec, h);
+          openSection(sec);
           var rh = row.querySelector('.row-h');
           if (rh && !row.classList.contains('open')) rh.click();
           try { row.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
@@ -5219,7 +5276,19 @@ window.H = (function () {
     (F.people || []).forEach(function (pr) {
       if (!active(pr, H.parse(H.weekFor(F.fiscalYear || 'FY 2027', new Date())))) return;
       if (signer && pr.name === signer.name) return;    // already above
-      if (!(pr.orders || []).length && !pr.timeManager) return;
+      if (!(pr.orders || []).length && !pr.timeManager && !pr.fullAccess) return;
+      /* \u26a0 EVERY non-signer used to be hard-coded as a facilitator \u2014 hours only,
+         no money \u2014 with no way for a second person at a company to see what the
+         signer sees. A manager who is not the authorised signer therefore read
+         as hours-only however their account was set, because this is a property
+         of the PERSON RECORD and not of their access.
+         `fullAccess: true` on the person is what says otherwise. */
+      if (pr.fullAccess) {
+        out.push({ key: pr.slug, name: pr.name, title: pr.title || '',
+                   role: 'signer',
+                   what: 'sees everything the signer sees' });
+        return;
+      }
       out.push({ key: pr.slug, name: pr.name, role: 'facilitator',
                  what: (pr.orders || []).length
                    ? 'logs ' + pr.orders.length + ' order' + (pr.orders.length === 1 ? '' : 's') +
