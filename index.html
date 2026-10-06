@@ -4294,7 +4294,16 @@ window.H = (function () {
     }
     var month = HRS.month && months.indexOf(HRS.month) >= 0 ? HRS.month : months[0];
     var rows = H.monthRows(files, month);
-    var ids = Object.keys(rows).sort(function (a, b) { return rows[b].hours - rows[a].hours; });
+    /* ⚠ Alphabetical by the order's name, NOT by hours. Sorting by hours means
+       the list reorders itself every time somebody logs time, so the order you
+       looked at last week is somewhere else this week. A person reconciling an
+       invoice is looking for a named order, not for the biggest one. Matches
+       the way the service orders are listed everywhere else. */
+    var ids = Object.keys(rows).sort(function (a, b) {
+      var A = orderById(F, a), B = orderById(F, b);
+      return String((A && A.subject) || a).localeCompare(String((B && B.subject) || b),
+        undefined, { sensitivity: 'base', numeric: true });
+    });
     var total = ids.reduce(function (a, id) { return a + rows[id].hours; }, 0);
     var missing = whoOwes(F, files, month);
 
@@ -4313,7 +4322,12 @@ window.H = (function () {
             return m.person + ' (' + m.weeks.join(', ') + ')'; }).join('; ')) +
           '<br><span class="fineprint">A week somebody covered for them is not missing — this ' +
           'counts weeks with nothing sent at all.</span></div>'
-        : '<div class="note ok"><b>Every week of this month has been submitted.</b></div>') +
+        : weeksToCome(files, month) > 0
+          ? '<div class="note ok"><b>Every week that has ended has been submitted.</b> ' +
+            weeksToCome(files, month) + ' more ' +
+            (weeksToCome(files, month) === 1 ? 'week' : 'weeks') +
+            ' still to come this month.</div>'
+          : '<div class="note ok"><b>Every week of this month has been submitted.</b></div>') +
       '<div class="rows">' + ids.map(function (id) {
         var o = orderById(F, id);
         var rec = rows[id];
@@ -4321,8 +4335,10 @@ window.H = (function () {
         var used = H.usedOnOrder(files, id);
         var pct = tot ? Math.min(100, 100 * used / tot) : 0;
         var cls = pct > 90 ? 'over' : pct > 70 ? 'hot' : '';
+        /* Alphabetical, for the same reason as the orders above: a name is
+           looked up, not ranked. */
         var by = Object.keys(rec.byPerson).sort(function (a, b) {
-          return rec.byPerson[b] - rec.byPerson[a]; });
+          return String(a).localeCompare(String(b), undefined, { sensitivity: 'base' }); });
         return '<div class="row"><div class="row-h">' +
           '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
           '<span class="rt">' + esc(o ? o.subject : id) + '</span>' +
@@ -4364,6 +4380,24 @@ window.H = (function () {
      work was covered by a colleague's split entry is NOT missing — that was
      what made the Smartsheet alert fire every month and train everyone to
      ignore it. */
+  /* ⚠ How many weeks of this month have NOT ended yet.
+     whoOwes only counts a week once it is over — it cannot ask for time that
+     has not happened. But the message beside it said "every week of this month
+     has been submitted", which on the 5th of October claimed the whole month
+     was in when exactly one week had ended. The claim has to match the test:
+     every week THAT HAS ENDED, and how many are still to come. */
+  function weeksToCome(files, month) {
+    var today = new Date();
+    var fy = 'FY 2027';
+    (files || []).forEach(function (f) { if (f && f.fiscalYear) fy = f.fiscalYear; });
+    var n = 0;
+    H.weekEndings(fy).forEach(function (d) {
+      if (H.monthOf(H.print(d)) !== month) return;
+      if (d > today) n++;
+    });
+    return n;
+  }
+
   function whoOwes(F, files, month) {
     var today = new Date();
     var out = [];
