@@ -3573,7 +3573,14 @@ window.H = (function () {
       var F = C.F, sigs = C.sigs;
       var st = {};
       F.orders.forEach(function (o) { st[o.id] = statusOf(o, sigs); });
-      var toReview = F.orders.filter(function (o) {
+      /* Alphabetical, like every other list of orders. ⚠ Sorted ONCE, here, so
+         the bulk-accept list, the tick count and the rows underneath are all in
+         the same order — sorting them separately would have the sixth tick box
+         accept a different order from the sixth row. */
+      var toReview = F.orders.slice().sort(function (a, b) {
+        return String(a.subject || '').localeCompare(String(b.subject || ''),
+          undefined, { sensitivity: 'base', numeric: true });
+      }).filter(function (o) {
         return st[o.id].key === 'sent' || st[o.id].key === 'changed';
       });
 
