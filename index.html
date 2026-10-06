@@ -3390,9 +3390,43 @@ window.H = (function () {
 
   /* Order matters: additions first so a new order can also be revised and
      sent, revisions last so the newest terms are what everything else reads. */
+  /* ---- company details edited in the portal -----------------------------
+     The signer, each agreement's address and signer, and each person's email
+     and standing. ⚠ In the local file like everything else this page writes —
+     `orders/<slug>.json` is the generator's and is read-only to the relay, so
+     an edit written there is refused, and one written there successfully would
+     be erased the next time the orders were regenerated.
+
+     Only the fields a person actually changed are stored. Everything else keeps
+     coming from the generated file, so a later regeneration still improves the
+     parts nobody has overridden. */
+  function applyDetails(F, d) {
+    if (!d) return F;
+    if (d.signer) {
+      F.signers = F.signers || {};
+      F.signers.order = Object.assign({}, F.signers.order || {}, d.signer);
+    }
+    (F.letters || []).forEach(function (l) {
+      var o = (d.letters || {})[l.msaFlavour];
+      if (!o) return;
+      if (o.address && o.address.length) l.address = o.address.slice();
+      if (o.salutation) l.salutation = o.salutation;
+      if (o.signer) l.signer = Object.assign({}, l.signer || {}, o.signer);
+    });
+    (F.people || []).forEach(function (p) {
+      var o = (d.people || {})[p.slug];
+      if (!o) return;
+      if (o.email != null) p.email = o.email;
+      if (o.fullAccess != null) p.fullAccess = !!o.fullAccess;
+      if (o.timeManager != null) p.timeManager = !!o.timeManager;
+    });
+    return F;
+  }
+
   function applyLocal(F, local) {
     local = local || {};
     F = applyAdditions(F, local.additions);
+    F = applyDetails(F, local.details);
     F = applySent(F, local.sent);
     return applyRevisions(F, local.revisions);
   }
@@ -6192,6 +6226,101 @@ window.H = (function () {
       '<script type="application/json" id="no-msas">' + JSON.stringify(msas) + '<\/script>';
   }
 
+  /* =========================================================================
+   * Company Details
+   * =========================================================================
+   * The things that were hand-edits to a private JSON file until now: the
+   * person who signs the orders, the address and signer on each agreement, and
+   * each person's email and standing.
+   *
+   * ⚠ Address lines are SEPARATE FIELDS, not one box. An address typed into a
+   * textarea is one blank line away from printing a gap in the middle of a
+   * legal letter, and nobody proofreads a box they have just typed into.
+   */
+  function addrLine(p, i, v) {
+    return '<div class="f"><label>Address Line ' + (i + 1) + '</label>' +
+      '<input type="text" class="cdf" data-p="' + p + '" data-k="addr' + i + '" value="' +
+      esc(v || '') + '"></div>';
+  }
+
+  function companyDetails(list) {
+    return '<p class="lede">The details the documents are built from. <b>Changing one here changes ' +
+      'every letter and order it appears on, from the next time the page is opened.</b> Nothing else ' +
+      'about an order moves, and no order goes back round for a decision — these are not terms, ' +
+      'they are who and where.</p>' +
+      '<div class="hqrows">' + list.map(function (C) {
+        var F = C.F, s = (F.signers || {}).order || {};
+        var p = 'cd-' + C.slug;
+        var body =
+          '<h4 class="subh">Who Signs the Service Orders</h4>' +
+          '<div class="revgrid">' +
+          '<div class="f"><label>Name</label><input type="text" class="cdf" data-p="' + p +
+          '" data-k="sname" value="' + esc(s.name || '') + '"></div>' +
+          '<div class="f"><label>Title</label><input type="text" class="cdf" data-p="' + p +
+          '" data-k="stitle" value="' + esc(s.title || '') + '"></div>' +
+          '<div class="f"><label>Email</label><input type="text" class="cdf" data-p="' + p +
+          '" data-k="semail" value="' + esc(s.email || '') + '"></div>' +
+          '</div>' +
+
+          (F.letters || []).map(function (l, li) {
+            var lp = p + '-l' + li;
+            var a = l.address || [];
+            return '<h4 class="subh">' + esc(l.msaFlavour) + ' Master Services Agreement</h4>' +
+              '<div class="revgrid">' +
+              addrLine(lp, 0, a[0]) + addrLine(lp, 1, a[1]) +
+              addrLine(lp, 2, a[2]) + addrLine(lp, 3, a[3]) +
+              '<div class="f"><label>Salutation</label><input type="text" class="cdf" data-p="' + lp +
+              '" data-k="sal" value="' + esc(l.salutation || '') + '"></div>' +
+              '<div class="f"><label>Who Signs This Agreement</label><input type="text" class="cdf" data-p="' +
+              lp + '" data-k="lname" value="' + esc((l.signer || {}).name || '') + '"></div>' +
+              '<div class="f"><label>Their Title</label><input type="text" class="cdf" data-p="' + lp +
+              '" data-k="ltitle" value="' + esc((l.signer || {}).title || '') + '"></div>' +
+              '<div class="f"><label>Their Email</label><input type="text" class="cdf" data-p="' + lp +
+              '" data-k="lemail" value="' + esc((l.signer || {}).email || '') + '"></div>' +
+              '</div>' +
+              '<input type="hidden" class="cdf" data-p="' + lp + '" data-k="flav" value="' +
+              esc(l.msaFlavour) + '">';
+          }).join('') +
+
+          '<h4 class="subh">People</h4>' +
+          '<p class="fineprint">The email is how a sign-in is matched to a person, so it has to be ' +
+          'the address their account uses. <b>Sees Everything</b> gives them the signer’s view ' +
+          'rather than hours only.</p>' +
+          '<div class="rows">' + (F.people || []).map(function (pr, pi) {
+            var pp = p + '-p' + pi;
+            return '<div class="row"><div class="row-h">' +
+              '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
+              '<span class="rt">' + esc(pr.name) + '</span>' +
+              (pr.fullAccess ? '<span class="pill good">Sees Everything</span>' : '') +
+              (pr.timeManager ? '<span class="pill">Time Manager</span>' : '') +
+              '<span class="rs">' + esc(pr.email || 'no email') + '</span>' +
+              '</div><div class="row-b"><div class="revgrid">' +
+              '<div class="f"><label>Email</label><input type="text" class="cdf" data-p="' + pp +
+              '" data-k="pemail" value="' + esc(pr.email || '') + '"></div>' +
+              '<div class="f"><label>Sees Everything the Signer Sees</label>' +
+              '<select class="cdf" data-p="' + pp + '" data-k="pfull">' +
+              '<option value="no"' + (pr.fullAccess ? '' : ' selected') + '>No — hours only, no money</option>' +
+              '<option value="yes"' + (pr.fullAccess ? ' selected' : '') + '>Yes</option></select></div>' +
+              '<div class="f"><label>Company Time Manager</label>' +
+              '<select class="cdf" data-p="' + pp + '" data-k="ptm">' +
+              '<option value="no"' + (pr.timeManager ? '' : ' selected') + '>No</option>' +
+              '<option value="yes"' + (pr.timeManager ? ' selected' : '') + '>Yes</option></select></div>' +
+              '</div><input type="hidden" class="cdf" data-p="' + pp + '" data-k="pslug" value="' +
+              esc(pr.slug || '') + '"></div></div>';
+          }).join('') + '</div>' +
+
+          '<div class="onebar"><button class="gobtn cd-go" type="button" data-p="' + p +
+          '" data-slug="' + esc(C.slug) + '">Save ' + esc(F.company) + '’s Details</button></div>' +
+          '<p class="fineprint">Saved beside the revisions, not into the generated file — so ' +
+          'regenerating the orders from the forecast can never wipe what you change here.</p>';
+
+        return panelRow('cd-row-' + C.slug, F.company,
+          esc(s.name || '') + (s.title ? ' · ' + esc(s.title) : ''),
+          (F.letters || []).length + ' agreement' + ((F.letters || []).length === 1 ? '' : 's') +
+          ' · ' + (F.people || []).length + ' people', body);
+      }).join('') + '</div>';
+  }
+
   function adminView() {
     busy('Reading every company…');
     Promise.all([
@@ -6539,6 +6668,7 @@ window.H = (function () {
         sect('Time to Approve', waiting, approveBody, waiting > 0) +
         sect('Revise an Order', reviseAny.count, reviseAny.body) +
         sect('New Service Order', null, newOrderForm(list)) +
+        sect('Company Details', list.length, companyDetails(list)) +
         sect('Send Orders', tally.vp || 0, sendBody) +
         sect('Executed Documents', null, archive) +
         (canViewAs() ? sect('View As', null, viewAsSection(list)) : '') +
@@ -6551,6 +6681,95 @@ window.H = (function () {
       onPanelOpen(wireDownloads);
       wireDownloads(document);
       function wireAdminControls(root) {
+      /* ---- saving a company's details ------------------------------------ */
+      (root || document).querySelectorAll('.cd-go').forEach(function (b) {
+        if (b.dataset.wired) return; b.dataset.wired = '1';
+        b.addEventListener('click', function () {
+          var p = b.dataset.p, slug = b.dataset.slug;
+          var C = list.filter(function (x) { return x.slug === slug; })[0];
+          if (!C) return;
+          var F = C.F;
+
+          function val(prefix, k) {
+            var el = document.querySelector('.cdf[data-p="' + prefix + '"][data-k="' + k + '"]');
+            return el ? String(el.value == null ? '' : el.value).trim() : '';
+          }
+
+          var d = { letters: {}, people: {} };
+
+          /* The order signer. Only the fields that differ are recorded, so a
+             later regeneration still improves whatever nobody has overridden. */
+          var s = (F.signers || {}).order || {}, sg = {};
+          if (val(p, 'sname') !== (s.name || '')) sg.name = val(p, 'sname');
+          if (val(p, 'stitle') !== (s.title || '')) sg.title = val(p, 'stitle');
+          if (val(p, 'semail') !== (s.email || '')) sg.email = val(p, 'semail');
+          if (Object.keys(sg).length) d.signer = sg;
+
+          (F.letters || []).forEach(function (l, li) {
+            var lp = p + '-l' + li, one = {};
+            var was = l.address || [];
+            var now = [0, 1, 2, 3].map(function (i) { return val(lp, 'addr' + i); })
+              .filter(function (x) { return x !== ''; });
+            /* ⚠ Compared as text, so re-saving an untouched address records
+               nothing. A blank line in the middle is dropped rather than
+               printed as a gap in a legal letter. */
+            if (now.join('\n') !== was.join('\n')) one.address = now;
+            if (val(lp, 'sal') !== (l.salutation || '')) one.salutation = val(lp, 'sal');
+            var ls = l.signer || {}, lsg = {};
+            if (val(lp, 'lname') !== (ls.name || '')) lsg.name = val(lp, 'lname');
+            if (val(lp, 'ltitle') !== (ls.title || '')) lsg.title = val(lp, 'ltitle');
+            if (val(lp, 'lemail') !== (ls.email || '')) lsg.email = val(lp, 'lemail');
+            if (Object.keys(lsg).length) one.signer = lsg;
+            if (Object.keys(one).length) d.letters[l.msaFlavour] = one;
+          });
+
+          (F.people || []).forEach(function (pr, pi) {
+            var pp = p + '-p' + pi, one = {};
+            if (val(pp, 'pemail') !== (pr.email || '')) one.email = val(pp, 'pemail');
+            var full = val(pp, 'pfull') === 'yes';
+            if (full !== !!pr.fullAccess) one.fullAccess = full;
+            var tm = val(pp, 'ptm') === 'yes';
+            if (tm !== !!pr.timeManager) one.timeManager = tm;
+            if (Object.keys(one).length) d.people[pr.slug] = one;
+          });
+
+          if (!d.signer && !Object.keys(d.letters).length && !Object.keys(d.people).length) {
+            toast('Nothing was changed');
+            return;
+          }
+
+          b.disabled = true; b.textContent = 'Saving…';
+          R.update(keyFor(slug), 'revisions/' + slug + '.json', function (cur) {
+            var next = JSON.parse(JSON.stringify(cur || {}));
+            next.company = next.company || slug;
+            var had = next.details || { letters: {}, people: {} };
+            /* Merged onto what is already overridden, never replacing it —
+               two people editing different companies, or the same company on
+               different days, must not undo each other. */
+            next.details = {
+              signer: Object.assign({}, had.signer || {}, d.signer || {}),
+              letters: Object.assign({}, had.letters || {}),
+              people: Object.assign({}, had.people || {}),
+              changedBy: who().name,
+              changedOn: new Date().toISOString()
+            };
+            if (!Object.keys(next.details.signer).length) delete next.details.signer;
+            Object.keys(d.letters).forEach(function (k) {
+              next.details.letters[k] = Object.assign({}, next.details.letters[k] || {}, d.letters[k]);
+            });
+            Object.keys(d.people).forEach(function (k) {
+              next.details.people[k] = Object.assign({}, next.details.people[k] || {}, d.people[k]);
+            });
+            return next;
+          }, 'company details: ' + F.company, { revisions: [] })
+            .then(function () { toast(F.company + '’s details saved', 'good'); adminView(); })
+            .catch(function (e) {
+              b.disabled = false; b.textContent = 'Save ' + F.company + '’s Details';
+              failed(e);
+            });
+        });
+      });
+
       /* ---- raising a new order ------------------------------------------ */
       (root || document).querySelectorAll('select.nof[data-k="__slug"]').forEach(function (sel) {
         if (sel.dataset.wired) return; sel.dataset.wired = '1';
