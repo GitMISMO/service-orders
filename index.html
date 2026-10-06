@@ -37,7 +37,10 @@ html,body{margin:0;padding:0}
 body{background:var(--ground);color:var(--ink);font-family:var(--display);font-size:14px;line-height:1.55;
  padding-left:var(--rail-w);transition:padding-left .2s cubic-bezier(.4,0,.2,1);-webkit-text-size-adjust:100%}
 h1,h2,h3,h4{letter-spacing:-.012em;margin:0}
-.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+/* Figures are IBM Plex Sans with TABULAR figures, never Mono. Columns still
+   line up; the typewriter look on money goes. Uppercase labels keep Mono -
+   that is a label treatment, not a number. */
+.num{font-family:inherit;font-variant-numeric:tabular-nums}
 
 .wrap{padding:26px 30px 90px;max-width:none}
 @media(max-width:640px){ .wrap{padding:18px 16px 70px} }
@@ -58,7 +61,7 @@ h1,h2,h3,h4{letter-spacing:-.012em;margin:0}
 .card p{margin:0;color:var(--ink-2);font-size:12.5px}
 .card .figs{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:2px}
 .card .fig{display:flex;flex-direction:column}
-.card .fig b{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:16px;font-weight:600;color:var(--ink)}
+.card .fig b{font-family:inherit;font-variant-numeric:tabular-nums;font-size:16px;font-weight:600;color:var(--ink)}
 .card .fig i{font-style:normal;font-family:var(--mono);font-size:9px;letter-spacing:.09em;
  text-transform:uppercase;color:var(--ink-3);font-weight:600}
 
@@ -80,21 +83,35 @@ h1,h2,h3,h4{letter-spacing:-.012em;margin:0}
 
 /* ── rows that open on a click ───────────────────────────────── */
 .rows{border:1px solid var(--border);border-radius:9px;overflow:hidden;background:var(--surface)}
-.row{border-bottom:1px solid var(--rule)}
+/* ── a row, in BOTH views ──────────────────────────────────────────────
+   These are the contracting companies' rows. They were built to a different
+   shape from the .hqrow rows on Jonna's screens — figures set in monospace,
+   the chevron on the left, a different focus colour, no wrapping — so the two
+   halves of the same tool did not read as the same tool.
+
+   They are aligned to .hqrow here, in CSS only. The behaviour is untouched:
+   these still open in place, and nothing that logs or signs time has moved. */
+.row{border-bottom:1px solid var(--rule,var(--border))}
 .row:last-child{border-bottom:0}
-.row-h{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:none;border:0;
- padding:11px 14px;font:inherit;color:inherit;cursor:pointer}
+.row-h{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;width:100%;text-align:left;
+ background:none;border:0;padding:10px 14px;font:inherit;font-size:13.5px;color:var(--ink);cursor:pointer}
 .row-h:hover{background:var(--surface-2)}
-.row-h:focus-visible{outline:2px solid var(--sky);outline-offset:-2px}
-.row.open .row-h{background:var(--sky-wash);}
-:root[data-theme="dark"] .row.open .row-h{background:var(--surface-3)}
-@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .row.open .row-h{background:var(--surface-3)} }
-.row-h .rt{font-weight:600;font-size:13.5px;flex:1 1 auto;min-width:0}
-.row-h .rs{font-family:var(--mono);font-size:11.5px;font-variant-numeric:tabular-nums;color:var(--ink-2);flex:0 0 auto}
-.row-h .chev{width:15px;height:15px;flex:0 0 auto;stroke:var(--ink-3);fill:none;stroke-width:2;
+.row-h:focus-visible{outline:2px solid var(--navy-mid);outline-offset:-2px}
+/* Open is a quieter state than it was — the same wash as hover rather than a
+   colour of its own, so an opened row still reads as a row. */
+.row.open .row-h{background:var(--surface-2)}
+.row-h .rt{font-weight:600;flex:1 1 260px;min-width:0;overflow-wrap:anywhere}
+/* ⚠ NOT monospace. Figures are IBM Plex Sans with tabular figures, so columns
+   still line up without the typewriter look. The .hqrow figures were already
+   set this way; these were the ones still out of step. */
+.row-h .rs{font-family:inherit;font-size:12.5px;font-variant-numeric:tabular-nums;
+ color:var(--ink-2);white-space:nowrap;flex:0 0 auto;margin-left:auto}
+/* The marker goes to the far right, where the .hqrow arrow is, rather than
+   sitting to the left of the title. */
+.row-h .chev{order:9;width:15px;height:15px;flex:0 0 auto;stroke:var(--ink-3);fill:none;stroke-width:2;
  stroke-linecap:round;stroke-linejoin:round;transition:transform .15s}
 .row.open .chev{transform:rotate(90deg)}
-.row-b{display:none;padding:4px 16px 18px;background:var(--surface-2);border-top:1px solid var(--rule)}
+.row-b{display:none;padding:4px 16px 18px;border-top:1px solid var(--rule,var(--border))}
 .row.open .row-b{display:block}
 
 /* ── fields, separate not blobs ──────────────────────────────── */
@@ -126,7 +143,7 @@ h1,h2,h3,h4{letter-spacing:-.012em;margin:0}
 .f label{font-family:var(--mono);font-size:9px;letter-spacing:.09em;text-transform:uppercase;
  color:var(--ink-3);font-weight:600}
 .f .v{font-size:13.5px;color:var(--ink);overflow-wrap:anywhere}
-.f .v.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.f .v.num{font-family:inherit;font-variant-numeric:tabular-nums}
 .blk{margin-top:16px}
 .blk h4{font-size:11.5px;font-family:var(--mono);letter-spacing:.09em;text-transform:uppercase;
  color:var(--ink-3);font-weight:700;margin-bottom:5px}
@@ -154,7 +171,8 @@ table{border-collapse:collapse;width:100%;font-size:12.5px}
 th,td{padding:7px 11px;text-align:left;border-bottom:1px solid var(--rule)}
 th{background:var(--surface-3);font-size:10.5px;font-family:var(--mono);letter-spacing:.08em;
  text-transform:uppercase;color:var(--ink-2);font-weight:700;border-bottom:2px solid var(--navy-mid)}
-td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+td.n{text-align:right;font-family:inherit;font-variant-numeric:tabular-nums}
+th.n{text-align:right}
 tr:last-child td{border-bottom:0}
 tfoot td{font-weight:700;background:var(--surface-2);border-top:2px solid var(--border-strong)}
 .tbl{border:1px solid var(--border);border-radius:9px;overflow:hidden;background:var(--surface)}
@@ -174,7 +192,7 @@ tfoot td{font-weight:700;background:var(--surface-2);border-top:2px solid var(--
 /* ── editing ─────────────────────────────────────────────────── */
 .f input, .f select{font:inherit;font-size:13.5px;font-family:var(--display);color:var(--ink);
  background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:5px 8px;width:100%;min-width:0}
-.f input.num{font-family:var(--mono);font-variant-numeric:tabular-nums}
+.f input.num{font-family:inherit;font-variant-numeric:tabular-nums}
 .f input:hover,.f select:hover{border-color:var(--border-strong)}
 .f input:focus,.f select:focus{outline:2px solid var(--sky);outline-offset:-1px;background:var(--surface-2)}
 .f.edited label{color:var(--warn)}
@@ -231,7 +249,7 @@ tfoot td{font-weight:700;background:var(--surface-2);border-top:2px solid var(--
 .stat:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
 .stat .lab{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.09em;
  color:var(--ink-3);line-height:1.35;font-weight:600;font-family:var(--mono)}
-.stat .val{display:block;font-family:var(--mono);font-variant-numeric:tabular-nums;
+.stat .val{display:block;font-family:inherit;font-variant-numeric:tabular-nums;
  font-size:26px;font-weight:600;margin-top:6px;letter-spacing:-.02em;line-height:1.1}
 .stat .sub{display:block;font-size:11.5px;color:var(--ink-3);margin-top:3px}
 .stat.warn{border-left:3px solid var(--warn)} .stat.warn .val{color:var(--warn)}
@@ -1022,7 +1040,7 @@ button,input,select,textarea,optgroup{font-family:inherit}
  background:var(--surface-2);border-bottom:1px solid var(--border);white-space:nowrap}
 .tbl td{padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
 .tbl tr:last-child td{border-bottom:0}
-.tbl td.n,.tbl th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.tbl td.n,.tbl th.n{text-align:right;font-family:inherit;font-variant-numeric:tabular-nums;white-space:nowrap}
 .tbl td.bad{color:var(--bad);font-weight:600}
 .tbl td.tick,.tbl th.tick{width:34px;text-align:center;padding-right:0}
 .tbl input[type=checkbox]{width:16px;height:16px;accent-color:var(--navy-mid);cursor:pointer}
@@ -1111,7 +1129,7 @@ button,input,select,textarea,optgroup{font-family:inherit}
 .stat.warn{border-color:var(--warn)}
 .stat .lab{display:block;font-size:10.5px;font-family:var(--mono);letter-spacing:.09em;
  text-transform:uppercase;color:var(--ink-3);font-weight:600}
-.stat .val{display:block;font-family:var(--mono);font-variant-numeric:tabular-nums;
+.stat .val{display:block;font-family:inherit;font-variant-numeric:tabular-nums;
  font-size:22px;font-weight:600;color:var(--ink);margin-top:2px}
 
 /* ── states ───────────────────────────────────────────────── */
@@ -1287,7 +1305,7 @@ body.railmini .railout{justify-content:center;padding:11px 0 8px}
 
 /* The hours box itself: narrow, monospaced, and lined up with the figures it
    is compared against. */
-.f input.hnum,.f input.covhrs{font-family:var(--mono);font-variant-numeric:tabular-nums;max-width:120px}
+.f input.hnum,.f input.covhrs{font-family:inherit;font-variant-numeric:tabular-nums;max-width:120px}
 
 .meterwrap{display:flex;align-items:center;gap:8px;margin:10px 0 2px}
 
@@ -1302,7 +1320,7 @@ body.railmini .railout{justify-content:center;padding:11px 0 8px}
 .covrow select.covwho{font:inherit;font-size:13.5px;font-family:var(--display);color:var(--ink);
   background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:6px 8px;
   min-width:190px;flex:1 1 190px}
-.covrow input.covhrs{font-size:13.5px;font-family:var(--mono);font-variant-numeric:tabular-nums;
+.covrow input.covhrs{font-size:13.5px;font-family:inherit;font-variant-numeric:tabular-nums;
   color:var(--ink);background:var(--surface);border:1px solid var(--border);border-radius:6px;
   padding:6px 8px;width:100px}
 .covrow select.covwho:focus,.covrow input.covhrs:focus{outline:2px solid var(--sky);outline-offset:-1px}
