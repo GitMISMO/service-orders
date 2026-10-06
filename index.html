@@ -2574,7 +2574,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-06 \u00b7 company-details';
+  var BUILD = '2026-10-06b \u00b7 company-details';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -2937,6 +2937,13 @@ window.H = (function () {
   window.MISMO_PORTAL_PARTS = {
     esc: esc, money: money, money0: money0, stamp: stamp, statusOf: statusOf, pill: pill,
     feeTotal: feeTotal, feeWords: feeWords,
+    /* ⚠ These two MUST be exported.
+       This file holds two separate modules in one <script>: the parts module
+       (here) and the views module below it. A function declared here is NOT in
+       scope down there — that is what "feeLabel is not defined" was, on every
+       screen that prints a fee. Anything both modules use crosses by this
+       object and nothing else. */
+    feeLabel: feeLabel, perReviewOrder: perReviewOrder, BUILD: BUILD,
     sect: sect, wireSections: wireSections, wireRows: wireRows,
     showPage: showPage, pageOf: pageOf, revealIn: revealIn,
     orderDoc: orderDoc, letterDoc: letterDoc, printBtn: printBtn, ORDER_OF: ORDER_OF
@@ -2989,6 +2996,7 @@ window.H = (function () {
   var esc = P.esc, money = P.money, money0 = P.money0, stamp = P.stamp;
   var statusOf = P.statusOf, pill = P.pill, sect = P.sect;
   var feeTotal = P.feeTotal, feeWords = P.feeWords;
+  var feeLabel = P.feeLabel, perReviewOrder = P.perReviewOrder, BUILD = P.BUILD;
   var ISS_YEAR = null;                // the fiscal year the company is looking at
   /* ⚠ This file is two separate closures — the parts above and the views
      below — so the DOM helpers have to exist in both.  They are not shared
