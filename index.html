@@ -1265,6 +1265,10 @@ body.signedout main,body.signedout #view{padding:0}
 
 .signfine{margin:18px 0 0;font-size:12.5px;line-height:1.6;color:var(--ink-3);text-align:center}
 .signfine a{color:var(--navy-mid);font-weight:600}
+/* ⚠ Deliberately quiet and deliberately NOT in IBM Plex Mono — it is a label,
+   not a figure. It only has to be legible when somebody is asked to read it
+   out, so it sits below the fold of attention. */
+.buildline{margin-top:10px;font-size:11px;letter-spacing:.02em;color:var(--ink-4,var(--ink-3));opacity:.7}
 :root[data-theme="dark"] .signfine a{color:var(--sky)}
 @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .signfine a{color:var(--sky)} }
 .signerr{display:block;margin-top:6px;font-family:var(--mono);font-size:11.5px;opacity:.8}
@@ -2563,6 +2567,15 @@ window.H = (function () {
 (function () {
   'use strict';
   var R = window.MISMO_RELAY;
+
+  /* ⚠ Which upload is actually live.
+     This page is one file that is replaced by hand, so "I uploaded it" and
+     "the browser is running it" are two different facts — a cached copy looks
+     exactly like a fresh one. The stamp is printed on the error screen and on
+     the sign-in screen, so a fault report says which build it came from
+     instead of costing a round of guessing. Bump it on every upload. */
+  var BUILD = '2026-10-06 \u00b7 company-details';
+
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
     return Array.prototype.slice.call((root || document).querySelectorAll(s));
@@ -7242,7 +7255,8 @@ window.H = (function () {
       'Nothing has been changed and nothing has been sent.' +
       (e && e.message ? '<br><br><span class="fineprint">' + esc(e.message) +
         (e.project ? ' \u2014 ' + esc(e.project) : '') + '</span>' : '') +
-      '<br><br><b>Email Jonna Critchley at jcritchley@mismo.org</b> and quote that line.');
+      '<br><br><b>Email Jonna Critchley at jcritchley@mismo.org</b> and quote that line.' +
+      '<br><span class="fineprint">Build ' + esc(BUILD) + '</span>');
   }
 
   /* =========================================================================
@@ -7280,6 +7294,7 @@ window.H = (function () {
         '<button class="signgo" type="button" id="si-go">Sign In</button>' +
         '<p class="signfine">Your session lasts four hours and ends when you close this tab.<br>' +
         'No password? Email <a href="mailto:jcritchley@mismo.org">Jonna Critchley</a>.</p>' +
+        '<p class="signfine buildline">Build ' + esc(BUILD) + '</p>' +
       '</div></div>');
 
     var emailEl = document.getElementById('si-email');
