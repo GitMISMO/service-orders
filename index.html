@@ -1724,7 +1724,7 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
 <main class="wrap"><div id="view"></div></main>
 <div id="printhost"></div>
 
-<script>window.RELAY={"base": "https://rgvdi67cg27o5kcmiytcqbqnrm0hmztx.lambda-url.us-east-1.on.aws", "projects": ["so-phoenix", "so-actualize", "so-trex", "so-falcon", "so-trudigital"], "slugs": {"so-phoenix": "phoenixteam", "so-actualize": "actualize", "so-trex": "trex", "so-falcon": "falcon", "so-trudigital": "trudigital"}, "note": "base is the relay's Lambda function URL. projects is every key this page may sign in against, tried in turn; the token is not project-bound, so the first that works covers them all. slugs maps a project key to the filename its data uses. All three are configuration: a sixth company is a change HERE and nowhere else."};</script>
+<script>window.RELAY={"base": "https://rgvdi67cg27o5kcmiytcqbqnrm0hmztx.lambda-url.us-east-1.on.aws", "projects": ["so-phoenix", "so-actualize", "so-trex", "so-falcon", "so-trudigital", "so-phoenix-hours", "so-actualize-hours", "so-trex-hours", "so-falcon-hours", "so-trudigital-hours"], "slugs": {"so-phoenix": "phoenixteam", "so-actualize": "actualize", "so-trex": "trex", "so-falcon": "falcon", "so-trudigital": "trudigital", "so-phoenix-hours": "phoenixteam", "so-actualize-hours": "actualize", "so-trex-hours": "trex", "so-falcon-hours": "falcon", "so-trudigital-hours": "trudigital"}, "note": "base is the relay's Lambda function URL. projects is every key this page may sign in against, tried in turn; the token is not project-bound, so the first that works covers them all. slugs maps a project key to the filename its data uses. lite names the HOURS-ONLY keys: a person holding one of those can read orders-public/ and nothing else, so a rate is not merely hidden from their screen, it never reaches their browser. All four are configuration: a sixth company is a change HERE and in projects.json, and nowhere else.", "lite": ["so-phoenix-hours", "so-actualize-hours", "so-trex-hours", "so-falcon-hours", "so-trudigital-hours"]};</script>
 <div class="modal" id="confirm" hidden role="alertdialog" aria-modal="true" aria-labelledby="confirm-t">
   <div class="modal-box"><h2 id="confirm-t">You have unsaved changes.</h2>
   <p id="confirm-p">Save them before closing?</p>
@@ -2596,7 +2596,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-07b \u00b7 rate-gate + cover';
+  var BUILD = '2026-10-07c \u00b7 two keys';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -3344,12 +3344,78 @@ window.H = (function () {
      repository, so every read and every save names the key for the company it
      concerns.  The map is configuration, baked in at build time; it carries
      nothing confidential, only which folder belongs to which name. */
+  var CFGP = (window.RELAY || {});
+  var LITE_KEYS = {};
+  (CFGP.lite || []).forEach(function (k) { LITE_KEYS[k] = 1; });
+
+  /* ⚠ Two keys per company, and the key is the permission.
+     The full key reads orders/ — where the rates are. The hours-only key reads
+     orders-public/, which has no money in it at all. The difference is enforced
+     by the RELAY, so a rate is not hidden from a facilitator's screen, it never
+     arrives at their browser. Anything the page does on top of that is
+     convenience; this is the part that holds. */
   var SLUG_TO_KEY = (function () {
-    var m = {}, slugs = (window.RELAY || {}).slugs || {};
-    Object.keys(slugs).forEach(function (k) { m[slugs[k]] = k; });
+    var m = {}, slugs = CFGP.slugs || {};
+    /* Full keys only, so the fallback for an unknown account is the strict
+       one and never the permissive one. */
+    Object.keys(slugs).forEach(function (k) { if (!LITE_KEYS[k]) m[slugs[k]] = k; });
     return m;
   })();
-  function keyFor(slug) { return SLUG_TO_KEY[slug] || ('so-' + slug); }
+  var SLUG_TO_LITE = (function () {
+    var m = {}, slugs = CFGP.slugs || {};
+    Object.keys(slugs).forEach(function (k) { if (LITE_KEYS[k]) m[slugs[k]] = k; });
+    return m;
+  })();
+
+  /* ⚠ THE HOURS COPY — built by ALLOW-LIST, never by deleting fields.
+     A denylist ("strip hourlyRate and maximumFee") is wrong the moment the
+     generator adds a field: the new one ships. This names every field that may
+     cross, and anything not named here cannot. The order DOCUMENT never
+     crosses at all, because the rate is written on it.
+
+     It is written already resolved — revisions and company details merged in —
+     so an hours-only key never needs to read revisions/ either, which carries
+     revised rates. */
+  var HOURS_ORDER_FIELDS = ['id', 'subject', 'estimatedHours', 'fiscalYear', 'facilitator'];
+  var HOURS_PERSON_FIELDS = ['slug', 'name', 'email', 'orders', 'timeManager',
+                             'activeFrom', 'activeTo'];
+
+  function hoursCopy(F) {
+    function pick(src, fields) {
+      var out = {};
+      fields.forEach(function (k) { if (src[k] !== undefined) out[k] = src[k]; });
+      return out;
+    }
+    return {
+      company: F.company,
+      slug: F.slug,
+      fiscalYear: F.fiscalYear,
+      coverAll: !!F.coverAll,
+      orders: (F.orders || []).map(function (o) { return pick(o, HOURS_ORDER_FIELDS); }),
+      people: (F.people || []).map(function (pr) { return pick(pr, HOURS_PERSON_FIELDS); }),
+      /* Present and empty on purpose: the screens that read these are not
+         built for an hours-only key, and an absent list would crash them if
+         one ever were. */
+      letters: [],
+      signers: { order: {} },
+      builtOn: new Date().toISOString(),
+      note: 'Hours only. No rate, no fee, no order document. Rebuilt from the ' +
+            'orders file whenever company details are saved.'
+    };
+  }
+
+  /* The key THIS account actually holds for this company. Somebody with both
+     (Jonna) gets the full one; somebody with only the hours key gets that, and
+     the relay refuses them everything else. */
+  function keyFor(slug) {
+    var have = (ME && ME.keys) || [];
+    var fullK = SLUG_TO_KEY[slug], liteK = SLUG_TO_LITE[slug];
+    if (fullK && have.indexOf(fullK) >= 0) return fullK;
+    if (liteK && have.indexOf(liteK) >= 0) return liteK;
+    return fullK || ('so-' + slug);
+  }
+  /* Is this person on the hours-only key for this company? */
+  function onLiteKey(slug) { return !!LITE_KEYS[keyFor(slug)]; }
 
   /* ---- revisions --------------------------------------------------------
      The binding terms a person changed after an order was stopped.
@@ -3565,6 +3631,12 @@ window.H = (function () {
   }
 
   function loadCompany(slug) {
+    /* ⚠ An hours-only key takes a DIFFERENT PATH ENTIRELY, rather than the
+       same reads with the money dropped afterwards. It asks for one file that
+       has no money in it, and asks for nothing else — so there is no request
+       here that the relay would have to refuse, and nothing to leak if a later
+       screen forgets to check a role. */
+    if (onLiteKey(slug)) return loadCompanyHours(slug);
     return Promise.all([
       R.read(keyFor(slug), 'orders/' + slug + '.json'),
       R.read(keyFor(slug), 'signatures/' + slug + '.json'),
@@ -3612,6 +3684,31 @@ window.H = (function () {
     });
   }
 
+  /* The whole of an hours-only person's world: one file, no money in it.
+     ⚠ orders/, revisions/, signatures/ and agreements/ are not requested — not
+     requested and refused, NOT REQUESTED. The relay would refuse them anyway;
+     this makes the page agree with the relay instead of relying on it. */
+  function loadCompanyHours(slug) {
+    return R.read(keyFor(slug), 'orders-public/' + slug + '.json').then(function (r) {
+      var F = r.data || {};
+      F.slug = F.slug || slug;
+      F.orders = F.orders || [];
+      F.people = F.people || [];
+      F.letters = [];
+      F.signers = { order: {} };
+      return { slug: slug, sha: r.sha, F: F, local: {}, executed: {},
+               sigSha: null, sigs: [], revisions: [], hoursOnly: true };
+    }).catch(function (e) {
+      if (e && (e.status === 404 || e.missing)) {
+        var m = new Error('The hours copy for this company has not been published yet. ' +
+          'Jonna publishes it from Company Details.');
+        m.missing = true;
+        throw m;
+      }
+      throw e;
+    });
+  }
+
   /* ---- writing a revision ------------------------------------------------
      Appends one record.  parentSha travels with the save and a 409 re-reads and
      re-applies, exactly as a signature does, so two people revising different
@@ -3623,6 +3720,14 @@ window.H = (function () {
       next.revisions = (next.revisions || []).concat([record]);
       return next;
     }, 'revised ' + record.order, { revisions: [] });
+  }
+  /* Write the hours copy for one company. ⚠ Built from the file as the page
+     has it — revisions and company details already merged — so what a
+     facilitator reads is the current truth, minus the money. */
+  function publishHoursCopy(slug, F) {
+    var body = hoursCopy(F);
+    return R.update(keyFor(slug), 'orders-public/' + slug + '.json', function () { return body; },
+      'hours copy: ' + (F.company || slug), {});
   }
   function loadAll(slugs) { return Promise.all(slugs.map(loadCompany)); }
 
@@ -3723,7 +3828,13 @@ window.H = (function () {
      firm's rates. */
   var REALROLE = 'facilitator';       // until the company file proves otherwise
 
-  function roleFor(F, me) {
+  function roleFor(F, me, slug) {
+    /* ⚠ The key wins over the data, always. An hours-only key cannot reach a
+       rate whatever any file says, so the screen must not pretend otherwise —
+       and a tampered or stale hours copy claiming fullAccess must not promote
+       anybody. */
+    if (slug && onLiteKey(slug)) return 'facilitator';
+    if (F && F.hoursOnly) return 'facilitator';
     if (!F || !me) return 'facilitator';
     var signer = (F.signers || {}).order || {};
     var myEmail = String(me.email || '').toLowerCase().trim();
@@ -3761,7 +3872,7 @@ window.H = (function () {
       /* ⚠ Decided ONCE, here, before a single row is built — from who() , which
          is the person being viewed in View As and the signed-in person
          otherwise. Every isFac() call below reads this answer. */
-      REALROLE = roleFor(F, who());
+      REALROLE = C.hoursOnly ? 'facilitator' : roleFor(F, who(), C.slug);
       var st = {};
       F.orders.forEach(function (o) { st[o.id] = statusOf(o, sigs); });
       /* Alphabetical, like every other list of orders. ⚠ Sorted ONCE, here, so
@@ -6533,8 +6644,15 @@ window.H = (function () {
               esc(pr.slug || '') + '"></div></div>';
           }).join('') + '</div>' +
 
+          '<h4 class="subh">The Hours Copy</h4>' +
+          '<p class="fineprint">People on the hours-only sign-in read a separate file that has ' +
+          '<b>no rate and no fee in it at all</b> — so the figures are not hidden from their ' +
+          'screen, they never reach their computer. Saving below republishes it. Use the button ' +
+          'if you have changed the orders themselves and want it refreshed now.</p>' +
           '<div class="onebar"><button class="gobtn cd-go" type="button" data-p="' + p +
-          '" data-slug="' + esc(C.slug) + '">Save ' + esc(F.company) + '’s Details</button></div>' +
+          '" data-slug="' + esc(C.slug) + '">Save ' + esc(F.company) + '’s Details</button>' +
+          '<button class="tbtn cd-pub" type="button" data-slug="' + esc(C.slug) +
+          '">Republish the Hours Copy</button></div>' +
           '<p class="fineprint">Saved beside the revisions, not into the generated file — so ' +
           'regenerating the orders from the forecast can never wipe what you change here.</p>';
 
@@ -7015,9 +7133,40 @@ window.H = (function () {
             if (!Object.keys(next.details.orders).length) delete next.details.orders;
             return next;
           }, 'company details: ' + F.company, { revisions: [] })
+            /* ⚠ Republished in the SAME action as the save. If this were a
+               separate button somebody has to remember, the hours copy would
+               drift from the real file the first busy week — and a stale copy
+               is how somebody ends up logging against an order that moved. */
+            .then(function () {
+              var merged = applyDetails(JSON.parse(JSON.stringify(F)), d);
+              return publishHoursCopy(slug, merged).catch(function (e) {
+                if (window.console && console.warn) console.warn('hours copy', e);
+                toast('Details saved, but the hours copy could not be republished — ' +
+                  'use Republish the Hours Copy.', 'warn');
+              });
+            })
             .then(function () { toast(F.company + '’s details saved', 'good'); adminView(); })
             .catch(function (e) {
               b.disabled = false; b.textContent = 'Save ' + F.company + '’s Details';
+              failed(e);
+            });
+        });
+      });
+
+      (root || document).querySelectorAll('.cd-pub').forEach(function (b) {
+        if (b.dataset.wired) return; b.dataset.wired = '1';
+        b.addEventListener('click', function () {
+          var slug = b.dataset.slug;
+          var C = list.filter(function (x) { return x.slug === slug; })[0];
+          if (!C) return;
+          b.disabled = true; b.textContent = 'Publishing…';
+          publishHoursCopy(slug, C.F)
+            .then(function () {
+              b.textContent = 'Republish the Hours Copy'; b.disabled = false;
+              toast(C.F.company + '’s hours copy is published', 'good');
+            })
+            .catch(function (e) {
+              b.textContent = 'Republish the Hours Copy'; b.disabled = false;
               failed(e);
             });
         });
