@@ -2624,7 +2624,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-07e \u00b7 facilitator view';
+  var BUILD = '2026-10-07f \u00b7 logs time';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -3406,7 +3406,7 @@ window.H = (function () {
      revised rates. */
   var HOURS_ORDER_FIELDS = ['id', 'subject', 'estimatedHours', 'fiscalYear', 'facilitator'];
   var HOURS_PERSON_FIELDS = ['slug', 'name', 'email', 'orders', 'timeManager',
-                             'activeFrom', 'activeTo'];
+                             'logsTime', 'activeFrom', 'activeTo'];
 
   function hoursCopy(F) {
     function pick(src, fields) {
@@ -3560,6 +3560,7 @@ window.H = (function () {
          than merged — a list that could only ever grow would make removing an
          order impossible. */
       if (o.orders) p.orders = o.orders.slice();
+      if (o.logsTime != null) p.logsTime = !!o.logsTime;
     });
     /* Everybody at this company may log against every order, because they
        cover for each other. What is NORMALLY theirs stays on the person
@@ -3597,12 +3598,20 @@ window.H = (function () {
     own.sort(byName); cover.sort(byName);
     return { own: own, cover: cover, all: own.concat(cover) };
   }
-  /* Does this person log time at all?  ⚠ Under cover-all, somebody with no
-     orders of their own still logs — that is the whole point of cover. */
+  /* Does this person log time at all?
+     ⚠ COVER DOES NOT MAKE SOMEBODY A TIME LOGGER. It widens which orders a
+     logger may book against; it does not hand My Hours to the authorised
+     signer and the manager above her, who never log a minute. Cover-all was
+     doing exactly that, and it put My Hours and My Submitted Time on screens
+     that had no use for them.
+
+     The answer is the person's own orders, unless Jonna has said otherwise in
+     Company Details — an explicit Yes or No always wins, so somebody who
+     covers but has nothing normally theirs can still be given the screen. */
   function logsTime(F, person) {
     if (!person) return false;
-    return ((person.orders || []).length > 0) ||
-      (!!F.coverAll && (F.orders || []).length > 0);
+    if (person.logsTime != null) return !!person.logsTime;
+    return (person.orders || []).length > 0;
   }
 
   function applyLocal(F, local) {
@@ -6654,7 +6663,9 @@ window.H = (function () {
           '<h4 class="subh">People</h4>' +
           '<p class="fineprint">The email is how a sign-in is matched to a person, so it has to be ' +
           'the address their account uses. <b>Sees Everything</b> gives them the signer’s view ' +
-          'rather than hours only.</p>' +
+          'rather than hours only. <b>Logs Time</b> decides whether they get <b>My Hours</b> and ' +
+          '<b>My Submitted Time</b> at all \u2014 a signer or a manager who never books hours should ' +
+          'be <b>No</b>. It starts as Yes for anybody with an order ticked below.</p>' +
           '<div class="rows">' + (F.people || []).map(function (pr, pi) {
             var pp = p + '-p' + pi;
             return '<div class="row"><div class="row-h">' +
@@ -6674,6 +6685,11 @@ window.H = (function () {
               '<select class="cdf" data-p="' + pp + '" data-k="ptm">' +
               '<option value="no"' + (pr.timeManager ? '' : ' selected') + '>No</option>' +
               '<option value="yes"' + (pr.timeManager ? ' selected' : '') + '>Yes</option></select></div>' +
+              '<div class="f"><label>Logs Time</label>' +
+              '<select class="cdf" data-p="' + pp + '" data-k="plogs">' +
+              '<option value="no"' + (logsTime(F, pr) ? '' : ' selected') +
+                '>No \u2014 no My Hours screen</option>' +
+              '<option value="yes"' + (logsTime(F, pr) ? ' selected' : '') + '>Yes</option></select></div>' +
               '</div>' +
               '<h5 class="subh5">Normally Theirs</h5>' +
               '<p class="fineprint">The orders this person is expected to log against. ' +
@@ -7137,6 +7153,11 @@ window.H = (function () {
             if (full !== !!pr.fullAccess) one.fullAccess = full;
             var tm = val(pp, 'ptm') === 'yes';
             if (tm !== !!pr.timeManager) one.timeManager = tm;
+            /* ⚠ Compared against the EFFECTIVE answer, not against a stored
+               flag: leaving the control alone must record nothing, whether the
+               current answer came from a stored Yes/No or from their orders. */
+            var lg = val(pp, 'plogs') === 'yes';
+            if (lg !== logsTime(F, pr)) one.logsTime = lg;
             if (Object.keys(one).length) d.people[pr.slug] = one;
           });
 
