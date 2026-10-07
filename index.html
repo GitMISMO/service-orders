@@ -2574,7 +2574,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-06b \u00b7 company-details';
+  var BUILD = '2026-10-07 \u00b7 rate-gate';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -3638,12 +3638,57 @@ window.H = (function () {
      the maximum fee, not a total — and not the order document either, because
      the rate is written on it.  The maximum fee is held back for the same
      reason the rate is: fee divided by hours IS the rate. */
-  function isFac() { return !!(VIEWAS && VIEWAS.role === 'facilitator'); }
+  /* ⚠ THE RATE GATE. Read this before changing anything below it.
+     This used to be `VIEWAS && VIEWAS.role === 'facilitator'` — which meant
+     decision 26 was enforced ONLY while Jonna was driving somebody's screen in
+     View As. A real person signing in with their own account has no VIEWAS, so
+     the test was false and EVERY contracting-company account was handed the
+     signer's screen: rates, maximum fees, the fiscal-year total and the order
+     document itself, which has the rate written on it. The training simulation
+     obeyed the rule the live screen did not.
+
+     It now fails CLOSED. Money is shown only to somebody positively identified
+     as the order signer, or explicitly given fullAccess. An account the people
+     list does not recognise, a file that will not load, a signer with no email
+     recorded — every one of those reads as a facilitator and sees hours only.
+     The cost of the cautious answer is a signer who has to be identified
+     properly; the cost of the permissive one is a contractor reading another
+     firm's rates. */
+  var REALROLE = 'facilitator';       // until the company file proves otherwise
+
+  function roleFor(F, me) {
+    if (!F || !me) return 'facilitator';
+    var signer = (F.signers || {}).order || {};
+    var myEmail = String(me.email || '').toLowerCase().trim();
+    var sgEmail = String(signer.email || '').toLowerCase().trim();
+    /* Email first: it is the thing the sign-in is actually keyed on. */
+    if (myEmail && sgEmail && myEmail === sgEmail) return 'signer';
+    /* Name second, and only as a fallback — the signer's email is not always
+       recorded, and locking the signer out of accepting their own orders is a
+       real cost. Names here come from a curated five-company list, not from
+       anything a contractor can type. */
+    var myName = String(me.name || '').toLowerCase().trim();
+    var sgName = String(signer.name || '').toLowerCase().trim();
+    if (myName && sgName && myName === sgName) return 'signer';
+    /* Explicitly granted, person by person, in Company Details. */
+    var pr = personFor(F, me);
+    if (pr && pr.fullAccess) return 'signer';
+    return 'facilitator';
+  }
+
+  function isFac() {
+    if (VIEWAS) return VIEWAS.role === 'facilitator';
+    return REALROLE !== 'signer';
+  }
 
   function contractorView() {
     busy();
+    REALROLE = 'facilitator';         // ⚠ reset first: never inherit the last screen's answer
     loadCompany(who().slug).then(function (C) {
       var F = C.F, sigs = C.sigs;
+      /* ⚠ Decided ONCE, here, before a single row is built. Every isFac() call
+         below this line reads the answer rather than working it out again. */
+      if (!VIEWAS) REALROLE = roleFor(F, who());
       var st = {};
       F.orders.forEach(function (o) { st[o.id] = statusOf(o, sigs); });
       /* Alphabetical, like every other list of orders. ⚠ Sorted ONCE, here, so
