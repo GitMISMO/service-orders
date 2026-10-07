@@ -1265,6 +1265,28 @@ body.signedout main,body.signedout #view{padding:0}
 
 .signfine{margin:18px 0 0;font-size:12.5px;line-height:1.6;color:var(--ink-3);text-align:center}
 .signfine a{color:var(--navy-mid);font-weight:600}
+.subh5{margin:14px 0 4px;font-size:13px;font-weight:700;color:var(--ink-2)}
+.ticks{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px 16px;margin:6px 0 2px}
+.tick1{display:flex;align-items:flex-start;gap:8px;font-size:13.5px;line-height:1.45;
+  padding:3px 0;cursor:pointer}
+.tick1 input{margin-top:3px;flex:none}
+.minebar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px}
+.mbtn{font:inherit;font-size:13px;font-weight:600;padding:7px 12px;border-radius:4px;
+  border:1px solid var(--line);background:var(--card);color:var(--ink-2);cursor:pointer}
+.mbtn:hover{border-color:var(--navy-mid)}
+.mbtn.on{background:var(--navy);border-color:var(--navy);color:#fff}
+.mct{display:inline-block;margin-left:6px;padding:1px 6px;border-radius:3px;
+  background:rgba(0,0,0,.08);font-size:12px}
+.mbtn.on .mct{background:rgba(255,255,255,.22)}
+.pill.cover{background:var(--sky-soft,rgba(116,191,235,.22));color:var(--navy);border-radius:3px}
+.hqrow.covering .t{opacity:.92}
+.fac{display:inline-block;margin-left:8px;font-size:12px;color:var(--ink-3);font-weight:500}
+:root[data-theme="dark"] .mct{background:rgba(255,255,255,.12)}
+:root[data-theme="dark"] .pill.cover{background:rgba(116,191,235,.18);color:var(--sky)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .mct{background:rgba(255,255,255,.12)}
+  :root:not([data-theme="light"]) .pill.cover{background:rgba(116,191,235,.18);color:var(--sky)}
+}
 /* ⚠ Deliberately quiet and deliberately NOT in IBM Plex Mono — it is a label,
    not a figure. It only has to be legible when somebody is asked to read it
    out, so it sits below the fold of attention. */
@@ -2574,7 +2596,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-07 \u00b7 rate-gate';
+  var BUILD = '2026-10-07b \u00b7 rate-gate + cover';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -3440,8 +3462,53 @@ window.H = (function () {
       if (o.email != null) p.email = o.email;
       if (o.fullAccess != null) p.fullAccess = !!o.fullAccess;
       if (o.timeManager != null) p.timeManager = !!o.timeManager;
+      /* The orders this person normally logs against. Replaced outright rather
+         than merged — a list that could only ever grow would make removing an
+         order impossible. */
+      if (o.orders) p.orders = o.orders.slice();
+    });
+    /* Everybody at this company may log against every order, because they
+       cover for each other. What is NORMALLY theirs stays on the person
+       record, so their own lines can still be told apart from the cover. */
+    if (d.coverAll != null) F.coverAll = !!d.coverAll;
+    /* Who is answerable for an order, switchable at any time. */
+    (F.orders || []).forEach(function (o) {
+      var ov = (d.orders || {})[o.id];
+      if (ov && ov.facilitator != null) o.facilitator = ov.facilitator;
     });
     return F;
+  }
+
+  /* ⚠ THE ONE RULE for which service orders a person may log time against.
+     Three screens used to work this out from `person.orders` separately — My
+     Hours, the list of who owes a week, and which hours files to load. A
+     company that covers for each other broke all three differently. It is
+     decided here now, and every screen asks.
+
+     `own` is what is normally theirs. `cover` is everything else they are
+     allowed to pick up. Both are returned, because the difference is the
+     thing a person sorting their own week actually needs to see. */
+  function ordersForPerson(F, person, year) {
+    var all = (F.orders || []).filter(function (o) {
+      return !year || (o.fiscalYear || F.fiscalYear) === year;
+    });
+    var mine = {};
+    ((person && person.orders) || []).forEach(function (id) { mine[id] = 1; });
+    var own = all.filter(function (o) { return mine[o.id]; });
+    var cover = F.coverAll ? all.filter(function (o) { return !mine[o.id]; }) : [];
+    function byName(a, b) {
+      return String(a.subject || '').localeCompare(String(b.subject || ''),
+        undefined, { sensitivity: 'base', numeric: true });
+    }
+    own.sort(byName); cover.sort(byName);
+    return { own: own, cover: cover, all: own.concat(cover) };
+  }
+  /* Does this person log time at all?  ⚠ Under cover-all, somebody with no
+     orders of their own still logs — that is the whole point of cover. */
+  function logsTime(F, person) {
+    if (!person) return false;
+    return ((person.orders || []).length > 0) ||
+      (!!F.coverAll && (F.orders || []).length > 0);
   }
 
   function applyLocal(F, local) {
@@ -3676,19 +3743,25 @@ window.H = (function () {
     return 'facilitator';
   }
 
-  function isFac() {
-    if (VIEWAS) return VIEWAS.role === 'facilitator';
-    return REALROLE !== 'signer';
-  }
+  /* ⚠ ONE computation, for the live screen and for View As alike.
+     This used to read VIEWAS.role when viewing as somebody — a SECOND opinion,
+     worked out by the chooser rather than by the rule. That is precisely how
+     the rate leak hid: the training screen obeyed decision 26 and the live
+     screen did not, so checking it in View As proved nothing.
+     View As now derives the role from the person being viewed, exactly as
+     their own sign-in would. If the two could ever differ, View As would be
+     worth nothing as a check. */
+  function isFac() { return REALROLE !== 'signer'; }
 
   function contractorView() {
     busy();
     REALROLE = 'facilitator';         // ⚠ reset first: never inherit the last screen's answer
     loadCompany(who().slug).then(function (C) {
       var F = C.F, sigs = C.sigs;
-      /* ⚠ Decided ONCE, here, before a single row is built. Every isFac() call
-         below this line reads the answer rather than working it out again. */
-      if (!VIEWAS) REALROLE = roleFor(F, who());
+      /* ⚠ Decided ONCE, here, before a single row is built — from who() , which
+         is the person being viewed in View As and the signed-in person
+         otherwise. Every isFac() call below reads this answer. */
+      REALROLE = roleFor(F, who());
       var st = {};
       F.orders.forEach(function (o) { st[o.id] = statusOf(o, sigs); });
       /* Alphabetical, like every other list of orders. ⚠ Sorted ONCE, here, so
@@ -3944,7 +4017,7 @@ window.H = (function () {
                screens — Jonna, 29 September.  What a time manager gets instead
                is the one screen that IS their job.
                (No names here: this file is served from a PUBLIC repository.) */
-            var logs = (person.orders || []).length > 0;
+            var logs = logsTime(F, person);
             return (logs
               ? sect('My Hours', null, hoursSection(C, person, fy, mine, files), true) +
                 sect('My Submitted Time', (mine.weeks || []).length,
@@ -4046,7 +4119,7 @@ window.H = (function () {
      the order is close to its maximum.  That is how an overrun first shows up
      on an invoice instead of on this page. */
   function loadHours(slug, F, fy) {
-    var people = (F.people || []).filter(function (p) { return (p.orders || []).length; });
+    var people = (F.people || []).filter(function (p) { return logsTime(F, p); });
     return Promise.all(people.map(function (p) {
       return R.readOr(keyFor(slug), hoursPath(p, fy), null)
         .then(function (r) { return r.data || H.emptyFile(p, fy); });
@@ -4164,9 +4237,17 @@ window.H = (function () {
 
     if (HRS.draftWeek !== ending || !HRS.draft) seedDraft(mine, ending, wk, back);
 
-    var orders = (person.orders || []).map(function (id) { return orderById(F, id); })
-      .filter(function (o) { return o; });
-    HRS.orders = orders; HRS.C = C; HRS.fy = fy; HRS.person = person;
+    /* ⚠ Own first, then the cover, each alphabetical. A person opening their
+       week sees their own lines where they always are, with everything they
+       may pick up underneath — rather than one merged list that reorders
+       itself as soon as somebody else's order is added. */
+    var split = ordersForPerson(F, person, fy);
+    var showAll = HRS.showAll == null ? !split.own.length : HRS.showAll;
+    if (!split.cover.length) showAll = false;
+    var orders = showAll ? split.all : (split.own.length ? split.own : split.all);
+    var OWN = {}; split.own.forEach(function (o) { OWN[o.id] = 1; });
+    HRS.orders = orders; HRS.own = OWN; HRS.split = split; HRS.showAll = showAll;
+    HRS.C = C; HRS.fy = fy; HRS.person = person;
     HRS.sent = sent; HRS.files = files;
 
     if (!orders.length) {
@@ -4265,15 +4346,36 @@ window.H = (function () {
       : '<div class="wkstate open"><span class="wk-l">Open</span>' +
         '<span class="wk-d">Not submitted yet. Nothing here has gone to MISMO.</span></div>';
 
-    var list = '<div class="hqrows">' + orders.map(function (o) {
+    /* ⚠ Only offered when there IS cover to show. A company that does not
+       cover for each other never sees this control at all. */
+    var mineBar = split.cover.length
+      ? '<div class="minebar">' +
+        '<button class="mbtn' + (showAll ? '' : ' on') + '" type="button" data-mine="own">' +
+        'Normally Mine <span class="mct">' + split.own.length + '</span></button>' +
+        '<button class="mbtn' + (showAll ? ' on' : '') + '" type="button" data-mine="all">' +
+        'Everything I Can Log <span class="mct">' + split.all.length + '</span></button>' +
+        '<span class="fineprint">' +
+        (showAll
+          ? 'Your own orders are first; the rest are the ones you can cover.'
+          : 'Showing only what is normally yours.') +
+        '</span></div>'
+      : '';
+
+    var list = mineBar + '<div class="hqrows">' + orders.map(function (o) {
       var r = HRS.draft[o.id] || {};
       var logged = Number(r.hours) || 0;
       var tot = Number(o.estimatedHours) || 0;
       var used = H.usedOnOrder(files, o.id);
       var pct = tot ? Math.min(100, 100 * used / tot) : 0;
       var note = (r.thisWeek || '').trim();
-      return '<button class="hqrow hrow" type="button" data-hrow="' + esc(o.id) + '">' +
+      /* ⚠ Marked, not hidden. Somebody covering needs to see at a glance which
+         lines are their own work and which are somebody else's. */
+      var covering = split.cover.length && !OWN[o.id];
+      return '<button class="hqrow hrow' + (covering ? ' covering' : '') +
+        '" type="button" data-hrow="' + esc(o.id) + '">' +
         '<span class="t">' + esc(o.subject) +
+        (covering ? ' <span class="pill cover">Cover</span>' : '') +
+        (o.facilitator ? ' <span class="fac">' + esc(o.facilitator) + '</span>' : '') +
         '<small>' + (note ? esc(note.slice(0, 70)) + (note.length > 70 ? '…' : '')
                           : (logged ? 'No note yet' : 'Nothing entered')) +
         '</small></span>' +
@@ -4605,7 +4707,7 @@ window.H = (function () {
     var today = new Date();
     var out = [];
     (F.people || []).forEach(function (p) {
-      if (!(p.orders || []).length) return;
+      if (!logsTime(F, p)) return;
       var f = null;
       files.forEach(function (x) { if (x && x.slug === p.slug) f = x; });
       var sentWeeks = {};
@@ -4848,6 +4950,17 @@ window.H = (function () {
         : 'Nothing entered yet';
     }
     count();
+
+    /* ---- Normally Mine / Everything I Can Log ---------------------------
+       ⚠ A view switch, never a save. Anything typed into the week is already
+       in the working copy keyed by order id, so switching the list cannot
+       lose an entry — including an entry on a line the switch hides. */
+    $$('#view [data-mine]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        HRS.showAll = b.dataset.mine === 'all';
+        hoursHome();
+      });
+    });
 
     /* ---- one order opens on the right ---------------------------------- */
     $$('#view [data-hrow]').forEach(function (b) {
@@ -5340,11 +5453,15 @@ window.H = (function () {
     return '<div class="vabar">' +
       '<span class="va-l">Viewing As</span>' +
       '<span class="va-c">' + esc(VIEWAS.company) + '</span>' +
+      /* ⚠ The banner reports the screen that was ACTUALLY built — REALROLE —
+         not what the chooser intended. If those two ever disagreed, the banner
+         would be the thing telling Jonna the check had passed. */
       '<span class="va-r">' + esc(VIEWAS.person || '') + ' · ' +
-        ({ facilitator: 'a facilitator — no rate, no fee, hours only',
-           'vp-product': 'the VP’s decision queue, across all five companies',
+        ({ 'vp-product': 'the VP’s decision queue, across all five companies',
            president: 'the President’s approval queue, across all five companies'
-         }[VIEWAS.role] || 'the signer — everything they see') + '</span>' +
+         }[VIEWAS.role] ||
+         (isFac() ? 'a facilitator — no rate, no fee, hours only'
+                  : 'the signer — everything they see')) + '</span>' +
       '<span class="va-ro">Nothing saves</span>' +
       '<button class="va-out" type="button" id="va-out">Back to My View</button>' +
       '</div>';
@@ -5422,22 +5539,26 @@ window.H = (function () {
     (F.people || []).forEach(function (pr) {
       if (!active(pr, H.parse(H.weekFor(F.fiscalYear || 'FY 2027', new Date())))) return;
       if (signer && pr.name === signer.name) return;    // already above
-      if (!(pr.orders || []).length && !pr.timeManager && !pr.fullAccess) return;
+      if (!logsTime(F, pr) && !pr.timeManager && !pr.fullAccess) return;
       /* \u26a0 EVERY non-signer used to be hard-coded as a facilitator \u2014 hours only,
          no money \u2014 with no way for a second person at a company to see what the
          signer sees. A manager who is not the authorised signer therefore read
          as hours-only however their account was set, because this is a property
          of the PERSON RECORD and not of their access.
          `fullAccess: true` on the person is what says otherwise. */
-      if (pr.fullAccess) {
+      /* ⚠ Asked of the RULE, never guessed here — the label has to describe the
+         screen this person actually gets. */
+      if (roleFor(F, pr) === 'signer') {
         out.push({ key: pr.slug, name: pr.name, title: pr.title || '',
                    role: 'signer',
                    what: 'sees everything the signer sees' });
         return;
       }
+      var n = ordersForPerson(F, pr, F.fiscalYear);
       out.push({ key: pr.slug, name: pr.name, role: 'facilitator',
-                 what: (pr.orders || []).length
-                   ? 'logs ' + pr.orders.length + ' order' + (pr.orders.length === 1 ? '' : 's') +
+                 what: n.all.length
+                   ? 'logs ' + n.own.length + ' of their own' +
+                     (n.cover.length ? ', can cover ' + n.cover.length + ' more' : '') +
                      ' \u2014 hours only, no money'
                    : 'time manager \u2014 hours only, no money' });
     });
@@ -6348,6 +6469,33 @@ window.H = (function () {
               esc(l.msaFlavour) + '">';
           }).join('') +
 
+          '<h4 class="subh">Who Covers Which Service Orders</h4>' +
+          '<div class="revgrid">' +
+          '<div class="f"><label>Everyone Here Can Log Against Every Order</label>' +
+          '<select class="cdf" data-p="' + p + '" data-k="coverall">' +
+          '<option value="no"' + (F.coverAll ? '' : ' selected') + '>No \u2014 only their own orders</option>' +
+          '<option value="yes"' + (F.coverAll ? ' selected' : '') + '>Yes \u2014 they cover for each other</option>' +
+          '</select></div></div>' +
+          '<p class="fineprint">With this on, everybody at ' + esc(F.company) + ' sees every order ' +
+          'in <b>My Hours</b> and can log against any of them. What is ticked as theirs below still ' +
+          'decides what <b>Normally Mine</b> shows them, so their own work stays easy to find.</p>' +
+
+          '<h4 class="subh">Who Is the Facilitator</h4>' +
+          '<p class="fineprint">Who is answerable for an order. Change it whenever it moves \u2014 ' +
+          'nothing already logged against the order is touched.</p>' +
+          '<div class="revgrid">' + (F.orders || []).map(function (o, oi) {
+            var op = p + '-o' + oi;
+            return '<div class="f"><label>' + esc(o.subject) + '</label>' +
+              '<select class="cdf" data-p="' + op + '" data-k="ofac">' +
+              '<option value="">Nobody set</option>' +
+              (F.people || []).map(function (pr) {
+                return '<option value="' + esc(pr.name) + '"' +
+                  (o.facilitator === pr.name ? ' selected' : '') + '>' + esc(pr.name) + '</option>';
+              }).join('') + '</select>' +
+              '<input type="hidden" class="cdf" data-p="' + op + '" data-k="oid" value="' +
+              esc(o.id) + '"></div>';
+          }).join('') + '</div>' +
+
           '<h4 class="subh">People</h4>' +
           '<p class="fineprint">The email is how a sign-in is matched to a person, so it has to be ' +
           'the address their account uses. <b>Sees Everything</b> gives them the signer’s view ' +
@@ -6371,7 +6519,17 @@ window.H = (function () {
               '<select class="cdf" data-p="' + pp + '" data-k="ptm">' +
               '<option value="no"' + (pr.timeManager ? '' : ' selected') + '>No</option>' +
               '<option value="yes"' + (pr.timeManager ? ' selected' : '') + '>Yes</option></select></div>' +
-              '</div><input type="hidden" class="cdf" data-p="' + pp + '" data-k="pslug" value="' +
+              '</div>' +
+              '<h5 class="subh5">Normally Theirs</h5>' +
+              '<p class="fineprint">The orders this person is expected to log against. ' +
+              'These are what <b>Normally Mine</b> shows them.</p>' +
+              '<div class="ticks">' + (F.orders || []).map(function (o) {
+                var on = ((pr.orders || []).indexOf(o.id) >= 0);
+                return '<label class="tick1"><input type="checkbox" class="cdo" data-p="' + pp +
+                  '" value="' + esc(o.id) + '"' + (on ? ' checked' : '') + '>' +
+                  '<span>' + esc(o.subject) + '</span></label>';
+              }).join('') + '</div>' +
+              '<input type="hidden" class="cdf" data-p="' + pp + '" data-k="pslug" value="' +
               esc(pr.slug || '') + '"></div></div>';
           }).join('') + '</div>' +
 
@@ -6789,8 +6947,29 @@ window.H = (function () {
             if (Object.keys(one).length) d.letters[l.msaFlavour] = one;
           });
 
+          /* company-wide cover switch */
+          var coverNow = val(p, 'coverall') === 'yes';
+          if (coverNow !== !!F.coverAll) d.coverAll = coverNow;
+
+          /* who is answerable for each order */
+          d.orders = {};
+          (F.orders || []).forEach(function (o, oi) {
+            var op = p + '-o' + oi;
+            var fac = val(op, 'ofac');
+            if (fac !== (o.facilitator || '')) d.orders[o.id] = { facilitator: fac };
+          });
+          if (!Object.keys(d.orders).length) delete d.orders;
+
           (F.people || []).forEach(function (pr, pi) {
             var pp = p + '-p' + pi, one = {};
+            /* ⚠ Compared as a SET, not as text: re-saving an untouched person
+               must record nothing, and the tick order is not meaningful. */
+            var now = [];
+            document.querySelectorAll('.cdo[data-p="' + pp + '"]').forEach(function (cb) {
+              if (cb.checked) now.push(cb.value);
+            });
+            var was = (pr.orders || []).slice();
+            if (now.slice().sort().join('\u0001') !== was.slice().sort().join('\u0001')) one.orders = now;
             if (val(pp, 'pemail') !== (pr.email || '')) one.email = val(pp, 'pemail');
             var full = val(pp, 'pfull') === 'yes';
             if (full !== !!pr.fullAccess) one.fullAccess = full;
@@ -6799,7 +6978,8 @@ window.H = (function () {
             if (Object.keys(one).length) d.people[pr.slug] = one;
           });
 
-          if (!d.signer && !Object.keys(d.letters).length && !Object.keys(d.people).length) {
+          if (!d.signer && !Object.keys(d.letters).length && !Object.keys(d.people).length &&
+              d.coverAll == null && !d.orders) {
             toast('Nothing was changed');
             return;
           }
@@ -6816,9 +6996,12 @@ window.H = (function () {
               signer: Object.assign({}, had.signer || {}, d.signer || {}),
               letters: Object.assign({}, had.letters || {}),
               people: Object.assign({}, had.people || {}),
+              orders: Object.assign({}, had.orders || {}),
               changedBy: who().name,
               changedOn: new Date().toISOString()
             };
+            if (d.coverAll != null) next.details.coverAll = d.coverAll;
+            else if (had.coverAll != null) next.details.coverAll = had.coverAll;
             if (!Object.keys(next.details.signer).length) delete next.details.signer;
             Object.keys(d.letters).forEach(function (k) {
               next.details.letters[k] = Object.assign({}, next.details.letters[k] || {}, d.letters[k]);
@@ -6826,6 +7009,10 @@ window.H = (function () {
             Object.keys(d.people).forEach(function (k) {
               next.details.people[k] = Object.assign({}, next.details.people[k] || {}, d.people[k]);
             });
+            Object.keys(d.orders || {}).forEach(function (k) {
+              next.details.orders[k] = Object.assign({}, next.details.orders[k] || {}, d.orders[k]);
+            });
+            if (!Object.keys(next.details.orders).length) delete next.details.orders;
             return next;
           }, 'company details: ' + F.company, { revisions: [] })
             .then(function () { toast(F.company + '’s details saved', 'good'); adminView(); })
