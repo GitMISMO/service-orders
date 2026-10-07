@@ -2069,6 +2069,10 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
     var mine = CFG.projects || [];
     return Object.keys(acc).filter(function (k) { return mine.indexOf(k) < 0; });
   }
+  /* ⚠ This module's own copy. The views module below has one too; they share no
+     scope, so it has to be declared on both sides rather than reached for. */
+  function isLiteKey(k) { return (CFG.lite || []).indexOf(k) >= 0; }
+
   function whoami() {
     var sess = session();
     if (!sess) {
@@ -2081,16 +2085,40 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
     var me = { name: sess.name || sess.email, email: sess.email, access: sess.access || {},
                keys: keys, otherKeys: otherKeys(sess) };
 
-    /* Every slug the person may reach, in the order the keys are configured, so
-       a view that spans companies always gets them in the same order. */
-    me.slugs = keys.map(function (k) { return slugs[k] || k.replace(/^so-/, ''); });
+    /* Every COMPANY the person may reach, in the order the keys are configured.
+       ⚠ DEDUPED, and that is not tidiness.
+       Two keys now point at the same company — the full one and the hours-only
+       one — so a contractor holding both appeared here TWICE. Everything below
+       counted that as two companies, and "more than one company" is how this
+       page recognises MISMO staff: a facilitator left on both rows was handed
+       the administrator's screen, with every company's details on it. Companies
+       are what the question is about, so companies are what gets counted. */
+    var seen = {};
+    me.slugs = [];
+    keys.forEach(function (k) {
+      var sl = slugs[k] || k.replace(/^so-/, '').replace(/-hours$/, '');
+      if (seen[sl]) return;
+      seen[sl] = 1; me.slugs.push(sl);
+    });
     me.slug = me.slugs[0];
     me.project = keys[0];
     me.title = '';
 
     if (!keys.length) { me.kind = 'none'; return Promise.resolve(me); }
 
-    if (keys.length === 1) {
+    /* ⚠ Hours-only keys can NEVER make somebody staff, however many they hold.
+       Checked before the company count, so a mistake in the admin panel cannot
+       promote anyone — the worst it can do is give them a company they should
+       not have, on the rate-free screen. */
+    var allLite = keys.length > 0 && keys.every(function (k) { return isLiteKey(k); });
+    if (allLite) {
+      me.kind = 'contractor';
+      return Promise.resolve(me);
+    }
+
+    /* ONE company — whether they hold one key for it or both — is a
+       contracting company, never staff. */
+    if (me.slugs.length === 1) {
       me.kind = 'contractor';
       return Promise.resolve(me);
     }
@@ -2596,7 +2624,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-07c \u00b7 two keys';
+  var BUILD = '2026-10-07d \u00b7 two keys fix';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
