@@ -2624,7 +2624,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-07d \u00b7 two keys fix';
+  var BUILD = '2026-10-07e \u00b7 facilitator view';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -4015,6 +4015,14 @@ window.H = (function () {
          An order that is not executed has no signed copy to download \u2014 saying
          "download" before both signatures exist would be offering a document
          that does not yet mean anything. */
+      /* ⚠ A FUNCTION, so it is never run for a facilitator.
+         This block was built unconditionally and then not shown — which meant
+         P.orderDoc ran for everybody, and the order document is the one thing
+         decision 26 holds back hardest, because the rate is written on it. On
+         an hours-only sign-in it also threw outright: the rate-free file has no
+         MISMO signer on it, because a facilitator never needs one.
+         Not showing something is a layout. Not building it is the rule. */
+      function signerOrdersHtml() {
       var executed = yearOrders.filter(function (o) { return st[o.id].key === 'executed'; });
       var signedBlockHtml = '';
       if (executed.length) {
@@ -4049,7 +4057,7 @@ window.H = (function () {
           '</div>';
       }
 
-      var all = signedBlockHtml +
+      return signedBlockHtml +
         '<p class="lede">Every service order MISMO has raised for you this fiscal year, ' +
         'with its status, rate, hours and maximum fee. Open one to read it in full.</p>' +
         '<div class="tot"><span class="tot-l">' +
@@ -4085,16 +4093,24 @@ window.H = (function () {
             o.startDate + ' to ' + o.endDate,
             (feeLabel(o)), body, pill(st[o.id]));
         }).join('') + '</div>';
+      }
+      var all = isFac() ? '' : signerOrdersHtml();
 
-      /* ---- My Agreements ------------------------------------------------- */
-      var agreements = R.read(keyFor(who().slug), 'agreements/' + who().slug + '.json')
-        .then(function (a) { return a.data.agreements || []; })
-        .catch(function () { return []; });
+      /* ---- My Agreements -------------------------------------------------
+         ⚠ Not even REQUESTED for a facilitator. An hours-only key cannot read
+         agreements/ and the relay would refuse it; asking anyway would be this
+         page disagreeing with the rule it is supposed to enforce. */
+      var agreements = isFac()
+        ? Promise.resolve([])
+        : R.read(keyFor(who().slug), 'agreements/' + who().slug + '.json')
+            .then(function (a) { return a.data.agreements || []; })
+            .catch(function () { return []; });
 
       agreements.then(function (exec) {
         var byFlavour = {};
         exec.forEach(function (e) { byFlavour[e.msaFlavour] = e; });
-        var ag = '<p class="lede">Your Master Services Agreement extensions. MISMO sends each one ' +
+        var ag = isFac() ? '' :
+          '<p class="lede">Your Master Services Agreement extensions. MISMO sends each one ' +
           'through DocuSign; once it is executed the signed copy appears here and stays.</p>' +
           '<div class="hqrows">' + F.letters.map(function (l) {
             var e = byFlavour[l.msaFlavour];
