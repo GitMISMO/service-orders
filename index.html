@@ -1300,6 +1300,7 @@ body.signedout main,body.signedout #view{padding:0}
 .tick1{display:flex;align-items:flex-start;gap:8px;font-size:13.5px;line-height:1.45;
   padding:3px 0;cursor:pointer}
 .tick1 input{margin-top:3px;flex:none}
+.va-built{font-size:11.5px;color:var(--ink-3);white-space:nowrap}
 .minebar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px}
 .mbtn{font:inherit;font-size:13px;font-weight:600;padding:7px 12px;border-radius:4px;
   border:1px solid var(--line);background:var(--card);color:var(--ink-2);cursor:pointer}
@@ -1359,7 +1360,18 @@ body.railmini .railout{justify-content:center;padding:11px 0 8px}
    is compared against. */
 .f input.hnum,.f input.covhrs{font-family:inherit;font-variant-numeric:tabular-nums;max-width:120px}
 
-.meterwrap{display:flex;align-items:center;gap:8px;margin:10px 0 2px}
+.meterwrap{display:flex;align-items:center;gap:10px;margin:10px 0 2px}
+/* ⚠ The percentage is a .fineprint, which carries margin-top:8px — in a flex
+   row that shifts it 8px BELOW the bar it describes, so the pair read as two
+   things at different heights rather than one measurement. Zeroed here, given
+   a fixed width and tabular figures, so the numbers form a straight column
+   down the table however wide they are. */
+.meterwrap .fineprint{margin:0;flex:0 0 auto;min-width:34px;text-align:right;
+  font-variant-numeric:tabular-nums;line-height:1}
+/* In a table cell the bar is the whole cell: no stray top margin pushing the
+   row taller than the figures beside it. */
+td .meterwrap{margin:0}
+td .meter{min-width:0}
 
 /* ---- the cover split ----------------------------------------------------
    Folded away by default and opened by a plain text link, because on a normal
@@ -2654,7 +2666,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-08b \u00b7 people';
+  var BUILD = '2026-10-08c \u00b7 view as';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -3748,7 +3760,8 @@ window.H = (function () {
        has no money in it, and asks for nothing else — so there is no request
        here that the relay would have to refuse, and nothing to leak if a later
        screen forgets to check a role. */
-    if (onLiteKey(slug)) return loadCompanyHours(slug);
+    if (onLiteKey(slug) || (VIEWAS && VIEWAS.lite && VIEWAS.slug === slug))
+      return loadCompanyHours(slug);
     return Promise.all([
       R.read(keyFor(slug), 'orders/' + slug + '.json'),
       R.read(keyFor(slug), 'signatures/' + slug + '.json'),
@@ -3985,6 +3998,7 @@ window.H = (function () {
          is the person being viewed in View As and the signed-in person
          otherwise. Every isFac() call below reads this answer. */
       REALROLE = C.hoursOnly ? 'facilitator' : roleFor(F, who(), C.slug);
+      if (VIEWAS && C.hoursOnly) VIEWAS.builtOn = F.builtOn || null;
       var st = {};
       F.orders.forEach(function (o) { st[o.id] = statusOf(o, sigs); });
       /* Alphabetical, like every other list of orders. ⚠ Sorted ONCE, here, so
@@ -5717,6 +5731,9 @@ window.H = (function () {
          }[VIEWAS.role] ||
          (isFac() ? 'a facilitator — no rate, no fee, hours only'
                   : 'the signer — everything they see')) + '</span>' +
+      (VIEWAS.builtOn
+        ? '<span class="va-built">Hours copy published ' + esc(stamp(VIEWAS.builtOn)) + '</span>'
+        : '') +
       '<span class="va-ro">Nothing saves</span>' +
       '<button class="va-out" type="button" id="va-out">Back to My View</button>' +
       '</div>';
@@ -5873,10 +5890,23 @@ window.H = (function () {
        be looking at the wrong screen. */
     var rec = null;
     (F.people || []).forEach(function (pr) { if (pr.slug === pick.key) rec = pr; });
+    /* ⚠ WHICH FILE, not just which layout.
+       Viewing as a facilitator used to draw the facilitator's SCREEN from the
+       full orders file — Jonna holds the full key, so that is what loaded. The
+       layout matched; the data did not have to. If the published hours copy
+       were stale or missing, the real person would be looking at something
+       else entirely and View As would say everything was fine.
+       So View As now reads the SAME FILE they read. A stale copy shows as
+       stale; an unpublished one shows the same message they get. */
+    var asIdentity = { slug: C.slug, name: pick.name,
+      email: rec ? (rec.email || '') : ((F.signers.order || {}).email || '') };
+    var lite = roleFor(F, asIdentity) === 'facilitator';
+
     VIEWAS = {
       slug: C.slug,
       company: F.company,
       role: pick.role,
+      lite: lite,
       person: pick.name,
       as: { slug: C.slug, name: pick.name,
             title: rec ? '' : (F.signers.order.title || ''),
