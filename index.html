@@ -2515,6 +2515,75 @@ window.H = (function () {
   };
   function stateOf(wk) { return STATES[(wk && wk.state) || 'submitted'] || STATES.submitted; }
 
+  /* =========================================================================
+   * INVOICE PERIODS AND THE DEADLINE
+   *
+   * Jonna, 27 September: an invoice covers THE MONTH PRIOR, and is due by the
+   * end of the first full week of the month after it.
+   *
+   * ⚠ "The first full week" is the first Monday-to-Friday week that sits
+   * WHOLLY inside the month, so the due date is that week's Friday. A month
+   * starting on a Monday counts that very week — January 2027 is due Friday
+   * 5 February, not the 12th. Getting this wrong by a week is a chasing email
+   * to five companies, so it is worked out here and tested, never eyeballed.
+   *
+   * A period is written 'M/YYYY', the same shape monthOf already returns, so
+   * a week and a period can be compared without converting either.
+   * ======================================================================= */
+  function periodOf(y, m0) { return (m0 + 1) + '/' + y; }
+  function periodParts(p) {
+    var m = /^(\d{1,2})\/(\d{4})$/.exec(String(p || ''));
+    return m ? { m0: (+m[1]) - 1, y: +m[2] } : null;
+  }
+  /* The period a date falls in — not the period being invoiced. */
+  function periodOfWeek(ending) {
+    var d = parse(ending);
+    return d ? periodOf(d.getFullYear(), d.getMonth()) : '';
+  }
+  function periodLabel(p) {
+    var q = periodParts(p);
+    return q ? MONTHS[q.m0] + ' ' + q.y : '';
+  }
+  function nextPeriod(p) {
+    var q = periodParts(p); if (!q) return '';
+    var d = new Date(q.y, q.m0 + 1, 1);
+    return periodOf(d.getFullYear(), d.getMonth());
+  }
+  function prevPeriod(p) {
+    var q = periodParts(p); if (!q) return '';
+    var d = new Date(q.y, q.m0 - 1, 1);
+    return periodOf(d.getFullYear(), d.getMonth());
+  }
+  /* The month an invoice raised TODAY covers. */
+  function priorPeriod(today) {
+    var n = today || new Date();
+    var d = new Date(n.getFullYear(), n.getMonth() - 1, 1);
+    return periodOf(d.getFullYear(), d.getMonth());
+  }
+  /* The Friday that ends the first full Monday-to-Friday week of the month
+     AFTER the period — which is when the period's invoice is due. */
+  function dueDate(period) {
+    var q = periodParts(period); if (!q) return null;
+    var due = new Date(q.y, q.m0 + 1, 1);          // the month the invoice is due in
+    var first = new Date(due.getFullYear(), due.getMonth(), 1);
+    var dow = first.getDay();                       // 0 Sun … 6 Sat
+    /* The first Monday on or after the 1st. A month starting Mon-Fri does NOT
+       count that part-week unless it starts exactly on the Monday. */
+    var add = dow === 1 ? 0 : (8 - dow) % 7;
+    var monday = new Date(first.getFullYear(), first.getMonth(), 1 + add);
+    return new Date(monday.getFullYear(), monday.getMonth(), monday.getDate() + 4);
+  }
+  /* Where a period stands against its deadline, from today. */
+  function dueState(period, today) {
+    var now = today || new Date();
+    var d = dueDate(period);
+    if (!d) return { key: 'none', days: 0, due: null };
+    var t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var days = Math.round((d - t0) / 86400000);
+    var key = days > 0 ? 'open' : days === 0 ? 'today' : 'late';
+    return { key: key, days: Math.abs(days), due: print(d), dueDate: d };
+  }
+
   /* ---- the weeks a person still owes -------------------------------------
      ⚠ Jonna, 5 October: a contractor who missed a week had no way back to it.
      My Hours only ever opened the week they were in, so the only thing they
@@ -2643,7 +2712,10 @@ window.H = (function () {
     monthOf: monthOf, monthLabel: monthLabel, monthsIn: monthsIn, monthRows: monthRows,
     STATES: STATES, stateOf: stateOf,
     openWeeks: openWeeks, shutWeeks: shutWeeks, closedMonths: closedMonths,
-    coveredWeeks: coveredWeeks, draftFor: draftFor, draftsIn: draftsIn
+    coveredWeeks: coveredWeeks, draftFor: draftFor, draftsIn: draftsIn,
+    priorPeriod: priorPeriod, periodLabel: periodLabel, dueDate: dueDate,
+    dueState: dueState, periodOfWeek: periodOfWeek, nextPeriod: nextPeriod,
+    prevPeriod: prevPeriod
   };
 })();
 </script>
@@ -2666,7 +2738,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-08c \u00b7 view as';
+  var BUILD = '2026-10-08d \u00b7 invoice engine';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -3628,6 +3700,228 @@ window.H = (function () {
     });
     return F;
   }
+
+  /* =========================================================================
+   * EXPENSES — the MBA travel and expense policy, as Team HQ enforces it
+   *
+   * ⚠ They live in the PERSON'S OWN HOURS FILE, under `expenses`. Same writer,
+   * same partition rule, same relay permission — so a contractor on the
+   * hours-only key can enter their own without a new folder or a config
+   * change, and two people can never collide on one file.
+   *
+   * ⚠ An expense is MONEY. A facilitator never sees a rate, but they do see
+   * what they themselves spent and are owed — that is their own receipt, not
+   * MISMO's commercial terms, and decision 26 is about the latter.
+   * ======================================================================= */
+  var EXP_CATS = ['Airfare', 'Baggage Fees', 'Gasoline', 'Hotel/Lodging',
+    'Meal Trvl - Breakfast', 'Meal Trvl - Lunch', 'Meal Trvl - Dinner',
+    'Meal Trvl - Snack', 'Membership Dues', 'Metro / Bus', 'Mileage', 'Parking',
+    'Taxi/Uber/Lyft', 'Tolls', 'Train'];
+  var MEAL_CAP = { 'Meal Trvl - Breakfast': 20, 'Meal Trvl - Lunch': 35,
+                   'Meal Trvl - Dinner': 50, 'Meal Trvl - Snack': 10 };
+  var DAILY_MEAL_CAP = 115;
+  var RECEIPT_OVER = 25;
+  var MEAL_RECEIPT_OVER = 15;
+
+  function isMeal(c) { return String(c || '').indexOf('Meal Trvl') === 0; }
+
+  /* Every policy check on one expense. `others` is the rest of that person's
+     expenses, needed for the daily meal cap, which is a per-DAY total and not
+     a per-line one. */
+  function checkExpense(e, others) {
+    var out = [], amt = Number(e && e.amt) || 0;
+    if (!e) return out;
+    if (!e.cat) out.push({ lvl: 'bad', m: 'Choose what this was for.' });
+    if (!e.date) out.push({ lvl: 'bad', m: 'A date is needed, so it lands on the right invoice.' });
+    if (!(amt > 0)) out.push({ lvl: 'bad', m: 'An amount is needed.' });
+    if (isMeal(e.cat)) {
+      var cap = MEAL_CAP[e.cat];
+      if (cap && amt > cap) out.push({ lvl: 'warn',
+        m: 'Over the ' + e.cat.replace('Meal Trvl - ', '').toLowerCase() + ' guideline of ' +
+           money(cap) + '. Say why in the description.' });
+      if (amt > MEAL_RECEIPT_OVER && !e.receipt) out.push({ lvl: 'bad',
+        m: 'Meals over ' + money(MEAL_RECEIPT_OVER) + ' need a receipt. Without one this caps at ' +
+           money(MEAL_RECEIPT_OVER) + '.' });
+      /* ⚠ The line being edited is swapped in rather than counted twice — its
+         old amount is still in the stored list. */
+      var day = (others || []).filter(function (x) {
+        return x && x.id !== e.id && x.date === e.date && isMeal(x.cat);
+      }).concat([e]);
+      var tot = day.reduce(function (a, x) { return a + (Number(x.amt) || 0); }, 0);
+      if (tot > DAILY_MEAL_CAP) out.push({ lvl: 'warn',
+        m: 'Meals for this day total ' + money(tot) + ', over the ' + money(DAILY_MEAL_CAP) +
+           ' daily cap.' });
+    } else if (amt > RECEIPT_OVER && !e.receipt) {
+      out.push({ lvl: 'bad',
+        m: 'Charges over ' + money(RECEIPT_OVER) + ' need an original paid receipt.' });
+    }
+    if (e.receipt && e.rcptAmt && Math.abs(Number(e.rcptAmt) - amt) > 0.009)
+      out.push({ lvl: 'warn',
+        m: 'The receipt says ' + money(e.rcptAmt) + ' but the expense is ' + money(amt) + '.' });
+    return out;
+  }
+  function expenseWorst(e, others) {
+    var c = checkExpense(e, others);
+    return c.some(function (x) { return x.lvl === 'bad'; }) ? 'bad' : c.length ? 'warn' : 'ok';
+  }
+  /* What an expense is actually worth once policy is applied. ⚠ A meal over
+     the receipt threshold with no receipt is CAPPED, not refused — that is
+     what the policy does, and silently billing the full amount would put an
+     unrecoverable line on an invoice. */
+  function expenseAllowed(e) {
+    var amt = Number(e && e.amt) || 0;
+    if (isMeal(e.cat) && amt > MEAL_RECEIPT_OVER && !e.receipt) return MEAL_RECEIPT_OVER;
+    return amt;
+  }
+
+  /* Everybody's expenses for one period, from the hours files already loaded. */
+  function expensesIn(files, period, states) {
+    var want = states || ['approved'];
+    var out = [];
+    (files || []).forEach(function (f) {
+      ((f && f.expenses) || []).forEach(function (e) {
+        if (!e || !e.date) return;
+        if (H.periodOfWeek(e.date) !== period) return;
+        if (want.indexOf(e.state || 'draft') < 0) return;
+        out.push(Object.assign({}, e, { person: f.person, slug: f.slug }));
+      });
+    });
+    return out;
+  }
+
+  /* =========================================================================
+   * WHAT THE INVOICE OUGHT TO SAY
+   *
+   * Built from what the portal already holds — approved weeks, each order's own
+   * rate, and approved expenses — so nothing is re-keyed. Decision 36.
+   *
+   * ⚠ Priced PER SERVICE ORDER, never per person. The Phoenix team cover for
+   * each other: reconciling by person raised eleven phantom differences in
+   * August 2026, every one offsetting another exactly. Person-level sits
+   * beside it as attribution and is explicitly not a difference.
+   * ======================================================================= */
+  function expectedInvoice(F, files, period) {
+    var orders = {};
+    (F.orders || []).forEach(function (o) { orders[o.id] = o; });
+
+    var byOrder = {}, unknown = {}, notApproved = 0, notApprovedWeeks = [];
+    (files || []).forEach(function (f) {
+      ((f && f.weeks) || []).forEach(function (wk) {
+        if (H.periodOfWeek(wk.weekEnding) !== period) return;
+        var st = (wk.state || 'submitted');
+        /* Only approved work is billed. Anything else is named and carried. */
+        if (st !== 'approved') {
+          var rows0 = H.rowsOf(wk);
+          var any = Object.keys(rows0).some(function (id) { return Number(rows0[id].hours); });
+          if (any && st !== 'invoiced' && st !== 'paid') {
+            notApproved++;
+            notApprovedWeeks.push({ person: f.person, weekEnding: wk.weekEnding, state: st });
+          }
+          return;
+        }
+        var rows = H.rowsOf(wk);
+        Object.keys(rows).forEach(function (id) {
+          var h = Number(rows[id].hours) || 0;
+          if (!h) return;
+          if (!orders[id]) { unknown[id] = (unknown[id] || 0) + h; return; }
+          if (!byOrder[id]) byOrder[id] = { order: orders[id], hours: 0, by: {} };
+          byOrder[id].hours += h;
+          H.splitOf(rows[id], f.person).forEach(function (sp) {
+            byOrder[id].by[sp.person] = (byOrder[id].by[sp.person] || 0) + sp.hours;
+          });
+        });
+      });
+    });
+
+    var lines = [], held = [], hoursTotal = 0;
+    Object.keys(byOrder).forEach(function (id) {
+      var b = byOrder[id], o = b.order;
+      var hrsN = Math.round(b.hours * 100) / 100;
+      /* An order paid per review has no hourly price — the review fee is
+         invoiced separately, so its hours are held rather than billed. */
+      if (perReviewOrder(o)) {
+        held.push({ why: 'perReview', order: o, hours: hrsN,
+          say: esc(o.subject) + ' is paid per review, so its ' + hrs(hrsN) +
+               ' hours are not priced here. The review fee is invoiced separately.' });
+        return;
+      }
+      var rate = Number(o.hourlyRate) || 0;
+      var amt = Math.round(hrsN * rate * 100) / 100;
+      hoursTotal += amt;
+      lines.push({ order: o, hours: hrsN, rate: rate, amount: amt, by: b.by });
+    });
+    Object.keys(unknown).forEach(function (id) {
+      held.push({ why: 'noOrder', orderId: id, hours: Math.round(unknown[id] * 100) / 100,
+        say: hrs(unknown[id]) + ' hours were logged against something with no service order. ' +
+             'They are held back, not lost \u2014 they become billable once the order exists.' });
+    });
+    lines.sort(function (a, b2) {
+      return String(a.order.subject || '').localeCompare(String(b2.order.subject || ''),
+        undefined, { sensitivity: 'base', numeric: true });
+    });
+
+    var exps = expensesIn(files, period, ['approved']);
+    var expTotal = exps.reduce(function (a, e) { return a + expenseAllowed(e); }, 0);
+    expTotal = Math.round(expTotal * 100) / 100;
+
+    return {
+      period: period,
+      lines: lines,
+      expenses: exps,
+      expensesTotal: expTotal,
+      hoursTotal: Math.round(hoursTotal * 100) / 100,
+      total: Math.round((hoursTotal + expTotal) * 100) / 100,
+      held: held,
+      notApproved: notApproved,
+      notApprovedWeeks: notApprovedWeeks
+    };
+  }
+
+  /* The seven checks that run BEFORE anything is uploaded, so the answer is on
+     screen before they go looking for a PDF. Each one says whether it stops
+     the invoice or merely wants saying. */
+  function invoiceChecks(F, files, period, exp, priorInvoices) {
+    var out = [];
+    if (!exp.lines.length && !exp.expensesTotal) {
+      out.push({ stop: true, key: 'nothing',
+        say: 'Nothing has been approved for ' + esc(H.periodLabel(period)) + ' yet, so there is ' +
+             'nothing to invoice. Weeks have to be approved by MISMO before they can be billed.' });
+    }
+    if (exp.notApproved) {
+      out.push({ stop: false, key: 'notApproved',
+        say: exp.notApproved + ' ' + (exp.notApproved === 1 ? 'week is' : 'weeks are') +
+             ' submitted but not yet approved, so ' + (exp.notApproved === 1 ? 'it is' : 'they are') +
+             ' not on this invoice. ' + (exp.notApproved === 1 ? 'It carries' : 'They carry') +
+             ' to the next one rather than being lost.' });
+    }
+    exp.held.forEach(function (h) { out.push({ stop: false, key: h.why, say: h.say }); });
+
+    /* Against each order's maximum fee, counting what is already invoiced. */
+    var already = {};
+    (priorInvoices || []).forEach(function (iv) {
+      (iv.lines || []).forEach(function (l) {
+        already[l.orderId] = (already[l.orderId] || 0) + (Number(l.amount) || 0);
+      });
+    });
+    exp.lines.forEach(function (l) {
+      var max = Number(l.order.maximumFee) || 0;
+      if (!max) return;
+      var sofar = (already[l.order.id] || 0) + l.amount;
+      var pct = max ? (100 * sofar / max) : 0;
+      if (sofar > max + 0.009) {
+        out.push({ stop: true, key: 'overMax', order: l.order,
+          say: esc(l.order.subject) + ' would go over its maximum fee \u2014 ' + money(sofar) +
+               ' against a maximum of ' + money(max) + '. A revised order has to be raised before ' +
+               'this can be invoiced.' });
+      } else if (pct > 85) {
+        out.push({ stop: false, key: 'nearMax', order: l.order,
+          say: esc(l.order.subject) + ' is at ' + pct.toFixed(0) + '% of its maximum fee after ' +
+               'this invoice \u2014 ' + money(sofar) + ' of ' + money(max) + '.' });
+      }
+    });
+    return out;
+  }
+  function invoiceStops(checks) { return (checks || []).filter(function (c) { return c.stop; }); }
 
   /* ⚠ THE ONE RULE for which service orders a person may log time against.
      Three screens used to work this out from `person.orders` separately — My
