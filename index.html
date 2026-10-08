@@ -815,8 +815,6 @@ body.railmini .hqtop{margin-left:calc(0px - var(--rail-mini));width:calc(100% + 
   text-transform:uppercase;color:rgba(255,255,255,.62);font-weight:600;white-space:nowrap}
 @media(max-width:700px){.hqtop .eyebrow-m{display:none}}
 .logoplate{background:#fff;border-radius:7px;padding:8px 14px;display:flex;align-items:center;line-height:0;flex:0 0 auto;position:relative}
-/* the logo leads home and grows on hover, as on every other tool (Perry, 7 Oct 2026) */
-[data-rs-home]{text-decoration:none;color:inherit;cursor:pointer;transition:transform .15s ease;transform-origin:left center}[data-rs-home]:hover,[data-rs-home]:focus-visible{transform:scale(1.06)}[data-rs-home]:focus-visible{outline:2px solid #50a4db;outline-offset:3px}
 .logoplate .wordmark{height:24px;width:auto;display:block}
 .santa{position:absolute;display:none;pointer-events:none;left:-9px;top:-12px;width:31px;height:31px}
 html[data-season="december"] .logoplate .santa{display:block}
@@ -1111,6 +1109,36 @@ button,input,select,textarea,optgroup{font-family:inherit}
    goes below the pair instead — it was floating midway between the band and
    the rows and reading as a caption for the wrong thing. */
 .tot + .fineprint{margin:-6px 0 20px}
+/* ---- the week you are logging -----------------------------------------
+   Figures are set in the display face with tabular numerals, never a
+   typewriter face: the week and the hours line up as a column without
+   looking like a terminal. */
+.wkband{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap;
+  margin:0 0 14px;padding:16px 18px;border-radius:8px;background:var(--surface-2);
+  border:1px solid var(--line);border-left:4px solid var(--navy)}
+.wkband-l{display:flex;flex-direction:column;gap:2px;min-width:0}
+.wkband-k{font-size:11px;letter-spacing:.1em;text-transform:uppercase;font-weight:700;
+  color:var(--ink-3)}
+.wkband-d{font-size:30px;line-height:1.1;font-weight:700;color:var(--navy);
+  font-variant-numeric:tabular-nums}
+.wkband-s{font-size:13px;color:var(--ink-2)}
+.wkband-r{display:flex;flex-direction:column;align-items:flex-end;gap:1px}
+.wkband-h{font-size:26px;line-height:1.1;font-weight:600;color:var(--ink);
+  font-variant-numeric:tabular-nums}
+.wkband-u{font-size:12px;color:var(--ink-3)}
+.wkband.is-sent{border-left-color:var(--ink-3)}
+.wkband + .note,.wkband + .fineprint{margin-top:-4px}
+:root[data-theme="dark"] .wkband{background:var(--surface-2);border-left-color:var(--sky)}
+:root[data-theme="dark"] .wkband-d{color:var(--sky)}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]) .wkband{background:var(--surface-2);border-left-color:var(--sky)}
+  :root:not([data-theme="light"]) .wkband-d{color:var(--sky)}
+}
+@media (max-width:560px){
+  .wkband{align-items:flex-start}
+  .wkband-r{align-items:flex-start}
+  .wkband-d{font-size:26px}
+}
 .dl{color:var(--navy-mid);font-weight:600}
 :root[data-theme="dark"] .dl{color:var(--sky)}
 
@@ -1685,7 +1713,7 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
 <symbol id="ico-menu" viewBox="0 0 16 16"><g stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 4h12"/><path d="M2 8h12"/><path d="M2 12h12"/></g></symbol>
 </defs></svg>
 <header class="hqtop">
-  <a class="logoplate" href="/" data-rs-home aria-label="MISMO Resources home" title="MISMO Resources home"><svg class="wordmark" role="img" aria-label="MISMO" viewBox="0 0 708 108"><use href="#mismo-logo"/></svg><svg class="santa" viewBox="0 0 100 100" aria-hidden="true"><use href="#mismo-hat"/></svg></a>
+  <span class="logoplate"><svg class="wordmark" role="img" aria-label="MISMO" viewBox="0 0 708 108"><use href="#mismo-logo"/></svg><svg class="santa" viewBox="0 0 100 100" aria-hidden="true"><use href="#mismo-hat"/></svg></span>
   <span class="mastrule"></span>
   <span class="hqname">Service Orders and Agreements</span>
   <span class="hqtop-r">
@@ -2626,7 +2654,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-07f \u00b7 logs time';
+  var BUILD = '2026-10-08 \u00b7 week band';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -4475,8 +4503,24 @@ window.H = (function () {
     var head = owedBand +
       '<p class="lede">The week you are in. <b>Choose a service order to enter it</b> — ' +
       'it opens on the right, with room for the notes.</p>' +
-      '<div class="tot"><span class="tot-l">Week Ending ' + esc(ending) + '</span>' +
-      '<span class="tot-v">' + hrs(total) + ' hours</span></div>' +
+      /* ⚠ The week is the HEADLINE, not an eyebrow label.
+         It was a 10px uppercase caption above the hours total, so the one fact
+         that decides which invoice the time lands on was the smallest thing on
+         the screen — and the earlier-weeks band above it printed its own week
+         bigger, which made the current week look like the lesser of the two.
+         Phoenix asked for it to be prominent; this is the week stated plainly,
+         with its date span under it and the hours beside it. */
+      '<div class="wkband' + (sent ? ' is-sent' : '') + '">' +
+        '<div class="wkband-l">' +
+          '<span class="wkband-k">Week Ending</span>' +
+          '<span class="wkband-d">' + esc(ending) + '</span>' +
+          '<span class="wkband-s">' + esc(H.weekSpan(fy, ending)) + '</span>' +
+        '</div>' +
+        '<div class="wkband-r">' +
+          '<span class="wkband-h">' + hrs(total) + '</span>' +
+          '<span class="wkband-u">hours this week</span>' +
+        '</div>' +
+      '</div>' +
       (HRS.week && HRS.week !== H.weekFor(fy, today)
         ? '<div class="note warn"><b>This is not the week you are in.</b> You are ' +
           (sent ? 'looking at' : back ? 'correcting' : 'logging') + ' an earlier week' +
