@@ -815,6 +815,8 @@ body.railmini .hqtop{margin-left:calc(0px - var(--rail-mini));width:calc(100% + 
   text-transform:uppercase;color:rgba(255,255,255,.62);font-weight:600;white-space:nowrap}
 @media(max-width:700px){.hqtop .eyebrow-m{display:none}}
 .logoplate{background:#fff;border-radius:7px;padding:8px 14px;display:flex;align-items:center;line-height:0;flex:0 0 auto;position:relative}
+/* the logo leads home and grows on hover, as on every other tool (Perry, 7 Oct 2026) */
+[data-rs-home]{text-decoration:none;color:inherit;cursor:pointer;transition:transform .15s ease;transform-origin:left center}[data-rs-home]:hover,[data-rs-home]:focus-visible{transform:scale(1.06)}[data-rs-home]:focus-visible{outline:2px solid #50a4db;outline-offset:3px}
 .logoplate .wordmark{height:24px;width:auto;display:block}
 .santa{position:absolute;display:none;pointer-events:none;left:-9px;top:-12px;width:31px;height:31px}
 html[data-season="december"] .logoplate .santa{display:block}
@@ -1683,7 +1685,7 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
 <symbol id="ico-menu" viewBox="0 0 16 16"><g stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 4h12"/><path d="M2 8h12"/><path d="M2 12h12"/></g></symbol>
 </defs></svg>
 <header class="hqtop">
-  <span class="logoplate"><svg class="wordmark" role="img" aria-label="MISMO" viewBox="0 0 708 108"><use href="#mismo-logo"/></svg><svg class="santa" viewBox="0 0 100 100" aria-hidden="true"><use href="#mismo-hat"/></svg></span>
+  <a class="logoplate" href="/" data-rs-home aria-label="MISMO Resources home" title="MISMO Resources home"><svg class="wordmark" role="img" aria-label="MISMO" viewBox="0 0 708 108"><use href="#mismo-logo"/></svg><svg class="santa" viewBox="0 0 100 100" aria-hidden="true"><use href="#mismo-hat"/></svg></a>
   <span class="mastrule"></span>
   <span class="hqname">Service Orders and Agreements</span>
   <span class="hqtop-r">
