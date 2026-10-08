@@ -2654,7 +2654,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-08 \u00b7 week band';
+  var BUILD = '2026-10-08b \u00b7 people';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -3436,7 +3436,7 @@ window.H = (function () {
      revised rates. */
   var HOURS_ORDER_FIELDS = ['id', 'subject', 'estimatedHours', 'fiscalYear', 'facilitator'];
   var HOURS_PERSON_FIELDS = ['slug', 'name', 'email', 'orders', 'timeManager',
-                             'logsTime', 'activeFrom', 'activeTo'];
+                             'logsTime', 'expenses', 'activeFrom', 'activeTo'];
 
   function hoursCopy(F) {
     function pick(src, fields) {
@@ -3591,6 +3591,19 @@ window.H = (function () {
          order impossible. */
       if (o.orders) p.orders = o.orders.slice();
       if (o.logsTime != null) p.logsTime = !!o.logsTime;
+      if (o.expenses != null) p.expenses = !!o.expenses;
+      if (o.activeFrom != null) p.activeFrom = o.activeFrom;
+      /* ⚠ '' means "not retired". Retiring is a DATE, never a deletion — the
+         name is on historic orders and weekly rows, and removing it would
+         orphan every one of them. */
+      if (o.activeTo != null) p.activeTo = o.activeTo || null;
+    });
+    /* People added in the portal rather than by the generator. Appended, never
+       merged over an existing record, and never twice. */
+    (d.added || []).forEach(function (a) {
+      if (!a || !a.slug) return;
+      if ((F.people || []).some(function (x) { return x.slug === a.slug; })) return;
+      F.people = (F.people || []).concat([JSON.parse(JSON.stringify(a))]);
     });
     /* Everybody at this company may log against every order, because they
        cover for each other. What is NORMALLY theirs stays on the person
@@ -3613,6 +3626,38 @@ window.H = (function () {
      `own` is what is normally theirs. `cover` is everything else they are
      allowed to pick up. Both are returned, because the difference is the
      thing a person sorting their own week actually needs to see. */
+  /* ⚠ A date somebody TYPES, not a native date box.
+     H.parse accepts MM/DD/YY and nothing else, so "9/30/26" — which is how
+     these dates are actually written — would be read as empty and silently
+     retire nobody. This takes the ordinary ways of writing a date and returns
+     the one shape the rest of the page understands, or '' if it cannot tell. */
+  function readDate(v) {
+    var t = String(v == null ? '' : v).trim();
+    if (!t) return '';
+    var m = /^(\d{1,2})[\/\-.](\d{1,2})[\/\-.](\d{2}|\d{4})$/.exec(t);
+    var y, mo, da;
+    if (m) { mo = +m[1]; da = +m[2]; y = +m[3]; }
+    else if ((m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(t))) { y = +m[1]; mo = +m[2]; da = +m[3]; }
+    else {
+      var d = new Date(t);                       /* "Sep 30 2026" and the like */
+      if (isNaN(d.getTime())) return '';
+      y = d.getFullYear(); mo = d.getMonth() + 1; da = d.getDate();
+    }
+    if (y < 100) y += 2000;
+    if (!(mo >= 1 && mo <= 12) || !(da >= 1 && da <= 31)) return '';
+    function two(n) { return (n < 10 ? '0' : '') + n; }
+    return two(mo) + '/' + two(da) + '/' + String(y).slice(2);
+  }
+  /* A name turned into the slug the hours files are keyed on. ⚠ Must not
+     collide with somebody already there, or two people would share a file. */
+  function slugFor(name, taken) {
+    var base = String(name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'person';
+    var slug = base, n = 2;
+    while (taken[slug]) { slug = base + '-' + n; n++; }
+    return slug;
+  }
+
   function ordersForPerson(F, person, year) {
     var all = (F.orders || []).filter(function (o) {
       return !year || (o.fiscalYear || F.fiscalYear) === year;
@@ -6719,6 +6764,8 @@ window.H = (function () {
               '<span class="rt">' + esc(pr.name) + '</span>' +
               (pr.fullAccess ? '<span class="pill good">Sees Everything</span>' : '') +
               (pr.timeManager ? '<span class="pill">Time Manager</span>' : '') +
+              (pr.expenses ? '<span class="pill">Expenses</span>' : '') +
+              (pr.activeTo ? '<span class="pill warn">Left ' + esc(pr.activeTo) + '</span>' : '') +
               '<span class="rs">' + esc(pr.email || 'no email') + '</span>' +
               '</div><div class="row-b"><div class="revgrid">' +
               '<div class="f"><label>Email</label><input type="text" class="cdf" data-p="' + pp +
@@ -6731,6 +6778,17 @@ window.H = (function () {
               '<select class="cdf" data-p="' + pp + '" data-k="ptm">' +
               '<option value="no"' + (pr.timeManager ? '' : ' selected') + '>No</option>' +
               '<option value="yes"' + (pr.timeManager ? ' selected' : '') + '>Yes</option></select></div>' +
+              '<div class="f"><label>Active From</label>' +
+              '<input type="text" class="cdf" data-p="' + pp + '" data-k="pfrom" ' +
+              'placeholder="10/01/26" value="' + esc(pr.activeFrom || '') + '"></div>' +
+              '<div class="f"><label>Active To</label>' +
+              '<input type="text" class="cdf" data-p="' + pp + '" data-k="pto" ' +
+              'placeholder="blank while they are still here" value="' +
+              esc(pr.activeTo || '') + '"></div>' +
+              '<div class="f"><label>Can Claim Expenses</label>' +
+              '<select class="cdf" data-p="' + pp + '" data-k="pexp">' +
+              '<option value="no"' + (pr.expenses ? '' : ' selected') + '>No</option>' +
+              '<option value="yes"' + (pr.expenses ? ' selected' : '') + '>Yes</option></select></div>' +
               '<div class="f"><label>Logs Time</label>' +
               '<select class="cdf" data-p="' + pp + '" data-k="plogs">' +
               '<option value="no"' + (logsTime(F, pr) ? '' : ' selected') +
@@ -6749,6 +6807,33 @@ window.H = (function () {
               '<input type="hidden" class="cdf" data-p="' + pp + '" data-k="pslug" value="' +
               esc(pr.slug || '') + '"></div></div>';
           }).join('') + '</div>' +
+
+          '<h4 class="subh">Add Someone to ' + esc(F.company) + '</h4>' +
+          '<p class="fineprint">They appear in the list above once saved. <b>To remove somebody, ' +
+          'put a date in their Active To</b> \u2014 their name stays on the orders and weeks they ' +
+          'already worked, and they drop out of the lists the page offers today. Nobody is ever ' +
+          'deleted, because deleting them would orphan their history.</p>' +
+          '<div class="revgrid">' +
+          '<div class="f"><label>Name</label><input type="text" class="cdn" data-p="' + p +
+          '" data-k="nname" placeholder="First Last"></div>' +
+          '<div class="f"><label>Email</label><input type="text" class="cdn" data-p="' + p +
+          '" data-k="nemail" placeholder="they@company.com"></div>' +
+          '<div class="f"><label>Active From</label><input type="text" class="cdn" data-p="' + p +
+          '" data-k="nfrom" placeholder="10/01/26"></div>' +
+          '<div class="f"><label>Logs Time</label>' +
+          '<select class="cdn" data-p="' + p + '" data-k="nlogs">' +
+          '<option value="yes">Yes</option><option value="no">No</option></select></div>' +
+          '<div class="f"><label>Can Claim Expenses</label>' +
+          '<select class="cdn" data-p="' + p + '" data-k="nexp">' +
+          '<option value="no">No</option><option value="yes">Yes</option></select></div>' +
+          '<div class="f"><label>Sees Everything the Signer Sees</label>' +
+          '<select class="cdn" data-p="' + p + '" data-k="nfull">' +
+          '<option value="no">No \u2014 hours only, no money</option>' +
+          '<option value="yes">Yes</option></select></div>' +
+          '</div>' +
+          '<p class="fineprint"><b>Adding them here does not give them a sign-in.</b> That is a ' +
+          'separate step in the admin panel, and their email has to match what is typed above or ' +
+          'the two will not find each other.</p>' +
 
           '<h4 class="subh">The Hours Copy</h4>' +
           '<p class="fineprint">People on the hours-only sign-in read a separate file that has ' +
@@ -7204,11 +7289,42 @@ window.H = (function () {
                current answer came from a stored Yes/No or from their orders. */
             var lg = val(pp, 'plogs') === 'yes';
             if (lg !== logsTime(F, pr)) one.logsTime = lg;
+            var xp = val(pp, 'pexp') === 'yes';
+            if (xp !== !!pr.expenses) one.expenses = xp;
+            /* ⚠ Normalised before comparing, so retyping 10/01/26 as 10/1/26
+               records nothing, and a date typed any ordinary way still lands. */
+            var fromV = readDate(val(pp, 'pfrom'));
+            if (fromV !== (pr.activeFrom || '')) one.activeFrom = fromV;
+            var toV = readDate(val(pp, 'pto'));
+            if (toV !== (pr.activeTo || '')) one.activeTo = toV;
             if (Object.keys(one).length) d.people[pr.slug] = one;
           });
 
+          /* somebody new */
+          function nval(k) {
+            var el = document.querySelector('.cdn[data-p="' + p + '"][data-k="' + k + '"]');
+            return el ? String(el.value == null ? '' : el.value).trim() : '';
+          }
+          var newName = nval('nname');
+          if (newName) {
+            var taken = {};
+            (F.people || []).forEach(function (x) { taken[x.slug] = 1; });
+            d.added = [{
+              slug: slugFor(newName, taken),
+              name: newName,
+              email: nval('nemail'),
+              orders: [],
+              logsTime: nval('nlogs') !== 'no',
+              expenses: nval('nexp') === 'yes',
+              fullAccess: nval('nfull') === 'yes',
+              activeFrom: readDate(nval('nfrom')) || '',
+              addedBy: who().name,
+              addedOn: new Date().toISOString()
+            }];
+          }
+
           if (!d.signer && !Object.keys(d.letters).length && !Object.keys(d.people).length &&
-              d.coverAll == null && !d.orders) {
+              d.coverAll == null && !d.orders && !d.added) {
             toast('Nothing was changed');
             return;
           }
@@ -7226,6 +7342,9 @@ window.H = (function () {
               letters: Object.assign({}, had.letters || {}),
               people: Object.assign({}, had.people || {}),
               orders: Object.assign({}, had.orders || {}),
+              /* ⚠ A LIST that only grows. Replacing it would un-add everybody
+                 added before today. */
+              added: (had.added || []).slice(),
               changedBy: who().name,
               changedOn: new Date().toISOString()
             };
@@ -7242,6 +7361,11 @@ window.H = (function () {
               next.details.orders[k] = Object.assign({}, next.details.orders[k] || {}, d.orders[k]);
             });
             if (!Object.keys(next.details.orders).length) delete next.details.orders;
+            (d.added || []).forEach(function (a) {
+              if (next.details.added.some(function (x) { return x.slug === a.slug; })) return;
+              next.details.added.push(a);
+            });
+            if (!next.details.added.length) delete next.details.added;
             return next;
           }, 'company details: ' + F.company, { revisions: [] })
             /* ⚠ Republished in the SAME action as the save. If this were a
