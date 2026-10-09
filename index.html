@@ -2850,7 +2850,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-09b \u00b7 one facilitator';
+  var BUILD = '2026-10-09c \u00b7 facilitator row';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -7889,20 +7889,6 @@ window.H = (function () {
           'in <b>My Hours</b> and can log against any of them. What is ticked as theirs below still ' +
           'decides what <b>Normally Mine</b> shows them, so their own work stays easy to find.</p>' +
 
-          '<h4 class="subh">Who Facilitates What</h4>' +
-          '<p class="fineprint">Worked out from the ticks below \u2014 <b>there is nothing to set ' +
-          'here</b>. Whoever has an order ticked as theirs is its facilitator, so the two can ' +
-          'never disagree. An order several people share says so rather than naming one of them.</p>' +
-          '<div class="tbl"><table><thead><tr><th>Service Order</th>' +
-          '<th style="width:40%">Facilitator</th></tr></thead><tbody>' +
-          (F.orders || []).map(function (o) {
-            var fac = facilitatorOf(F, o);
-            return '<tr><td>' + esc(o.subject) + '</td><td>' +
-              (fac ? esc(fac)
-                   : '<span class="fineprint">Nobody has this ticked yet</span>') +
-              '</td></tr>';
-          }).join('') + '</tbody></table></div>' +
-
           '<h4 class="subh">People</h4>' +
           '<p class="fineprint">The email is how a sign-in is matched to a person, so it has to be ' +
           'the address their account uses. <b>Sees Everything</b> gives them the signer’s view ' +
@@ -7959,6 +7945,32 @@ window.H = (function () {
               '<input type="hidden" class="cdf" data-p="' + pp + '" data-k="pslug" value="' +
               esc(pr.slug || '') + '"></div></div>';
           }).join('') + '</div>' +
+
+          /* ⚠ The answer, folded away, directly under the ticks that produce
+             it. It is a result rather than a setting — worth being able to
+             check, never worth taking up room before anybody asks. */
+          '<div class="rows">' +
+          '<div class="row"><div class="row-h">' +
+            '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true">' +
+              '<path d="M9 6l6 6-6 6"/></svg>' +
+            '<span class="rt">Who Facilitates What</span>' +
+            '<span class="rs">' + (F.orders || []).length +
+              ((F.orders || []).length === 1 ? ' order' : ' orders') + '</span>' +
+          '</div><div class="row-b">' +
+            '<p class="fineprint">Worked out from the ticks above \u2014 <b>there is nothing to ' +
+            'set here</b>. Whoever has an order ticked as theirs is its facilitator, so the two ' +
+            'can never disagree. An order several people share says so rather than naming one ' +
+            'of them.</p>' +
+            '<div class="tbl"><table><thead><tr><th>Service Order</th>' +
+            '<th style="width:40%">Facilitator</th></tr></thead><tbody>' +
+            (F.orders || []).map(function (o) {
+              var fac = facilitatorOf(F, o);
+              return '<tr><td>' + esc(o.subject) + '</td><td>' +
+                (fac ? esc(fac)
+                     : '<span class="fineprint">Nobody has this ticked yet</span>') +
+                '</td></tr>';
+            }).join('') + '</tbody></table></div>' +
+          '</div></div></div>' +
 
           '<h4 class="subh">Add Someone to ' + esc(F.company) + '</h4>' +
           '<p class="fineprint">They appear in the list above once saved. <b>To remove somebody, ' +
