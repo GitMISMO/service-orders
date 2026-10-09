@@ -1359,6 +1359,16 @@ ul.plain li{margin:3px 0;line-height:1.5}
 }
 
 /* sign out, at the foot of the rail */
+/* A heading inside the rail. ⚠ Not a button and not reachable by tab — it is
+   a label, and stopping on it on the way to a page would be noise. */
+.railgroup{padding:14px 10px 5px;font-size:9.5px;letter-spacing:.13em;text-transform:uppercase;
+  font-weight:700;color:rgba(255,255,255,.42);white-space:nowrap;pointer-events:none}
+.railgroup:first-child{padding-top:2px}
+/* Collapsed to the icon rail the labels would be meaningless, so they become a
+   hairline that still separates the groups. */
+body.railmini .railgroup{padding:8px 0 7px;font-size:0;letter-spacing:0;
+  border-top:1px solid rgba(80,164,219,.18);margin:4px 8px 0}
+body.railmini .railgroup:first-child{border-top:0;margin-top:0;padding-top:0}
 .railout{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;
   border:0;border-top:1px solid rgba(80,164,219,.2);border-radius:0;margin-top:8px;padding:11px 10px 8px;
   color:rgba(255,255,255,.62);font:inherit;font-family:var(--display);font-size:12.5px;
@@ -1703,6 +1713,81 @@ td.hcol .hdot{margin:0 auto}
   .owedrow .gobtn{margin-left:0;width:100%;order:4}
 }
 .owed .fineprint{margin-top:11px}
+
+/* =========================================================================
+ * ONE BUTTON SYSTEM, and nothing pill-shaped
+ *
+ * Jonna, 9 October: "these buttons are inconsistent size... make sure all
+ * buttons are consistent... there are no pill shaped anything".
+ *
+ * ⚠ Why this sits at the END of the stylesheet rather than being edited into
+ * each rule above: there were six button classes, each with its own font
+ * size (12.5, 13, 14), its own padding (6×13 up to 12×16) and its own radius
+ * (4, 6, 7, 24). Two of them side by side never lined up, and fixing them one
+ * at a time is how they drifted apart in the first place. The geometry is set
+ * ONCE here for every one of them; the individual rules above now only decide
+ * colour. A new button class added later and not listed here will look wrong
+ * next to these, which is the point — it has to be added to the list.
+ *
+ * Text links (.lnk) are deliberately not included: they are not buttons and
+ * must not grow button-shaped padding. The rail's own items are navigation,
+ * not content controls, and keep their own geometry.
+ * ======================================================================= */
+:root{ --btn-r:4px; }
+
+/* ⚠ The .ghost variants are listed too, and that is not belt and braces.
+   `.gobtn.ghost` is two classes, so it beats a single-class rule however far
+   down the file that rule sits — which is exactly how the ghost buttons kept
+   a 7px radius while the solid ones went to 4px. Matching specificity is the
+   only thing that settles it. */
+.gobtn, .tbtn, .printbtn, .mbtn, .chgbtn, .signgo, .covdel, .exec-go,
+.gobtn.ghost, .tbtn.ghost, .printbtn.ghost, .mbtn.ghost{
+  font-family:var(--display);
+  font-size:13px;
+  font-weight:600;
+  line-height:1.25;
+  padding:9px 16px;
+  border-width:1px;
+  border-style:solid;
+  border-radius:var(--btn-r);
+  cursor:pointer;
+  white-space:nowrap;
+  /* ⚠ The one line that makes two buttons the same height whatever is in
+     them: an icon, a count or a long company name all sit on the same
+     baseline box. */
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  min-height:36px;
+  box-sizing:border-box;
+}
+/* The only size that differs, and only because it is the full width of the
+   sign-in card and carries the weight of that screen on its own. */
+.signgo{ font-size:14px; min-height:44px; padding:12px 16px; display:block; width:100%; }
+/* Floating, so it keeps its shadow and its position — but not its 24px
+   radius, which made it the one pill left on the page. */
+.chgbtn{ border-radius:var(--btn-r); padding:9px 16px; }
+.chgbtn.on{ display:inline-flex; }
+.printbtn{ margin:14px 0 0; }
+/* ⚠ A count sitting inside a button must not make that button taller than the
+   one beside it. Its own line-height was doing exactly that — one pixel, on
+   every screen that pairs a counted button with a plain one. */
+.mbtn .mct, .gobtn .n, .tbtn .n, .chgbtn .n{ line-height:1; }
+
+/* ---- nothing pill-shaped --------------------------------------------------
+   Counts, tags, status chips and badges were drawn at 20px, 24px and 999px —
+   fully rounded. Squared to the same small radius the buttons use, so a chip
+   beside a button reads as part of the same system.
+   ⚠ Round DOTS are left alone on purpose: a 9px status dot is a dot, not a
+   pill, and squaring it would make it a speck. */
+.pill, .card .cnt, .chgbtn .n, .cvpick button, .railn, .cnt, .owed-n, .mct,
+.qc, .va-ro, .row.edited .row-h .rt::after{
+  border-radius:var(--btn-r) !important;
+}
+/* The two cards still at 12px, brought onto the 8px the rest of the page
+   uses, so no two panels round differently. */
+.cvframe, .signcard, .signwrap > *{ border-radius:8px; }
 </style>
 </head>
 <body>
@@ -2765,7 +2850,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-08f \u00b7 receipts';
+  var BUILD = '2026-10-09 \u00b7 summits, nav, buttons';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -3381,6 +3466,33 @@ window.H = (function () {
       '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9h10M7 13h10M7 17h6"/>';
   }
 
+  /* ⚠ THE RAIL IS GROUPED, not a list of everything in page order.
+     Jonna, 8 October: "it's a mess". Her own screen carries nine entries and
+     they were drawn flat, in whatever order the sections happened to be built
+     — so "Time to Approve", which needs her today, sat in the same weight and
+     the same kind of row as "Help", which she has never once opened.
+
+     Grouped by WHAT SHE IS DOING, and the first group is always the work that
+     is waiting. A section not named here still appears, at the end, under
+     Everything Else — so adding a section can never make it vanish from the
+     rail, which is the failure mode a hard-coded list has. */
+  var RAIL_GROUPS = [
+    { label: 'Waiting on You', names: ['Needs You', 'Time to Approve', 'Send Orders',
+        'To Review', 'Awaiting Your Approval', 'Awaiting Your Decision'] },
+    { label: 'Your Week', names: ['My Hours', 'My Submitted Time', 'My Expenses',
+        'The Company\u2019s Month'] },
+    { label: 'Service Orders', names: ['My Service Orders', 'New Service Order',
+        'Revise an Order', 'My Agreements', 'Executed Documents',
+        'Already Approved', 'Already Decided'] },
+    { label: 'Setup', names: ['Company Details', 'View As'] }
+  ];
+  function railGroupOf(name) {
+    for (var i = 0; i < RAIL_GROUPS.length; i++) {
+      if (RAIL_GROUPS[i].names.indexOf(name) >= 0) return i;
+    }
+    return RAIL_GROUPS.length;        // Everything Else
+  }
+
   function buildRail() {
     var host = document.getElementById('rail-nav');
     if (!host) return;
@@ -3390,7 +3502,43 @@ window.H = (function () {
        entry in the rail, and the entry for the page you are on is the one
        marked — because it IS where you are, not somewhere you scrolled past. */
     var secs = view.querySelectorAll('.psec');
+
+    /* Bucketed first, so a heading is only drawn for a group that has
+       something in it — and the page order inside a group is kept, because
+       that order was chosen. */
+    var buckets = [];
+    for (var gi = 0; gi <= RAIL_GROUPS.length; gi++) buckets.push([]);
     Array.prototype.forEach.call(secs, function (sec) {
+      var h0 = sec.querySelector('.psec-h');
+      if (!h0) return;
+      var nm = sec.getAttribute('data-name') || (h0.querySelector('span') || {}).textContent || '';
+      buckets[railGroupOf(nm)].push(sec);
+    });
+    /* ⚠ One group only: no headings at all. A single "Waiting on You" label
+       over a list of three is a decoration, not navigation. */
+    var used = buckets.filter(function (b) { return b.length; }).length;
+    var ordered = [];
+    buckets.forEach(function (b, i) {
+      if (!b.length) return;
+      /* ⚠ No heading over the leftovers when there is only one of them — on
+         most screens that bucket is Help by itself, and "Everything Else"
+         above a single word is a heavier label than the thing it names. */
+      var isRest = i >= RAIL_GROUPS.length;
+      if (used > 1 && !(isRest && b.length < 2)) {
+        ordered.push({ head: isRest ? 'Everything Else' : RAIL_GROUPS[i].label });
+      }
+      b.forEach(function (sec) { ordered.push({ sec: sec }); });
+    });
+
+    ordered.forEach(function (item) {
+      if (item.head) {
+        var hd = document.createElement('div');
+        hd.className = 'railgroup';
+        hd.textContent = item.head;
+        host.appendChild(hd);
+        return;
+      }
+      var sec = item.sec;
       var h = sec.querySelector('.psec-h');
       if (!h) return;
       var name = sec.getAttribute('data-name') || (h.querySelector('span') || {}).textContent || '';
@@ -5234,6 +5382,35 @@ window.H = (function () {
     return e;
   }
 
+  /* ⚠ WHICH SUMMIT AN EXPENSE BELONGS TO.
+     Jonna, 8 October: contractors only claim expenses for summits. There are
+     three a year — Winter in January, Spring in June, Fall in September — and
+     spend lands either in the summit's own month or the month before it, when
+     people travel and book.
+
+     ⚠ December belongs to the NEXT YEAR'S Winter Summit. That is the only
+     place the year moves, and it is the one a person filling this in by hand
+     gets wrong: a flight booked on 28 December 2026 is for the Winter Summit
+     2027, not 2026.
+
+     Any other month returns nothing rather than guessing. A wrong trip name
+     filled in confidently is worse than an empty box. */
+  var SUMMITS = {
+    0:  { name: 'Winter', bump: 0 },    // January — the summit itself
+    11: { name: 'Winter', bump: 1 },    // December — the month before it
+    5:  { name: 'Spring', bump: 0 },    // June
+    4:  { name: 'Spring', bump: 0 },    // May
+    8:  { name: 'Fall',   bump: 0 },    // September
+    7:  { name: 'Fall',   bump: 0 }     // August
+  };
+  function summitFor(dateStr) {
+    var d = H.parse(readDate(dateStr) || dateStr);
+    if (!d) return '';
+    var hit = SUMMITS[d.getMonth()];
+    if (!hit) return '';
+    return 'MISMO ' + hit.name + ' Summit ' + (d.getFullYear() + hit.bump);
+  }
+
   function expState(e) {
     return ({ draft: { label: 'Not Sent', tone: '' },
               submitted: { label: 'Sent to MISMO', tone: 'warn' },
@@ -5360,8 +5537,11 @@ window.H = (function () {
       'data-k="amt" value="' + esc(e.amt == null ? '' : e.amt) + '"' + (locked ? ' disabled' : '') +
       '></div>' +
       '<div class="f"><label>Trip or Reason</label><input type="text" class="xf" data-k="trip" ' +
-      'placeholder="MISMO Fall Summit" value="' + esc(e.trip || '') + '"' +
-      (locked ? ' disabled' : '') + '></div>' +
+      'id="xp-trip" placeholder="Which summit this was for" value="' + esc(e.trip || '') + '"' +
+      (locked ? ' disabled' : '') + '>' +
+      '<span class="fineprint" id="xp-tripsay">' +
+      (e.tripAuto && e.trip ? 'Filled in from the date \u2014 change it if it was something else.' : '') +
+      '</span></div>' +
       '<div class="f"><label>Description</label><input type="text" class="xf" data-k="desc" ' +
       'placeholder="What it was, and why" value="' + esc(e.desc || '') + '"' +
       (locked ? ' disabled' : '') + '></div>' +
@@ -5436,8 +5616,10 @@ window.H = (function () {
 
     var add = document.getElementById('xp-new');
     if (add) add.addEventListener('click', function () {
+      var today = H.print(new Date());
       var e = { id: 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-                date: H.print(new Date()), cat: '', amt: '', desc: '', trip: '',
+                date: today, cat: '', amt: '', desc: '',
+                trip: summitFor(today), tripAuto: !!summitFor(today),
                 receipt: false, state: 'draft' };
       openPanel('Add an Expense', expensePanel(e, (EXPS.file && EXPS.file.expenses) || [], true));
       wireExpensePanel(C, person, fy, e, true);
@@ -5497,8 +5679,41 @@ window.H = (function () {
         else if (k === 'date') out.date = readDate(v) || v;
         else out[k] = v;
       });
+      out.tripAuto = !!e.tripAuto;
       return out;
     }
+    /* ---- the trip, from the date ----------------------------------------
+       ⚠ It follows the date only while it is still OURS. The moment somebody
+       types in the box it is theirs, and the date never touches it again —
+       the same rule the receipt reader follows, for the same reason: a field
+       that silently rewrites a correction is worse than one that stays
+       empty. */
+    var tripEl = document.getElementById('xp-trip');
+    var tripSay = document.getElementById('xp-tripsay');
+    var dateEl = document.querySelector('#panel-body .xf[data-k="date"]');
+    function syncTrip() {
+      if (!tripEl) return;
+      if (!e.tripAuto && String(tripEl.value || '').trim() !== '') return;
+      var want = summitFor(dateEl ? dateEl.value : e.date);
+      /* Nothing to suggest for this month: leave whatever is there alone
+         rather than blanking a value they may have typed. */
+      if (!want) { if (e.tripAuto) { tripEl.value = ''; if (tripSay) tripSay.textContent = ''; } return; }
+      tripEl.value = want;
+      e.tripAuto = true;
+      if (tripSay) tripSay.textContent =
+        'Filled in from the date \u2014 change it if it was something else.';
+    }
+    if (tripEl) {
+      tripEl.addEventListener('input', function () {
+        e.tripAuto = false;
+        if (tripSay) tripSay.textContent = '';
+      });
+    }
+    if (dateEl) {
+      dateEl.addEventListener('change', syncTrip);
+      dateEl.addEventListener('blur', syncTrip);
+    }
+
     /* ---- the receipt ---------------------------------------------------- */
     var pending = null;            // { b64, type, ext, bytes } not yet committed
     var say = document.getElementById('rcpt-say');
