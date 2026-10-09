@@ -1301,6 +1301,33 @@ body.signedout main,body.signedout #view{padding:0}
   padding:3px 0;cursor:pointer}
 .tick1 input{margin-top:3px;flex:none}
 .va-built{font-size:11.5px;color:var(--ink-3);white-space:nowrap}
+/* A list inside a note: the bullets line up under the sentence above them
+   rather than being pushed in by the browser default. */
+/* ---- the receipt ------------------------------------------------------- */
+.rcpt-drop{display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;
+  padding:22px 16px;border:2px dashed var(--border-strong);border-radius:8px;
+  background:var(--surface-2);cursor:pointer;margin:6px 0 2px}
+.rcpt-drop:hover,.rcpt-drop:focus-visible{border-color:var(--navy-mid);background:var(--surface-3);
+  outline:none}
+.rcpt-drop.over{border-color:var(--sky);background:var(--surface-3)}
+.rcpt-drop.has{border-style:solid;border-color:var(--good,var(--navy-mid))}
+.rcpt-ic{width:26px;height:26px;fill:none;stroke:var(--ink-3);stroke-width:1.6;
+  stroke-linecap:round;stroke-linejoin:round}
+.rcpt-btns{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:6px}
+.rcpt-ok{color:var(--ink-2);font-weight:600}
+.rcpt-bad{color:var(--bad);font-weight:600}
+.rcpt-have{display:flex;gap:14px;align-items:flex-start;margin:6px 0 2px;padding:12px;
+  border:1px solid var(--line);border-radius:8px;background:var(--surface-2)}
+.rcpt-thumb{flex:0 0 110px;width:110px;min-height:84px;display:flex;align-items:center;
+  justify-content:center;border-radius:6px;overflow:hidden;background:var(--surface-3)}
+.rcpt-thumb img{width:100%;height:auto;display:block}
+.rcpt-pdf{font-size:12px;font-weight:700;letter-spacing:.08em;color:var(--ink-3)}
+.rcpt-meta{display:flex;flex-direction:column;gap:3px;min-width:0}
+.rcpt-acts{display:flex;gap:12px;margin-top:6px}
+:root[data-theme="dark"] .rcpt-drop{background:var(--surface-2)}
+@media (max-width:560px){ .rcpt-have{flex-direction:column} .rcpt-thumb{width:100%;flex:none} }
+ul.plain{margin:6px 0 0;padding-left:18px}
+ul.plain li{margin:3px 0;line-height:1.5}
 .minebar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px}
 .mbtn{font:inherit;font-size:13px;font-weight:600;padding:7px 12px;border-radius:4px;
   border:1px solid var(--line);background:var(--card);color:var(--ink-2);cursor:pointer}
@@ -2738,7 +2765,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-08d \u00b7 invoice engine';
+  var BUILD = '2026-10-08f \u00b7 receipts';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -4565,11 +4592,17 @@ window.H = (function () {
                is the one screen that IS their job.
                (No names here: this file is served from a PUBLIC repository.) */
             var logs = logsTime(F, person);
+            /* ⚠ Only for somebody with Can Claim Expenses on. For everybody
+               else it is a page that can only ever be empty. */
+            var xs = person.expenses ? ((mine.expenses || []).length) : null;
             return (logs
               ? sect('My Hours', null, hoursSection(C, person, fy, mine, files), true) +
                 sect('My Submitted Time', (mine.weeks || []).length,
                      submittedSection(C, person, fy, mine))
               : '') +
+              (person.expenses
+                ? sect('My Expenses', xs, expensesSection(C, person, mine))
+                : '') +
               (person.timeManager
                 ? sect('The Company\u2019s Month', null, monthSection(C, fy, files), !logs) : '');
           }).catch(function (e) {
@@ -4595,6 +4628,7 @@ window.H = (function () {
               sect('My Agreements', F.letters.length, ag) +
               sect('Help', null, helpFor('contractor', F))
           );
+          if (person && person.expenses) wireExpenses(C, person, fy);
           if (!isFac()) wireReview(C, st, toReview);
           wireSigned(C, F);
           /* Both: the agreements sit in rows that open on the right, so the
@@ -5060,6 +5094,562 @@ window.H = (function () {
       'placeholder="Hours" value="' + (f && f.hours ? hrs(f.hours) : '') + '">' +
       '<button class="lnk covdel" type="button" aria-label="Remove this line">Remove</button>' +
       '</div>';
+  }
+
+  /* =========================================================================
+   * MY EXPENSES
+   *
+   * ⚠ Only for somebody with Can Claim Expenses on. Everybody else never sees
+   * the section, because for them it would be a screen that can only ever be
+   * empty.
+   *
+   * ⚠ An expense is their OWN money, waiting to be repaid. A facilitator sees
+   * no rate and no fee — decision 26 is about MISMO's commercial terms — but
+   * what they themselves spent is their receipt, and withholding it would make
+   * the section pointless.
+   * ======================================================================= */
+  var EXPS = { file: null, period: null, draft: null, open: null };
+
+  /* ⚠ A PHONE PHOTO IS 2 TO 5 MB AND THE RELAY TAKES 700 KB.
+     A receipt photographed on a phone is several megabytes — base64 inflates it
+     by a third on top. Uploading it raw would be refused every single time, and
+     telling somebody standing in a car park to "export it smaller" is not a
+     fix. So the picture is shrunk HERE, before anything is sent: the long edge
+     is capped and the quality stepped down until it fits.
+
+     A receipt only has to be READABLE, by a person and by whatever reads it
+     later. 1600px on the long edge is more than enough for that and lands well
+     inside the cap. */
+  var RECEIPT_MAX_EDGE = 1600;
+  var RECEIPT_BUDGET = 650 * 1024;      // bytes of base64, under the relay's cap
+  var RECEIPT_HARD_MAX = 12 * 1024 * 1024;
+
+  function fileToDataUrl(file) {
+    return new Promise(function (res, rej) {
+      var fr = new FileReader();
+      fr.onload = function () { res(String(fr.result)); };
+      fr.onerror = function () { rej(new Error('That file could not be read.')); };
+      fr.readAsDataURL(file);
+    });
+  }
+
+  /* Returns { b64, type, ext, bytes, shrunk } or rejects with something worth
+     showing somebody. */
+  function prepareReceipt(file) {
+    if (!file) return Promise.reject(new Error('No file chosen.'));
+    if (file.size > RECEIPT_HARD_MAX) {
+      return Promise.reject(new Error(file.name + ' is ' +
+        (file.size / 1048576).toFixed(1) + ' MB, which is too big to work with at all. ' +
+        'Take the picture again at a lower resolution, or send it to Jonna directly.'));
+    }
+    var isPdf = /pdf$/i.test(file.type) || /\.pdf$/i.test(file.name || '');
+    if (isPdf) {
+      /* ⚠ A PDF cannot be shrunk in the browser, so it goes as it is or not at
+         all — and it is refused BEFORE anything is written, with the reason. */
+      return fileToDataUrl(file).then(function (url) {
+        var b64 = url.split(',')[1] || '';
+        if (b64.length > RECEIPT_BUDGET) {
+          throw new Error(file.name + ' is too large to accept at ' +
+            (file.size / 1048576).toFixed(1) + ' MB. A PDF cannot be shrunk here. ' +
+            'A receipt this size is almost always a scan \u2014 photograph it instead, ' +
+            'or send it to Jonna directly. Nothing has been saved.');
+        }
+        return { b64: b64, type: 'application/pdf', ext: 'pdf', bytes: b64.length, shrunk: false };
+      });
+    }
+    if (!/^image\//.test(file.type || '')) {
+      return Promise.reject(new Error('That is not a picture or a PDF. ' +
+        'A photo of the receipt, or a PDF of it, is what is needed.'));
+    }
+    return fileToDataUrl(file).then(function (url) {
+      return new Promise(function (res, rej) {
+        var img = new Image();
+        img.onerror = function () { rej(new Error('That picture could not be opened.')); };
+        img.onload = function () {
+          var w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+          if (!w || !h) { rej(new Error('That picture could not be measured.')); return; }
+          var scale = Math.min(1, RECEIPT_MAX_EDGE / Math.max(w, h));
+          var cw = Math.max(1, Math.round(w * scale)), ch = Math.max(1, Math.round(h * scale));
+          var cv = document.createElement('canvas');
+          cv.width = cw; cv.height = ch;
+          var ctx = cv.getContext('2d');
+          /* White behind it: a transparent PNG turns black as a JPEG, which is
+             a receipt nobody can read. */
+          ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, cw, ch);
+          ctx.drawImage(img, 0, 0, cw, ch);
+          /* Step the quality down until it fits rather than guessing once. */
+          var qs = [0.82, 0.7, 0.6, 0.5, 0.4], out = null;
+          for (var i = 0; i < qs.length; i++) {
+            var d = cv.toDataURL('image/jpeg', qs[i]);
+            var b = d.split(',')[1] || '';
+            if (b.length <= RECEIPT_BUDGET) { out = b; break; }
+            out = b;
+          }
+          if (!out || out.length > RECEIPT_BUDGET) {
+            rej(new Error('That picture is still too large after shrinking it. ' +
+              'Take it again a little further back, or send it to Jonna directly. ' +
+              'Nothing has been saved.'));
+            return;
+          }
+          res({ b64: out, type: 'image/jpeg', ext: 'jpg', bytes: out.length,
+                shrunk: scale < 1 || true, w: cw, h: ch });
+        };
+        img.src = url;
+      });
+    });
+  }
+
+  /* ⚠ WHERE RECEIPTS LIVE, and why it is not a new folder.
+     `hours/` is already writable by both a company's full key AND its
+     hours-only key, and the relay matches a prefix — so `hours/receipts/...`
+     needs no change to projects.json and no new permission for anybody. A
+     separate `receipts/` folder would have meant a config change on ten keys
+     before a single contractor could photograph anything. */
+  function receiptPath(person, id, ext) {
+    return 'hours/receipts/' + person.slug + '-' + id + '.' + ext;
+  }
+
+  /* ⚠ THE HOOK FOR READING A RECEIPT.
+     Nothing reads receipts yet. When something does, it returns the fields it
+     managed to find and this is where they land — so the rest of the screen is
+     already built for it and nothing has to be reworked.
+
+     The rule it must follow, and the reason this is a function rather than an
+     assignment: WHAT SOMEBODY TYPED IS NEVER OVERWRITTEN. A reader fills only
+     what is still empty and marks it as having come from the picture, so they
+     can see at a glance what to check before sending. A reader that quietly
+     replaced a corrected figure would be worse than no reader at all. */
+  function applyReceiptRead(e, found) {
+    if (!e || !found) return e;
+    var filled = [];
+    ['date', 'cat', 'amt', 'desc', 'trip'].forEach(function (k) {
+      var has = e[k] !== undefined && e[k] !== null && String(e[k]).trim() !== '';
+      if (has) return;                       // never over what a person typed
+      if (found[k] === undefined || found[k] === null || String(found[k]).trim() === '') return;
+      e[k] = k === 'date' ? (readDate(found[k]) || '') : found[k];
+      if (e[k] !== '') filled.push(k);
+    });
+    e.readFrom = { at: new Date().toISOString(), filled: filled,
+                   by: found.by || 'the receipt' };
+    return e;
+  }
+
+  function expState(e) {
+    return ({ draft: { label: 'Not Sent', tone: '' },
+              submitted: { label: 'Sent to MISMO', tone: 'warn' },
+              approved: { label: 'Approved', tone: 'good' },
+              invoiced: { label: 'On an Invoice', tone: 'warn' },
+              paid: { label: 'Paid', tone: '' },
+              returned: { label: 'Sent Back to You', tone: 'bad' }
+            })[(e && e.state) || 'draft'] || { label: 'Not Sent', tone: '' };
+  }
+  function expLocked(e) {
+    var st = (e && e.state) || 'draft';
+    return st === 'invoiced' || st === 'paid' || st === 'approved';
+  }
+
+  function expensesSection(C, person, mine) {
+    var all = ((mine && mine.expenses) || []).slice();
+    EXPS.file = mine;
+    /* Newest first, because the one being worked on is almost always today's. */
+    all.sort(function (a, b) {
+      var da = H.parse(a.date), db = H.parse(b.date);
+      return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
+    });
+
+    /* Grouped by the month they fall in, because that is the invoice they
+       will land on and it is the only grouping that decides anything. */
+    var periods = [], seen = {};
+    all.forEach(function (e) {
+      var pd = H.periodOfWeek(e.date);
+      if (!pd || seen[pd]) return;
+      seen[pd] = 1; periods.push(pd);
+    });
+
+    var unsent = all.filter(function (e) { return ((e.state || 'draft') === 'draft'); });
+    var unsentTot = unsent.reduce(function (a, e) { return a + expenseAllowed(e); }, 0);
+
+    var head =
+      '<p class="lede">What you have spent and are owed. <b>Add each one as it happens</b> \u2014 ' +
+      'they go on the invoice for the month they fall in, not the month you enter them.</p>' +
+      '<div class="wkband">' +
+        '<div class="wkband-l">' +
+          '<span class="wkband-k">Not Sent Yet</span>' +
+          /* ⚠ To the cent, not rounded. The month totals below are exact, and a
+             headline reading $34 above a line reading $33.50 makes somebody
+             check which is wrong. */
+          '<span class="wkband-d">' + money(unsentTot) + '</span>' +
+          '<span class="wkband-s">' + unsent.length +
+            (unsent.length === 1 ? ' expense' : ' expenses') + ' waiting to be sent</span>' +
+        '</div>' +
+        '<div class="wkband-r">' +
+          '<span class="wkband-h">' + all.length + '</span>' +
+          '<span class="wkband-u">in all this year</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="onebar"><button class="gobtn" type="button" id="xp-new">Add an Expense</button>' +
+      (unsent.length
+        /* ⚠ The ghost variant: adding is the everyday action and sending is the
+           occasional one, so they must not read as two equal choices. */
+        ? '<button class="gobtn ghost" type="button" id="xp-send">Send ' + unsent.length +
+          ' to MISMO</button>'
+        : '') + '</div>' +
+      '<p class="fineprint">MISMO reimburses under the <b>MBA travel and expense policy</b>. ' +
+      'Receipts are needed over ' + money(RECEIPT_OVER) + ', and over ' + money(MEAL_RECEIPT_OVER) +
+      ' on a meal \u2014 a meal over that without one is repaid at ' + money(MEAL_RECEIPT_OVER) +
+      ' rather than refused.</p>';
+
+    if (!all.length) {
+      return head + '<p class="empty"><b>Nothing yet.</b> Add the first one with the button above.</p>';
+    }
+
+    return head + periods.map(function (pd) {
+      var inP = all.filter(function (e) { return H.periodOfWeek(e.date) === pd; });
+      var tot = inP.reduce(function (a, e) { return a + expenseAllowed(e); }, 0);
+      return '<h4 class="subh">' + esc(H.periodLabel(pd)) + ' \u00b7 ' + money(tot) + '</h4>' +
+        '<div class="hqrows">' + inP.map(function (e) {
+          var st = expState(e);
+          var bad = expenseWorst(e, all);
+          var allowed = expenseAllowed(e);
+          var capped = allowed !== (Number(e.amt) || 0);
+          return panelRow('xp-' + e.id, e.cat || 'No category yet',
+            (e.date || 'no date') + (e.desc ? ' \u00b7 ' + e.desc : ''),
+            money(allowed) + (capped ? ' <span class="fineprint">capped</span>' : ''),
+            expensePanel(e, all),
+            (bad === 'bad' ? '<span class="pill bad">Needs Something</span>'
+              : bad === 'warn' ? '<span class="pill warn">Check It</span>' : '') +
+            '<span class="pill ' + st.tone + '">' + esc(st.label) + '</span>');
+        }).join('') + '</div>';
+    }).join('');
+  }
+
+  function expensePanel(e, all, fresh) {
+    var locked = expLocked(e);
+    /* ⚠ A brand-new expense is not a faulty one. Listing what is missing
+       before anybody has typed anything reads as being told off for opening
+       the form, and it trains people to ignore the box that will later say
+       something that matters. */
+    var problems = fresh ? [] : checkExpense(e, all);
+    var allowed = expenseAllowed(e);
+    var capped = allowed !== (Number(e.amt) || 0);
+    return (locked
+      ? '<div class="note"><b>' + esc(expState(e).label) + '.</b> This one is no longer editable ' +
+        'here \u2014 if something is wrong with it, tell Jonna.</div>'
+      : '') +
+      (problems.length
+        ? '<div class="note ' + (problems.some(function (x) { return x.lvl === 'bad'; }) ? 'bad' : 'warn') +
+          '"><b>' + (problems.length === 1 ? 'One thing' : problems.length + ' things') +
+          ' to look at.</b><ul class="plain">' +
+          problems.map(function (x) { return '<li>' + x.m + '</li>'; }).join('') + '</ul></div>'
+        : '') +
+      (capped
+        ? '<div class="note"><b>Repaid at ' + money(allowed) + '</b>, not ' +
+          money(e.amt) + ' \u2014 the policy caps a meal with no receipt. Add the receipt and the ' +
+          'full amount stands.</div>'
+        : '') +
+      '<div class="revgrid">' +
+      '<div class="f"><label>Date</label><input type="text" class="xf" data-k="date" ' +
+      'placeholder="10/08/26" value="' + esc(e.date || '') + '"' + (locked ? ' disabled' : '') + '></div>' +
+      '<div class="f"><label>What It Was For</label><select class="xf" data-k="cat"' +
+      (locked ? ' disabled' : '') + '>' +
+      '<option value="">Choose one</option>' +
+      EXP_CATS.map(function (c) {
+        return '<option value="' + esc(c) + '"' + (e.cat === c ? ' selected' : '') + '>' +
+          esc(c) + '</option>'; }).join('') + '</select></div>' +
+      '<div class="f"><label>Amount</label><input type="number" step="0.01" min="0" class="xf" ' +
+      'data-k="amt" value="' + esc(e.amt == null ? '' : e.amt) + '"' + (locked ? ' disabled' : '') +
+      '></div>' +
+      '<div class="f"><label>Trip or Reason</label><input type="text" class="xf" data-k="trip" ' +
+      'placeholder="MISMO Fall Summit" value="' + esc(e.trip || '') + '"' +
+      (locked ? ' disabled' : '') + '></div>' +
+      '<div class="f"><label>Description</label><input type="text" class="xf" data-k="desc" ' +
+      'placeholder="What it was, and why" value="' + esc(e.desc || '') + '"' +
+      (locked ? ' disabled' : '') + '></div>' +
+      '<div class="f"><label>Receipt Attached</label><select class="xf" data-k="receipt"' +
+      (locked ? ' disabled' : '') + '>' +
+      '<option value="no"' + (e.receipt ? '' : ' selected') + '>No</option>' +
+      '<option value="yes"' + (e.receipt ? ' selected' : '') + '>Yes</option></select></div>' +
+      '<div class="f"><label>What the Receipt Says</label><input type="number" step="0.01" min="0" ' +
+      'class="xf" data-k="rcptAmt" value="' + esc(e.rcptAmt == null ? '' : e.rcptAmt) + '"' +
+      (locked ? ' disabled' : '') + '></div>' +
+      '</div>' +
+      /* ⚠ The receipt itself, not a note saying there is one. */
+      '<h5 class="subh5">The Receipt</h5>' +
+      (e.receiptFile
+        ? '<div class="rcpt-have">' +
+          '<div class="rcpt-thumb" id="rcpt-thumb" data-path="' + esc(e.receiptFile) + '">' +
+            '<span class="fineprint">Loading\u2026</span></div>' +
+          '<div class="rcpt-meta">' +
+            '<b>' + esc(e.receiptName || 'Receipt') + '</b>' +
+            '<span class="fineprint">' +
+              (e.receiptBytes ? Math.round(e.receiptBytes / 1024) + ' KB' : '') +
+              (e.receiptShrunk ? ' \u00b7 shrunk to fit' : '') + '</span>' +
+            (e.readFrom && e.readFrom.filled && e.readFrom.filled.length
+              ? '<span class="fineprint">Filled in from the picture: ' +
+                esc(e.readFrom.filled.join(', ')) + ' \u2014 worth a check.</span>'
+              : '') +
+            (locked ? '' :
+              '<div class="rcpt-acts">' +
+              '<button class="lnk" type="button" data-rcpt-replace>Replace It</button>' +
+              '<button class="lnk" type="button" data-rcpt-remove>Remove It</button></div>') +
+          '</div></div>'
+        : locked ? '<p class="fineprint">No receipt was attached.</p>'
+        : '<div class="rcpt-drop" id="rcpt-drop" tabindex="0" role="button" ' +
+          'aria-label="Add the receipt — drop a picture here, or choose one">' +
+            '<svg viewBox="0 0 24 24" aria-hidden="true" class="rcpt-ic">' +
+              '<path d="M12 16V4m0 0L8 8m4-4l4 4M4 20h16"/></svg>' +
+            '<b>Drop the receipt here</b>' +
+            '<span class="fineprint">or use a button below \u2014 a photo is fine</span>' +
+            '<div class="rcpt-btns">' +
+              '<button class="gobtn ghost" type="button" data-rcpt-pick>Choose a File</button>' +
+              '<button class="gobtn ghost" type="button" data-rcpt-cam>Take a Picture</button>' +
+            '</div>' +
+            '<input type="file" id="rcpt-file" accept="image/*,application/pdf" hidden>' +
+            '<input type="file" id="rcpt-cam" accept="image/*" capture="environment" hidden>' +
+            '<p class="fineprint" id="rcpt-say"></p>' +
+          '</div>') +
+      '<p class="fineprint"><b>A photo is shrunk here before it is sent</b>, so a picture ' +
+      'straight off a phone is fine \u2014 nothing has to be resized first. Attaching one ' +
+      'answers the receipt question above by itself.</p>' +
+      (locked ? '' :
+        '<div class="rowacts">' +
+        '<button class="gobtn ghost" type="button" data-xdel="' + esc(e.id) + '">' +
+        (fresh ? 'Discard' : 'Remove') + '</button>' +
+        '<button class="gobtn" type="button" data-xkeep="' + esc(e.id) + '">Keep This Expense</button>' +
+        '</div>');
+  }
+
+  /* Write one change into this person's own hours file. ⚠ Read-modify-write
+     through R.update, so two tabs cannot lose each other's work — the same
+     mechanism the weeks use. */
+  function saveExpenses(C, person, fy, change) {
+    return R.update(keyFor(C.slug), hoursPath(person, fy), function (cur) {
+      var next = cur ? JSON.parse(JSON.stringify(cur)) : H.emptyFile(person, fy);
+      next.person = person.name; next.slug = person.slug; next.fiscalYear = fy;
+      next.expenses = change(next.expenses || []);
+      return next;
+    }, 'expenses: ' + person.name, null);
+  }
+
+  function wireExpenses(C, person, fy) {
+    function refresh() { HRS.files = null; hoursHome(); }
+
+    var add = document.getElementById('xp-new');
+    if (add) add.addEventListener('click', function () {
+      var e = { id: 'x' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+                date: H.print(new Date()), cat: '', amt: '', desc: '', trip: '',
+                receipt: false, state: 'draft' };
+      openPanel('Add an Expense', expensePanel(e, (EXPS.file && EXPS.file.expenses) || [], true));
+      wireExpensePanel(C, person, fy, e, true);
+    });
+
+    var send = document.getElementById('xp-send');
+    if (send) send.addEventListener('click', function () {
+      var list = ((EXPS.file && EXPS.file.expenses) || [])
+        .filter(function (e) { return (e.state || 'draft') === 'draft'; });
+      /* ⚠ Refused before anything is written, not after. An expense missing a
+         receipt it needs would otherwise reach MISMO and bounce back. */
+      var bad = list.filter(function (e) {
+        return expenseWorst(e, (EXPS.file && EXPS.file.expenses) || []) === 'bad';
+      });
+      if (bad.length) {
+        toast(bad.length + (bad.length === 1 ? ' expense needs' : ' expenses need') +
+          ' something before they can go \u2014 open the ones marked Needs Something.', 'warn');
+        return;
+      }
+      if (!list.length) { toast('Nothing waiting to be sent'); return; }
+      send.disabled = true; send.textContent = 'Sending\u2026';
+      var at = new Date().toISOString();
+      saveExpenses(C, person, fy, function (cur) {
+        return cur.map(function (e) {
+          if ((e.state || 'draft') !== 'draft') return e;
+          var n = Object.assign({}, e);
+          n.state = 'submitted'; n.submittedAt = at;
+          return n;
+        });
+      }).then(function () {
+        toast(list.length + (list.length === 1 ? ' expense sent' : ' expenses sent') +
+          ' to MISMO.', 'good');
+        refresh();
+      }).catch(function (err) {
+        send.disabled = false; send.textContent = 'Send to MISMO';
+        failed(err);
+      });
+    });
+
+    $$('#view [data-panel^="xp-"]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var id = b.dataset.panel.slice(3);
+        var e = ((EXPS.file && EXPS.file.expenses) || []).filter(function (x) {
+          return x.id === id; })[0];
+        if (e) onPanelOpen(function () { wireExpensePanel(C, person, fy, e, false); });
+      });
+    });
+  }
+
+  function wireExpensePanel(C, person, fy, e, isNew) {
+    function read() {
+      var out = Object.assign({}, e);
+      $$('#panel-body .xf').forEach(function (el) {
+        var k = el.dataset.k, v = el.value;
+        if (k === 'receipt') out.receipt = v === 'yes';
+        else if (k === 'amt' || k === 'rcptAmt') out[k] = v === '' ? '' : Number(v);
+        else if (k === 'date') out.date = readDate(v) || v;
+        else out[k] = v;
+      });
+      return out;
+    }
+    /* ---- the receipt ---------------------------------------------------- */
+    var pending = null;            // { b64, type, ext, bytes } not yet committed
+    var say = document.getElementById('rcpt-say');
+    function note(msg, bad) {
+      if (!say) return;
+      say.innerHTML = msg ? ('<span class="' + (bad ? 'rcpt-bad' : 'rcpt-ok') + '">' +
+        esc(msg) + '</span>') : '';
+    }
+    function take(file) {
+      if (!file) return;
+      note('Preparing \u2014 shrinking it to fit\u2026');
+      prepareReceipt(file).then(function (r) {
+        pending = r;
+        pending.name = file.name || ('receipt.' + r.ext);
+        note('Ready \u2014 ' + Math.round(r.bytes / 1024) + ' KB. ' +
+             'It is attached when you keep this expense.');
+        var drop = document.getElementById('rcpt-drop');
+        if (drop) drop.classList.add('has');
+        /* ⚠ A receipt IS the answer to "receipt attached", so the policy stops
+           complaining the moment one is on. */
+        var sel = document.querySelector('#panel-body .xf[data-k="receipt"]');
+        if (sel) sel.value = 'yes';
+      }).catch(function (err) {
+        pending = null;
+        note((err && err.message) || 'That could not be used.', true);
+      });
+    }
+    var pick = document.getElementById('rcpt-file');
+    var cam = document.getElementById('rcpt-cam');
+    var bPick = document.querySelector('#panel-body [data-rcpt-pick]');
+    var bCam = document.querySelector('#panel-body [data-rcpt-cam]');
+    if (bPick && pick) bPick.addEventListener('click', function (ev) { ev.stopPropagation(); pick.click(); });
+    if (bCam && cam) bCam.addEventListener('click', function (ev) { ev.stopPropagation(); cam.click(); });
+    if (pick) pick.addEventListener('change', function () { take(pick.files && pick.files[0]); });
+    if (cam) cam.addEventListener('change', function () { take(cam.files && cam.files[0]); });
+
+    var drop = document.getElementById('rcpt-drop');
+    if (drop) {
+      drop.addEventListener('click', function () { if (pick) pick.click(); });
+      drop.addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); if (pick) pick.click(); }
+      });
+      ['dragenter', 'dragover'].forEach(function (t) {
+        drop.addEventListener(t, function (ev) {
+          ev.preventDefault(); ev.stopPropagation(); drop.classList.add('over');
+        });
+      });
+      ['dragleave', 'drop'].forEach(function (t) {
+        drop.addEventListener(t, function (ev) {
+          ev.preventDefault(); ev.stopPropagation(); drop.classList.remove('over');
+        });
+      });
+      drop.addEventListener('drop', function (ev) {
+        var dt = ev.dataTransfer;
+        take(dt && dt.files && dt.files[0]);
+      });
+    }
+
+    /* Show the one already attached. ⚠ Fetched through the relay, because the
+       repository is private — a plain <img src> would 404. */
+    var thumb = document.getElementById('rcpt-thumb');
+    if (thumb && thumb.dataset.path) {
+      R.readRaw(keyFor(C.slug), thumb.dataset.path).then(function (r) {
+        var type = /\.pdf$/i.test(thumb.dataset.path) ? 'application/pdf' : 'image/jpeg';
+        if (type === 'application/pdf') {
+          thumb.innerHTML = '<span class="rcpt-pdf">PDF</span>';
+        } else {
+          thumb.innerHTML = '<img alt="The receipt" src="data:' + type + ';base64,' +
+            r.base64 + '">';
+        }
+      }).catch(function () {
+        thumb.innerHTML = '<span class="fineprint">The picture could not be loaded ' +
+          'just now. It is still attached.</span>';
+      });
+    }
+    var bRep = document.querySelector('#panel-body [data-rcpt-replace]');
+    if (bRep) bRep.addEventListener('click', function () {
+      e.receiptFile = null;
+      openPanel(isNew ? 'Add an Expense' : 'Edit the Expense',
+        expensePanel(e, (EXPS.file && EXPS.file.expenses) || [], isNew));
+      wireExpensePanel(C, person, fy, e, isNew);
+    });
+    var bRem = document.querySelector('#panel-body [data-rcpt-remove]');
+    if (bRem) bRem.addEventListener('click', function () {
+      e.receiptFile = null; e.receiptName = null; e.receiptBytes = null; e.receipt = false;
+      openPanel(isNew ? 'Add an Expense' : 'Edit the Expense',
+        expensePanel(e, (EXPS.file && EXPS.file.expenses) || [], isNew));
+      wireExpensePanel(C, person, fy, e, isNew);
+      toast('Receipt taken off. It is removed when you keep this expense.');
+    });
+
+    var keep = document.querySelector('#panel-body [data-xkeep]');
+    if (keep) keep.addEventListener('click', function () {
+      var next = read();
+      var others = ((EXPS.file && EXPS.file.expenses) || []).filter(function (x) {
+        return x.id !== next.id; });
+      var probs = checkExpense(next, others);
+      if (probs.some(function (x) { return x.lvl === 'bad'; })) {
+        /* ⚠ Kept anyway, never discarded — a half-finished expense is still
+           work, and losing it to a validation rule is worse than storing it
+           marked. It simply cannot be SENT until it is right. */
+        toast('Kept, but it cannot be sent until the things listed are sorted.', 'warn');
+      }
+      keep.disabled = true; keep.textContent = 'Keeping\u2026';
+      /* ⚠ The picture goes up FIRST and the record only afterwards. The other
+         way round leaves a record pointing at a file that is not there, which
+         reads as a lost receipt. If the upload fails nothing is written at all
+         and they still have everything on screen. */
+      var upload = Promise.resolve();
+      if (pending) {
+        next.receiptFile = receiptPath(person, next.id, pending.ext);
+        next.receiptName = pending.name;
+        next.receiptBytes = pending.bytes;
+        next.receiptShrunk = !!pending.shrunk;
+        next.receipt = true;
+        upload = R.commit(keyFor(C.slug),
+          [R.binaryFile(next.receiptFile, pending.b64)],
+          'receipt: ' + person.name + ' ' + (next.date || ''));
+      }
+      upload.then(function () {
+      return saveExpenses(C, person, fy, function (cur) {
+        var found = false;
+        var out = cur.map(function (x) {
+          if (x.id !== next.id) return x;
+          found = true;
+          return expLocked(x) ? x : next;        // never edit something locked
+        });
+        if (!found) out = out.concat([next]);
+        return out;
+      });
+      }).then(function () {
+        closePanel(true);
+        toast(isNew ? 'Expense added' : 'Expense kept', 'good');
+        HRS.files = null; hoursHome();
+      }).catch(function (err) {
+        keep.disabled = false; keep.textContent = 'Keep This Expense';
+        failed(err);
+      });
+    });
+
+    var del = document.querySelector('#panel-body [data-xdel]');
+    if (del) del.addEventListener('click', function () {
+      if (isNew) { closePanel(true); return; }
+      del.disabled = true;
+      saveExpenses(C, person, fy, function (cur) {
+        return cur.filter(function (x) { return x.id !== e.id || expLocked(x); });
+      }).then(function () {
+        closePanel(true); toast('Expense removed', 'good');
+        HRS.files = null; hoursHome();
+      }).catch(function (err) { del.disabled = false; failed(err); });
+    });
   }
 
   /* ---- My Submitted Time --------------------------------------------------
