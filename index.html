@@ -2850,7 +2850,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-09 \u00b7 summits, nav, buttons';
+  var BUILD = '2026-10-09b \u00b7 one facilitator';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -3693,7 +3693,10 @@ window.H = (function () {
      It is written already resolved — revisions and company details merged in —
      so an hours-only key never needs to read revisions/ either, which carries
      revised rates. */
-  var HOURS_ORDER_FIELDS = ['id', 'subject', 'estimatedHours', 'fiscalYear', 'facilitator'];
+  /* ⚠ No `facilitator`: it is derived from the people list, which is published
+     alongside, so copying it here would be a second source that could go
+     stale between publishes. */
+  var HOURS_ORDER_FIELDS = ['id', 'subject', 'estimatedHours', 'fiscalYear'];
   var HOURS_PERSON_FIELDS = ['slug', 'name', 'email', 'orders', 'timeManager',
                              'logsTime', 'expenses', 'activeFrom', 'activeTo'];
 
@@ -3868,11 +3871,10 @@ window.H = (function () {
        cover for each other. What is NORMALLY theirs stays on the person
        record, so their own lines can still be told apart from the cover. */
     if (d.coverAll != null) F.coverAll = !!d.coverAll;
-    /* Who is answerable for an order, switchable at any time. */
-    (F.orders || []).forEach(function (o) {
-      var ov = (d.orders || {})[o.id];
-      if (ov && ov.facilitator != null) o.facilitator = ov.facilitator;
-    });
+    /* ⚠ A facilitator name stored by an earlier build is deliberately NOT
+       applied. It is worked out from the tick list now, and honouring a stale
+       copy here would bring back exactly the disagreement that was the reason
+       for removing it. */
     return F;
   }
 
@@ -4137,6 +4139,26 @@ window.H = (function () {
     var slug = base, n = 2;
     while (taken[slug]) { slug = base + '-' + n; n++; }
     return slug;
+  }
+
+  /* ⚠ THE FACILITATOR IS DERIVED, never stored.
+     There were two fields describing one relationship: a per-order name, and
+     the per-person tick list that actually decides who logs, what Normally
+     Mine shows and who owes a week. The name did nothing but print itself,
+     and nothing stopped the two disagreeing — an order could carry Kellie's
+     name while being ticked as Erin's, and no screen would have said so.
+     Jonna, 9 October: derive it. One place to set it, nothing to keep in step.
+
+     Several people on one order is the normal case for an admin-time order, so
+     it says how many rather than picking one of them arbitrarily. */
+  function facilitatorOf(F, order, on) {
+    if (!order) return '';
+    var who = (F.people || []).filter(function (p) {
+      return (p.orders || []).indexOf(order.id) >= 0 && active(p, on);
+    });
+    if (!who.length) return '';
+    if (who.length === 1) return who[0].name;
+    return who.length + ' people';
   }
 
   function ordersForPerson(F, person, year) {
@@ -5120,7 +5142,10 @@ window.H = (function () {
         '" type="button" data-hrow="' + esc(o.id) + '">' +
         '<span class="t">' + esc(o.subject) +
         (covering ? ' <span class="pill cover">Cover</span>' : '') +
-        (o.facilitator ? ' <span class="fac">' + esc(o.facilitator) + '</span>' : '') +
+        (function () {
+          var fac = facilitatorOf(F, o, H.parse(ending));
+          return fac ? ' <span class="fac">' + esc(fac) + '</span>' : '';
+        })() +
         '<small>' + (note ? esc(note.slice(0, 70)) + (note.length > 70 ? '…' : '')
                           : (logged ? 'No note yet' : 'Nothing entered')) +
         '</small></span>' +
@@ -7864,21 +7889,19 @@ window.H = (function () {
           'in <b>My Hours</b> and can log against any of them. What is ticked as theirs below still ' +
           'decides what <b>Normally Mine</b> shows them, so their own work stays easy to find.</p>' +
 
-          '<h4 class="subh">Who Is the Facilitator</h4>' +
-          '<p class="fineprint">Who is answerable for an order. Change it whenever it moves \u2014 ' +
-          'nothing already logged against the order is touched.</p>' +
-          '<div class="revgrid">' + (F.orders || []).map(function (o, oi) {
-            var op = p + '-o' + oi;
-            return '<div class="f"><label>' + esc(o.subject) + '</label>' +
-              '<select class="cdf" data-p="' + op + '" data-k="ofac">' +
-              '<option value="">Nobody set</option>' +
-              (F.people || []).map(function (pr) {
-                return '<option value="' + esc(pr.name) + '"' +
-                  (o.facilitator === pr.name ? ' selected' : '') + '>' + esc(pr.name) + '</option>';
-              }).join('') + '</select>' +
-              '<input type="hidden" class="cdf" data-p="' + op + '" data-k="oid" value="' +
-              esc(o.id) + '"></div>';
-          }).join('') + '</div>' +
+          '<h4 class="subh">Who Facilitates What</h4>' +
+          '<p class="fineprint">Worked out from the ticks below \u2014 <b>there is nothing to set ' +
+          'here</b>. Whoever has an order ticked as theirs is its facilitator, so the two can ' +
+          'never disagree. An order several people share says so rather than naming one of them.</p>' +
+          '<div class="tbl"><table><thead><tr><th>Service Order</th>' +
+          '<th style="width:40%">Facilitator</th></tr></thead><tbody>' +
+          (F.orders || []).map(function (o) {
+            var fac = facilitatorOf(F, o);
+            return '<tr><td>' + esc(o.subject) + '</td><td>' +
+              (fac ? esc(fac)
+                   : '<span class="fineprint">Nobody has this ticked yet</span>') +
+              '</td></tr>';
+          }).join('') + '</tbody></table></div>' +
 
           '<h4 class="subh">People</h4>' +
           '<p class="fineprint">The email is how a sign-in is matched to a person, so it has to be ' +
@@ -8389,14 +8412,6 @@ window.H = (function () {
           var coverNow = val(p, 'coverall') === 'yes';
           if (coverNow !== !!F.coverAll) d.coverAll = coverNow;
 
-          /* who is answerable for each order */
-          d.orders = {};
-          (F.orders || []).forEach(function (o, oi) {
-            var op = p + '-o' + oi;
-            var fac = val(op, 'ofac');
-            if (fac !== (o.facilitator || '')) d.orders[o.id] = { facilitator: fac };
-          });
-          if (!Object.keys(d.orders).length) delete d.orders;
 
           (F.people || []).forEach(function (pr, pi) {
             var pp = p + '-p' + pi, one = {};
@@ -8453,7 +8468,7 @@ window.H = (function () {
           }
 
           if (!d.signer && !Object.keys(d.letters).length && !Object.keys(d.people).length &&
-              d.coverAll == null && !d.orders && !d.added) {
+              d.coverAll == null && !d.added) {
             toast('Nothing was changed');
             return;
           }
@@ -8470,7 +8485,6 @@ window.H = (function () {
               signer: Object.assign({}, had.signer || {}, d.signer || {}),
               letters: Object.assign({}, had.letters || {}),
               people: Object.assign({}, had.people || {}),
-              orders: Object.assign({}, had.orders || {}),
               /* ⚠ A LIST that only grows. Replacing it would un-add everybody
                  added before today. */
               added: (had.added || []).slice(),
@@ -8486,10 +8500,10 @@ window.H = (function () {
             Object.keys(d.people).forEach(function (k) {
               next.details.people[k] = Object.assign({}, next.details.people[k] || {}, d.people[k]);
             });
-            Object.keys(d.orders || {}).forEach(function (k) {
-              next.details.orders[k] = Object.assign({}, next.details.orders[k] || {}, d.orders[k]);
-            });
-            if (!Object.keys(next.details.orders).length) delete next.details.orders;
+            /* ⚠ An `orders` map written by an earlier build is left where it
+               is rather than carried forward: nothing reads it now, and
+               deleting somebody's saved data to tidy up is not this page's
+               call to make. */
             (d.added || []).forEach(function (a) {
               if (next.details.added.some(function (x) { return x.slug === a.slug; })) return;
               next.details.added.push(a);
