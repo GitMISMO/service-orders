@@ -1127,6 +1127,8 @@ button,input,select,textarea,optgroup{font-family:inherit}
   font-variant-numeric:tabular-nums}
 .wkband-u{font-size:12px;color:var(--ink-3)}
 .wkband.is-sent{border-left-color:var(--ink-3)}
+.wkband.is-late{border-left-color:var(--bad)}
+:root[data-theme="dark"] .wkband.is-late{border-left-color:var(--bad)}
 .wkband + .note,.wkband + .fineprint{margin-top:-4px}
 :root[data-theme="dark"] .wkband{background:var(--surface-2);border-left-color:var(--sky)}
 :root[data-theme="dark"] .wkband-d{color:var(--sky)}
@@ -2416,9 +2418,38 @@ window.H = (function () {
     return longDate(s) + ' to ' + longDate(e);
   }
   /* The week a given day falls in — the first ending on or after it. */
+  /* The week somebody is IN.
+     ⚠ Two faults lived here, and the second hid the first.
+
+     1. The week endings are built at MIDNIGHT; `d` arrives as `new Date()`,
+        which carries a time of day. So on the Friday itself, 16 Oct 00:00 was
+        not >= 16 Oct 14:30, the loop stepped past it, and the page opened on
+        NEXT week — people started entering Friday's hours against the wrong
+        week. Kellie, 16 October. Both sides are now compared as DAYS.
+
+     2. A week ends on a Friday, but the work gets written up over the
+        weekend. Flipping to the next week at midnight on Friday means
+        Saturday and Sunday land on a week that has not happened. So Saturday
+        and Sunday still belong to the Friday just gone, and the roll happens
+        on MONDAY — Jonna, 16 October: "at least through Friday, but really
+        even until Sunday would make sense."
+
+     An earlier week is still reachable from Weeks Still Open; this only
+     decides which one opens by default. */
   function weekFor(fy, d) {
     var ends = weekEndings(fy);
-    for (var i = 0; i < ends.length; i++) if (ends[i] >= d) return print(ends[i]);
+    var n = d || new Date();
+    var day = new Date(n.getFullYear(), n.getMonth(), n.getDate());
+    /* Saturday steps back one day, Sunday two — both land on the Friday that
+       has just ended, so the weekend belongs to the week it finished. */
+    var dow = day.getDay();
+    if (dow === 6) day = addDays(day, -1);
+    else if (dow === 0) day = addDays(day, -2);
+    for (var i = 0; i < ends.length; i++) {
+      var e = ends[i];
+      var eDay = new Date(e.getFullYear(), e.getMonth(), e.getDate());
+      if (eDay >= day) return print(ends[i]);
+    }
     return ends.length ? print(ends[ends.length - 1]) : '';
   }
   /* Every week ending that has already passed, newest first — the weeks a
@@ -2850,7 +2881,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-09c \u00b7 facilitator row';
+  var BUILD = '2026-10-16 \u00b7 current week';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -3090,6 +3121,28 @@ window.H = (function () {
     Array.prototype.forEach.call(all, function (s) {
       if (!pick && want && s.getAttribute('data-name') === want) pick = s;
     });
+    /* ⚠ NOBODY LANDS ON AN EMPTY PAGE.
+       The first section was shown by default, and for a signer that is To
+       Review — so somebody with nothing waiting opened the portal onto a page
+       reading "nothing is waiting for you" and had to go and find the thing
+       they actually came for. Jonna, 9 October, about Meghan.
+
+       A page is skipped only when its own count says 0: that count is the
+       section's own answer about whether it holds anything, so this never has
+       to know what any particular page is for. A page with no count at all
+       (My Hours) is never empty by this rule, which is right — the week is
+       there whether or not anything is in it yet.
+
+       Only when nothing is remembered. A page somebody CHOSE is still theirs,
+       empty or not. */
+    if (!pick) {
+      Array.prototype.forEach.call(all, function (s) {
+        if (pick) return;
+        var c = s.querySelector('.psec-h .cnt');
+        if (c && String(c.textContent).trim() === '0') return;
+        pick = s;
+      });
+    }
     (pick || all[0]).classList.add('current');
   }
   /* a row opens and shuts on a click on the row itself — no Edit, no Close */
@@ -3479,8 +3532,9 @@ window.H = (function () {
   var RAIL_GROUPS = [
     { label: 'Waiting on You', names: ['Needs You', 'Time to Approve', 'Send Orders',
         'To Review', 'Awaiting Your Approval', 'Awaiting Your Decision'] },
-    { label: 'Your Week', names: ['My Hours', 'My Submitted Time', 'My Expenses',
+    { label: 'Your Week', names: ['My Hours', 'My Submitted Time',
         'The Company\u2019s Month'] },
+    { label: 'Money', names: ['My Invoices', 'My Expenses'] },
     { label: 'Service Orders', names: ['My Service Orders', 'New Service Order',
         'Revise an Order', 'My Agreements', 'Executed Documents',
         'Already Approved', 'Already Decided'] },
@@ -4037,6 +4091,13 @@ window.H = (function () {
         undefined, { sensitivity: 'base', numeric: true });
     });
 
+    /* ⚠ EXPENSES ARE NOT ON THIS INVOICE.
+       Jonna, 9 October: expenses are invoiced SEPARATELY and usually earlier —
+       within a week of the summit ending, which rarely lines up with a month
+       end. Rolling them into the monthly hours invoice made the portal expect
+       one document where two are actually sent, so every expense would have
+       read as a difference to be explained.
+       They are still returned, so the screen can say where they went. */
     var exps = expensesIn(files, period, ['approved']);
     var expTotal = exps.reduce(function (a, e) { return a + expenseAllowed(e); }, 0);
     expTotal = Math.round(expTotal * 100) / 100;
@@ -4045,13 +4106,193 @@ window.H = (function () {
       period: period,
       lines: lines,
       expenses: exps,
-      expensesTotal: expTotal,
+      expensesTotal: expTotal,          /* FYI only — claimed separately */
       hoursTotal: Math.round(hoursTotal * 100) / 100,
-      total: Math.round((hoursTotal + expTotal) * 100) / 100,
+      total: Math.round(hoursTotal * 100) / 100,
       held: held,
       notApproved: notApproved,
       notApprovedWeeks: notApprovedWeeks
     };
+  }
+
+  /* =========================================================================
+   * THE INVOICE RECORD
+   *
+   * `invoices/<slug>.json` — { invoices: [ … ] }. One record per invoice:
+   *   number date period total approvedTotal diff note file state trail
+   *
+   * ⚠ Decision 36 left this as open item 4: "Invoice records do not exist
+   * anywhere yet." This is that record. A facilitator's key cannot reach the
+   * folder at all — an invoice is money, and `invoices/` is deliberately NOT
+   * on the hours-only keys.
+   * ======================================================================= */
+  var INV_STATES = {
+    submitted: { label: 'With MISMO', tone: 'warn',
+      said: 'Sent to MISMO and waiting to be approved.' },
+    question:  { label: 'Sent Back With a Question', tone: 'bad',
+      said: 'MISMO has a question about this one. The question is below.' },
+    approved:  { label: 'Approved', tone: 'good',
+      said: 'Approved by MISMO and queued for accounts payable.' },
+    sent:      { label: 'Sent to Accounts Payable', tone: 'good',
+      said: 'With MBA accounts payable. Payment follows their own run.' },
+    paid:      { label: 'Paid', tone: '',
+      said: 'Paid. The weeks behind it are closed.' }
+  };
+  function invState(iv) {
+    return INV_STATES[(iv && iv.state) || 'submitted'] || INV_STATES.submitted;
+  }
+
+  /* The period this company should be invoicing RIGHT NOW.
+     ⚠ Not simply last month. If last month is already invoiced the page moves
+     on to the EARLIEST period that still has approved unbilled hours, so a
+     missed month cannot quietly fall off the end — decision 36. */
+  function openPeriod(F, files, invoices, today) {
+    var now = today || new Date();
+    var done = {};
+    (invoices || []).forEach(function (iv) { if (iv && iv.period) done[iv.period] = 1; });
+
+    /* Every period that has approved work or approved expenses in it. */
+    var has = {};
+    (files || []).forEach(function (f) {
+      ((f && f.weeks) || []).forEach(function (wk) {
+        if ((wk.state || '') !== 'approved') return;
+        var rows = H.rowsOf(wk);
+        if (Object.keys(rows).some(function (id) { return Number(rows[id].hours); })) {
+          has[H.periodOfWeek(wk.weekEnding)] = 1;
+        }
+      });
+      ((f && f.expenses) || []).forEach(function (e) {
+        if ((e.state || 'draft') !== 'approved') return;
+        if (e.date) has[H.periodOfWeek(e.date)] = 1;
+      });
+    });
+
+    /* Oldest unbilled period with something in it wins. */
+    var open = Object.keys(has).filter(function (pd) { return !done[pd]; })
+      .sort(function (a, b) {
+        var pa = a.split('/'), pb = b.split('/');
+        return (+pa[1] - +pb[1]) || (+pa[0] - +pb[0]);
+      });
+    if (open.length) return open[0];
+
+    /* Nothing billable anywhere: offer last month, so the screen can explain
+       itself rather than showing nothing at all. */
+    var prior = H.priorPeriod(now);
+    return done[prior] ? '' : prior;
+  }
+
+  /* =========================================================================
+   * EXPENSE CLAIMS — their own invoice, on their own clock
+   *
+   * ⚠ Grouped by SUMMIT, not by month. Expenses for one summit are claimed
+   * together within a week of it ending, which is why this cannot ride on the
+   * monthly hours invoice.
+   * ======================================================================= */
+  function claimsOpen(F, files, invoices) {
+    var claimed = {};
+    (invoices || []).forEach(function (iv) {
+      if (iv && iv.kind === 'expenses' && iv.summit) claimed[iv.summit] = 1;
+    });
+    var by = {};
+    (files || []).forEach(function (f) {
+      ((f && f.expenses) || []).forEach(function (e) {
+        if ((e.state || 'draft') !== 'approved') return;
+        /* The trip they typed is what groups it — the summit rule filled it in
+           and they could change it, and what THEY said it was for wins. */
+        var k = (e.trip || '').trim() || summitFor(e.date) || 'Not Named';
+        if (claimed[k]) return;
+        if (!by[k]) by[k] = { summit: k, items: [], total: 0 };
+        by[k].items.push(Object.assign({}, e, { person: f.person, slug: f.slug }));
+        by[k].total = Math.round((by[k].total + expenseAllowed(e)) * 100) / 100;
+      });
+    });
+    return Object.keys(by).map(function (k) { return by[k]; })
+      .sort(function (a, b) {
+        var da = claimDue(a.summit), db = claimDue(b.summit);
+        if (da && db) return da - db;
+        if (da) return -1;
+        if (db) return 1;
+        return String(a.summit).localeCompare(String(b.summit));
+      });
+  }
+
+  /* The outcome for one expense claim. Same five shapes as an invoice, so the
+     two screens read alike and the button can never disagree with the
+     message. */
+  function claimOutcome(claim, up, invoices) {
+    if (!claim || !claim.items.length) {
+      return { key: 'cannot', label: 'Nothing to Claim', tone: '', can: false,
+        say: 'No approved expenses are waiting for this summit.' };
+    }
+    if (up && up.tooBig) {
+      return { key: 'toobig', label: 'That File Was Not Accepted', tone: 'bad', can: false,
+        say: up.tooBig };
+    }
+    if (!up || !up.file) {
+      return { key: 'needfile', label: 'Your Expense Invoice Is Needed', tone: '', can: false,
+        say: 'Attach the invoice you are sending for these expenses and it will be checked ' +
+             'against what MISMO has approved.' };
+    }
+    if (up.total == null || up.total === '') {
+      return { key: 'needtotal', label: 'The Total Is Still Needed', tone: 'warn', can: false,
+        say: 'The portal could not find the total on this PDF. Type it and it will be checked ' +
+             'the same way.' };
+    }
+    var diff = Math.round((Number(up.total) - claim.total) * 100) / 100;
+    if (Math.abs(diff) < 0.005) {
+      return { key: 'matches', label: 'It Matches', tone: 'good', can: true, diff: 0,
+        say: 'Every figure agrees with the approved expenses.' };
+    }
+    return { key: 'note', label: 'Needs a Note', tone: 'warn',
+      can: !!(up.note && String(up.note).trim()), diff: diff,
+      say: 'Your invoice is ' + money(Math.abs(diff)) + (diff > 0 ? ' more' : ' less') +
+           ' than the ' + money(claim.total) + ' approved. <b>One line saying what it is</b> ' +
+           'and it can go.' };
+  }
+
+  /* The five outcomes on screen, decision 36. One answer, so the button and
+     the message can never disagree about whether this can be sent. */
+  function invoiceOutcome(exp, checks, up) {
+    var stops = invoiceStops(checks);
+    if (stops.length) {
+      return { key: 'cannot', label: 'Cannot Be Submitted', tone: 'bad', can: false,
+        say: 'Something has to be sorted before this period can be invoiced.' };
+    }
+    if (up && up.tooBig) {
+      return { key: 'toobig', label: 'That File Was Not Accepted', tone: 'bad', can: false,
+        say: up.tooBig };
+    }
+    if (!up || !up.file) {
+      return { key: 'needfile', label: 'Your Invoice Is Needed', tone: '', can: false,
+        say: 'Everything here agrees with what MISMO holds. Attach your invoice PDF and it ' +
+             'will be checked against it.' };
+    }
+    if (up.total == null || up.total === '') {
+      return { key: 'needtotal', label: 'The Total Is Still Needed', tone: 'warn', can: false,
+        say: 'The portal could not find the total on this PDF. Type it and it will be checked ' +
+             'the same way. This is the only figure it ever asks for \u2014 the lines are ' +
+             'already known from your approved hours.' };
+    }
+    var diff = Math.round((Number(up.total) - exp.total) * 100) / 100;
+    if (Math.abs(diff) < 0.005) {
+      return { key: 'matches', label: 'It Matches', tone: 'good', can: true, diff: 0,
+        say: 'Every figure agrees. Nothing to explain.' };
+    }
+    return { key: 'note', label: 'Needs a Note', tone: 'warn',
+      can: !!(up.note && String(up.note).trim()), diff: diff,
+      say: 'Your invoice is ' + money(Math.abs(diff)) + (diff > 0 ? ' more' : ' less') +
+           ' than the ' + money(exp.total) + ' MISMO has approved. That can be perfectly ' +
+           'right \u2014 an expense, an agreed adjustment, a credit. <b>One line saying what ' +
+           'it is</b> and it can go.' };
+  }
+
+  /* An invoice number used twice is how something gets paid twice. */
+  function numberUsed(invoices, number) {
+    var n = String(number || '').trim().toLowerCase();
+    if (!n) return false;
+    return (invoices || []).some(function (iv) {
+      return String(iv.number || '').trim().toLowerCase() === n;
+    });
   }
 
   /* The seven checks that run BEFORE anything is uploaded, so the answer is on
@@ -4072,6 +4313,17 @@ window.H = (function () {
              ' to the next one rather than being lost.' });
     }
     exp.held.forEach(function (h) { out.push({ stop: false, key: h.why, say: h.say }); });
+    /* Expenses sent but not yet approved are carried, not lost — the same way
+       an unapproved week is, and said in the same words so the two read alike. */
+    var waiting = expensesIn(files, period, ['submitted']);
+    if (waiting.length) {
+      var wt = waiting.reduce(function (a, e) { return a + expenseAllowed(e); }, 0);
+      out.push({ stop: false, key: 'expNotApproved',
+        say: waiting.length + ' ' + (waiting.length === 1 ? 'expense is' : 'expenses are') +
+             ' sent but not yet approved \u2014 ' + money(wt) + ' \u2014 so ' +
+             (waiting.length === 1 ? 'it is' : 'they are') + ' not on this invoice. ' +
+             (waiting.length === 1 ? 'It carries' : 'They carry') + ' to the next one.' });
+    }
 
     /* Against each order's maximum fee, counting what is already invoiced. */
     var already = {};
@@ -4289,6 +4541,16 @@ window.H = (function () {
           if (e && e.status === 403) return { sha: null, data: { agreements: [] }, absent: true };
           throw e;
         })
+      ,
+      /* Invoices. Optional in the same way and for the same reasons: a company
+         that has never invoiced has no such file, and `invoices/` has to be
+         declared writable before the relay will serve it. ⚠ An hours-only key
+         never gets here at all — it takes loadCompanyHours instead. */
+      R.readOr(keyFor(slug), 'invoices/' + slug + '.json', { invoices: [] })
+        .catch(function (e) {
+          if (e && e.status === 403) return { sha: null, data: { invoices: [] }, absent: true };
+          throw e;
+        })
     ]).then(function (r) {
       var local = r[2].data || {};
       var revisions = local.revisions || [];
@@ -4296,7 +4558,8 @@ window.H = (function () {
       var executed = {};
       (((r[3].data) || {}).agreements || []).forEach(function (a) { executed[a.msaFlavour] = a; });
       return { slug: slug, sha: r[0].sha, F: F, local: local, executed: executed,
-               sigSha: r[1].sha, sigs: r[1].data.signatures || [], revisions: revisions };
+               sigSha: r[1].sha, sigs: r[1].data.signatures || [], revisions: revisions,
+               invoices: ((r[4] && r[4].data) || {}).invoices || [] };
     });
   }
 
@@ -4773,6 +5036,11 @@ window.H = (function () {
               (person.expenses
                 ? sect('My Expenses', xs, expensesSection(C, person, mine))
                 : '') +
+              /* ⚠ Signers only. Decision 26: an invoice is money, so My
+                 Invoices is absent from a facilitator's rail entirely. */
+              (isFac() ? '' : sect('My Invoices', (C.invoices || []).length,
+                invoicesSection(C, files, C.invoices || [],
+                  openPeriod(F, files, C.invoices || [], new Date())))) +
               (person.timeManager
                 ? sect('The Company\u2019s Month', null, monthSection(C, fy, files), !logs) : '');
           }).catch(function (e) {
@@ -4799,6 +5067,17 @@ window.H = (function () {
               sect('Help', null, helpFor('contractor', F))
           );
           if (person && person.expenses) wireExpenses(C, person, fy);
+          /* ⚠ HRS.files, not `files`. The hours files are loaded inside the
+             promise ABOVE this one, so the name does not exist here — the
+             section itself is built in that inner callback where it does,
+             which is why the figures were right while the wiring threw.
+             HRS.files is where that callback parks them, and it is the only
+             copy either of them should be reading. */
+          if (!isFac()) {
+            var invFiles = HRS.files || [];
+            wireInvoices(C, invFiles, C.invoices || [],
+              openPeriod(F, invFiles, C.invoices || [], new Date()));
+          }
           if (!isFac()) wireReview(C, st, toReview);
           wireSigned(C, F);
           /* Both: the agreements sit in rows that open on the right, so the
@@ -5420,6 +5699,37 @@ window.H = (function () {
 
      Any other month returns nothing rather than guessing. A wrong trip name
      filled in confidently is worse than an empty box. */
+  /* ⚠ WHEN EACH SUMMIT ENDS — needed because an expense claim is due within a
+     week of it, and that date has nothing to do with month ends.
+     Winter 2027 comes from Summit HQ's own configuration (InterContinental
+     New Orleans, 11–14 January 2027). THE OTHER TWO ARE NOT KNOWN HERE: they
+     live in Summit HQ's database, which this page has no permission to read.
+     A summit with no date says its deadline is not set yet rather than
+     inventing one — a made-up due date is worse than an absent one, because
+     somebody would be chased against it. */
+  var SUMMIT_ENDS = {
+    'MISMO Winter Summit 2027': '01/14/27'
+    /* 'MISMO Spring Summit 2027': FILL IN */
+    /* 'MISMO Fall Summit 2027':   FILL IN */
+  };
+  /* An expense claim is due a week after the summit ends. */
+  function claimDue(summit) {
+    var end = SUMMIT_ENDS[summit];
+    if (!end) return null;
+    var d = H.parse(end);
+    if (!d) return null;
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() + 7);
+  }
+  function claimDueState(summit, today) {
+    var d = claimDue(summit);
+    if (!d) return { key: 'unset', days: 0, due: '' };
+    var now = today || new Date();
+    var t0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var days = Math.round((d - t0) / 86400000);
+    return { key: days > 0 ? 'open' : days === 0 ? 'today' : 'late',
+             days: Math.abs(days), due: H.print(d) };
+  }
+
   var SUMMITS = {
     0:  { name: 'Winter', bump: 0 },    // January — the summit itself
     11: { name: 'Winter', bump: 1 },    // December — the month before it
@@ -5889,6 +6199,564 @@ window.H = (function () {
         closePanel(true); toast('Expense removed', 'good');
         HRS.files = null; hoursHome();
       }).catch(function (err) { del.disabled = false; failed(err); });
+    });
+  }
+
+  /* =========================================================================
+   * MY INVOICES — the contracting company's side of decision 36
+   *
+   * ⚠ Absent entirely from a facilitator's screen. An invoice is money.
+   * ======================================================================= */
+  var INV = { up: null, period: null, list: [] };
+
+  function invoicesSection(C, files, invoices, period) {
+    var F = C.F;
+    INV.list = invoices || [];
+    INV.period = period;
+
+    if (!period) {
+      return '<p class="lede">Your invoices to MISMO, and what the portal makes of them before ' +
+        'you send one.</p>' +
+        '<p class="empty"><b>Nothing to invoice for hours.</b> Every period with approved hours ' +
+        'on it has been invoiced. The next one opens on the 1st.</p>' +
+        claimsBlock(C, files, invoices) +
+        sentInvoices(C, invoices);
+    }
+
+    var exp = expectedInvoice(F, files, period);
+    var checks = invoiceChecks(F, files, period, exp, invoices);
+    var out = invoiceOutcome(exp, checks, INV.up);
+    var due = H.dueState(period, new Date());
+
+    var dueSay = due.key === 'open'
+      ? '<b>Due ' + esc(due.due) + '</b> \u2014 ' + due.days +
+        (due.days === 1 ? ' day' : ' days') + ' from now.'
+      : due.key === 'today'
+      ? '<b>Due today</b>, ' + esc(due.due) + '.'
+      : '<b>Overdue by ' + due.days + (due.days === 1 ? ' day' : ' days') + '</b> \u2014 it was ' +
+        'due ' + esc(due.due) + '.';
+
+    var head =
+      '<p class="lede">An invoice covers <b>the month prior</b> and is due by the end of the ' +
+      'first full week of the month after it. <b>The portal already knows what it should say</b> ' +
+      '\u2014 your approved hours at each order\u2019s own rate, and your approved expenses.</p>' +
+      '<div class="wkband' + (due.key === 'late' ? ' is-late' : '') + '">' +
+        '<div class="wkband-l">' +
+          '<span class="wkband-k">Invoice For</span>' +
+          '<span class="wkband-d">' + esc(H.periodLabel(period)) + '</span>' +
+          '<span class="wkband-s">' + dueSay + '</span>' +
+        '</div>' +
+        '<div class="wkband-r">' +
+          '<span class="wkband-h">' + money(exp.total) + '</span>' +
+          '<span class="wkband-u">what MISMO has approved</span>' +
+        '</div>' +
+      '</div>';
+
+    /* ---- what it should say ------------------------------------------- */
+    var lines = exp.lines.length
+      ? '<div class="tbl"><table><thead><tr><th>Service Order</th>' +
+        '<th class="n">Hours</th><th class="n">Rate</th><th class="n">Amount</th>' +
+        '</tr></thead><tbody>' +
+        exp.lines.map(function (l) {
+          return '<tr><td>' + esc(l.order.subject) + '</td>' +
+            '<td class="n">' + hrs(l.hours) + '</td>' +
+            '<td class="n">' + money(l.rate) + '</td>' +
+            '<td class="n">' + money(l.amount) + '</td></tr>';
+        }).join('') +
+        '</tbody><tfoot><tr><th>Total</th><th class="n"></th><th class="n"></th>' +
+        '<th class="n">' + money(exp.total) + '</th></tr></tfoot></table></div>'
+      : '<p class="empty">Nothing approved in this period yet.</p>';
+
+    /* ---- the checks ----------------------------------------------------- */
+    var stops = invoiceStops(checks);
+    var notes = checks.filter(function (c) { return !c.stop; });
+    var checksHtml =
+      (stops.length
+        ? '<div class="note bad"><b>' + (stops.length === 1 ? 'This has' : 'These have') +
+          ' to be sorted first.</b><ul class="plain">' +
+          stops.map(function (c) { return '<li>' + c.say + '</li>'; }).join('') + '</ul></div>'
+        : '') +
+      (notes.length
+        ? '<div class="note"><b>Worth knowing, ' +
+          (stops.length ? 'as well' : 'but nothing here stops the invoice') + '.</b>' +
+          '<ul class="plain">' + notes.map(function (c) { return '<li>' + c.say + '</li>'; }).join('') +
+          '</ul></div>'
+        : '') +
+      (!stops.length && !notes.length
+        ? '<div class="note good"><b>Everything agrees.</b> Nothing is being held back and no ' +
+          'order is near its maximum.</div>'
+        : '');
+
+    /* ---- their own PDF -------------------------------------------------- */
+    var up = INV.up || {};
+    var upload = '<h4 class="subh">Your Invoice</h4>' +
+      '<p class="fineprint"><b>Your PDF is the document of record</b> \u2014 it is what MISMO ' +
+      'forwards to accounts payable, not anything the portal makes. The limit is <b>700 KB</b>; ' +
+      'a file bigger than that is almost always a scan, so export it straight to PDF instead.</p>' +
+      (up.file
+        ? '<div class="rcpt-have"><div class="rcpt-thumb"><span class="rcpt-pdf">PDF</span></div>' +
+          '<div class="rcpt-meta"><b>' + esc(up.name || 'Your invoice') + '</b>' +
+          '<span class="fineprint">' + Math.round((up.bytes || 0) / 1024) + ' KB</span>' +
+          '<div class="rcpt-acts"><button class="lnk" type="button" id="inv-drop-file">' +
+          'Choose a Different File</button></div></div></div>'
+        : '<div class="rcpt-drop" id="inv-drop" tabindex="0" role="button" ' +
+          'aria-label="Attach your invoice PDF">' +
+          '<svg viewBox="0 0 24 24" aria-hidden="true" class="rcpt-ic">' +
+            '<path d="M12 16V4m0 0L8 8m4-4l4 4M4 20h16"/></svg>' +
+          '<b>Drop your invoice PDF here</b>' +
+          '<span class="fineprint">or choose it below</span>' +
+          '<div class="rcpt-btns">' +
+            '<button class="gobtn ghost" type="button" id="inv-pick-btn">Choose a File</button>' +
+          '</div>' +
+          '<input type="file" id="inv-file" accept="application/pdf" hidden>' +
+          '<p class="fineprint" id="inv-say"></p></div>') +
+      '<div class="revgrid">' +
+      '<div class="f"><label>Invoice Number</label><input type="text" id="inv-num" ' +
+      'placeholder="PH-2026-1009" value="' + esc(up.number || '') + '"></div>' +
+      '<div class="f"><label>Invoice Date</label><input type="text" id="inv-date" ' +
+      'placeholder="10/09/26" value="' + esc(up.date || '') + '"></div>' +
+      '<div class="f"><label>Total on Your Invoice</label><input type="number" step="0.01" ' +
+      'id="inv-total" value="' + esc(up.total == null ? '' : up.total) + '">' +
+      '<span class="fineprint">' +
+      (up.readTotal ? 'Read from the PDF. Not right? Type over it.' : '') + '</span></div>' +
+      '</div>' +
+      (out.key === 'note'
+        ? '<div class="f"><label>What the Difference Is</label>' +
+          '<input type="text" id="inv-note" placeholder="An expense, an adjustment, a credit" ' +
+          'value="' + esc(up.note || '') + '"></div>'
+        : '');
+
+    var outcome =
+      '<div class="note ' + (out.tone || '') + '"><b>' + esc(out.label) + '.</b> ' + out.say + '</div>';
+
+    return head +
+      '<h4 class="subh">Hours MISMO Has Approved</h4>' + lines +
+      (exp.expensesTotal
+        ? '<p class="fineprint"><b>' + money(exp.expensesTotal) + ' of approved expenses falls in ' +
+          esc(H.periodLabel(period)) + ' and is NOT on this invoice.</b> Expenses are claimed ' +
+          'separately, per summit \u2014 they are under <b>Expenses to Claim</b> below.</p>'
+        : '') +
+      checksHtml +
+      upload +
+      outcome +
+      '<div class="onebar"><button class="gobtn" type="button" id="inv-go"' +
+      (out.can ? '' : ' disabled') + '>Submit This Invoice</button>' +
+      '<span class="qc" id="inv-qc">' + esc(out.label) + '</span></div>' +
+      claimsBlock(C, files, invoices) +
+      sentInvoices(C, invoices);
+  }
+
+  function claimsBlock(C, files, invoices) {
+    var claims = claimsOpen(C.F, files, invoices);
+    var head = '<h4 class="subh">Expenses to Claim</h4>' +
+      '<p class="fineprint"><b>Expenses are claimed per summit, not per month</b> \u2014 ' +
+      'usually within a week of the summit ending, which is why they go separately from the ' +
+      'hours invoice above.</p>';
+    if (!claims.length) {
+      return head + '<p class="empty">No approved expenses are waiting. Anything still being ' +
+        'checked by MISMO appears here once it is approved.</p>';
+    }
+    INV.claims = claims;
+    return head + '<div class="hqrows">' + claims.map(function (c, i) {
+      var due = claimDueState(c.summit, new Date());
+      var sub = due.key === 'unset'
+        ? 'Due date not set yet'
+        : due.key === 'late' ? 'Overdue by ' + due.days + (due.days === 1 ? ' day' : ' days')
+        : due.key === 'today' ? 'Due today'
+        : 'Due ' + due.due;
+      return panelRow('clm-' + i, c.summit,
+        sub + ' \u00b7 ' + c.items.length + (c.items.length === 1 ? ' expense' : ' expenses'),
+        money(c.total), claimPanel(C, c, i),
+        due.key === 'late' ? '<span class="pill bad">Overdue</span>'
+          : due.key === 'unset' ? '<span class="pill">No Deadline Set</span>' : '');
+    }).join('') + '</div>';
+  }
+
+  function claimPanel(C, c, i) {
+    var up = (INV.claimUp && INV.claimUp.i === i) ? INV.claimUp : {};
+    var out = claimOutcome(c, up.file ? up : null, INV.list);
+    var due = claimDueState(c.summit, new Date());
+    return (due.key === 'unset'
+      ? '<div class="note"><b>No deadline is set for this summit yet.</b> The portal only knows ' +
+        'the dates it has been given, and it will not invent one \u2014 ask Jonna when this ' +
+        'claim is due.</div>'
+      : '') +
+      '<div class="tbl"><table><thead><tr><th>Date</th><th>What</th><th>Who</th>' +
+      '<th class="n">Amount</th></tr></thead><tbody>' +
+      c.items.map(function (e) {
+        var allowed = expenseAllowed(e);
+        return '<tr><td>' + esc(e.date) + '</td><td>' + esc(e.cat) +
+          (e.desc ? ' <span class="fineprint">' + esc(e.desc) + '</span>' : '') + '</td>' +
+          '<td>' + esc(e.person || '') + '</td>' +
+          '<td class="n">' + money(allowed) +
+          (allowed !== (Number(e.amt) || 0)
+            ? ' <span class="fineprint">capped</span>' : '') + '</td></tr>';
+      }).join('') +
+      '</tbody><tfoot><tr><th>Total</th><th></th><th></th><th class="n">' +
+      money(c.total) + '</th></tr></tfoot></table></div>' +
+      '<h4 class="subh">Your Expense Invoice</h4>' +
+      (up.file
+        ? '<div class="rcpt-have"><div class="rcpt-thumb"><span class="rcpt-pdf">PDF</span></div>' +
+          '<div class="rcpt-meta"><b>' + esc(up.name || '') + '</b>' +
+          '<span class="fineprint">' + Math.round((up.bytes || 0) / 1024) + ' KB</span>' +
+          '<div class="rcpt-acts"><button class="lnk" type="button" data-clm-again="' + i +
+          '">Choose a Different File</button></div></div></div>'
+        : '<div class="rcpt-drop" data-clm-drop="' + i + '" tabindex="0" role="button">' +
+          '<svg viewBox="0 0 24 24" aria-hidden="true" class="rcpt-ic">' +
+            '<path d="M12 16V4m0 0L8 8m4-4l4 4M4 20h16"/></svg>' +
+          '<b>Drop your expense invoice here</b>' +
+          '<span class="fineprint">or choose it below</span>' +
+          '<div class="rcpt-btns"><button class="gobtn ghost" type="button" ' +
+          'data-clm-pick="' + i + '">Choose a File</button></div>' +
+          '<input type="file" data-clm-file="' + i + '" accept="application/pdf" hidden>' +
+          '<p class="fineprint" data-clm-say="' + i + '"></p></div>') +
+      '<div class="revgrid">' +
+      '<div class="f"><label>Invoice Number</label><input type="text" data-clm-num="' + i +
+      '" value="' + esc(up.number || '') + '"></div>' +
+      '<div class="f"><label>Total on Your Invoice</label><input type="number" step="0.01" ' +
+      'data-clm-total="' + i + '" value="' + esc(up.total == null ? '' : up.total) + '"></div>' +
+      '</div>' +
+      (out.key === 'note'
+        ? '<div class="f"><label>What the Difference Is</label><input type="text" ' +
+          'data-clm-note="' + i + '" value="' + esc(up.note || '') + '"></div>'
+        : '') +
+      '<div class="note ' + (out.tone || '') + '"><b>' + esc(out.label) + '.</b> ' + out.say + '</div>' +
+      '<div class="onebar"><button class="gobtn" type="button" data-clm-go="' + i + '"' +
+      (out.can ? '' : ' disabled') + '>Submit This Expense Claim</button></div>';
+  }
+
+  function sentInvoices(C, invoices) {
+    var list = (invoices || []).slice().sort(function (a, b) {
+      return String(b.submittedAt || '').localeCompare(String(a.submittedAt || ''));
+    });
+    if (!list.length) return '';
+    return '<h4 class="subh">Invoices You Have Sent</h4>' +
+      '<p class="fineprint">Where each one has got to. <b>Nobody has to email and ask.</b></p>' +
+      '<div class="hqrows">' + list.map(function (iv) {
+        var st = invState(iv);
+        return panelRow('inv-' + iv.id, 'Invoice ' + (iv.number || '\u2014'),
+          H.periodLabel(iv.period) + ' \u00b7 sent ' + stamp(iv.submittedAt),
+          money(iv.total),
+          invoicePanel(C, iv),
+          '<span class="pill ' + st.tone + '">' + esc(st.label) + '</span>');
+      }).join('') + '</div>';
+  }
+
+  function invoicePanel(C, iv) {
+    var st = invState(iv);
+    return '<div class="note ' + (st.tone || '') + '"><b>' + esc(st.label) + '.</b> ' + st.said +
+      (iv.question ? '<br><br><b>Their question:</b> ' + esc(iv.question) : '') + '</div>' +
+      '<div class="fields">' +
+      fld('Invoice Number', iv.number || '\u2014') +
+      fld('Period', H.periodLabel(iv.period)) +
+      fld('Your Total', money(iv.total)) +
+      fld('What MISMO Had Approved', money(iv.approvedTotal)) +
+      fld('Difference', iv.diff ? money(iv.diff) : 'None') +
+      '</div>' +
+      (iv.note ? '<p class="fineprint"><b>What you said the difference was:</b> ' +
+        esc(iv.note) + '</p>' : '') +
+      '<h4 class="subh">Where It Has Got To</h4>' +
+      '<div class="invtrail">' + (iv.trail || []).map(function (t) {
+        return '<div class="trow"><span class="tsd"></span><span>' + esc(t.what) + '</span>' +
+          '<span class="fineprint">' + esc(stamp(t.at)) + (t.by ? ' \u00b7 ' + esc(t.by) : '') +
+          '</span></div>';
+      }).join('') + '</div>';
+  }
+
+  /* ⚠ 700 KB stated, because the relay caps a commit body at 1,000,000 bytes
+     and base64 inflates a file by about a third. Refused BEFORE anything is
+     written, with the likely cause named — "too large" on its own leaves
+     somebody stuck; "that is a scan, export instead" fixes it in one go. */
+  var INVOICE_BUDGET = 700 * 1024;
+
+  function prepareInvoicePdf(file) {
+    if (!file) return Promise.reject(new Error('No file chosen.'));
+    var isPdf = /pdf$/i.test(file.type || '') || /\.pdf$/i.test(file.name || '');
+    if (!isPdf) {
+      return Promise.reject(new Error('That is not a PDF. Accounts payable pays against your ' +
+        'own invoice document, so it has to be the PDF you issued.'));
+    }
+    return fileToDataUrl(file).then(function (url) {
+      var b64 = (url.split(',')[1] || '');
+      if (b64.length > INVOICE_BUDGET * 1.37) {
+        var e = new Error(file.name + ' is too large to accept \u2014 ' +
+          (file.size / 1048576).toFixed(1) + ' MB. The limit is 700 KB. ' +
+          'Nothing has been saved and nothing has been sent, so there is nothing to undo. ' +
+          'A file this size is almost always a scan \u2014 if you printed the invoice and ' +
+          'scanned it back in, export it straight to PDF from whatever produced it instead. ' +
+          'It will come out a fraction of the size and will be sharper. If it really is that ' +
+          'big, send it to Jonna directly and she will submit it for you.');
+        e.tooBig = true;
+        throw e;
+      }
+      return { b64: b64, bytes: b64.length, name: file.name,
+               read: readInvoiceFields(atob(b64.slice(0, 200000))) };
+    });
+  }
+
+  /* ⚠ A DELIBERATELY SMALL READER.
+     Five companies, five stable templates — so this looks for the shapes those
+     templates use and gives up quietly rather than guessing. When it cannot
+     find the total the screen asks for that ONE figure, which is the settled
+     behaviour; the lines are never re-keyed because the portal already knows
+     them from the approved hours. */
+  function readInvoiceFields(raw) {
+    var out = {};
+    var txt = String(raw || '').replace(/[^\x20-\x7e\n]/g, ' ');
+    var m = /(?:invoice\s*(?:no|number|#)\s*[:.#]?\s*)([A-Za-z0-9][A-Za-z0-9\-\/]{3,24})/i.exec(txt);
+    if (m) out.number = m[1];
+    m = /(?:invoice\s*date|date)\s*[:.]?\s*(\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4})/i.exec(txt);
+    if (m) out.date = readDate(m[1]);
+    m = /(?:total\s*(?:due|amount)?|amount\s*due|balance\s*due)\s*[:.]?\s*\$?\s*([0-9][0-9,]*\.?[0-9]{0,2})/i.exec(txt);
+    if (m) {
+      var n = Number(String(m[1]).replace(/,/g, ''));
+      if (isFinite(n) && n > 0) out.total = n;
+    }
+    return out;
+  }
+
+  function wireInvoices(C, files, invoices, period) {
+    function refresh() { HRS.files = null; hoursHome(); }
+    var say = document.getElementById('inv-say');
+    function note(msg, bad) {
+      if (!say) return;
+      say.innerHTML = msg ? '<span class="' + (bad ? 'rcpt-bad' : 'rcpt-ok') + '">' +
+        esc(msg) + '</span>' : '';
+    }
+    function keepFields() {
+      INV.up = INV.up || {};
+      var n = document.getElementById('inv-num');
+      var d = document.getElementById('inv-date');
+      var t = document.getElementById('inv-total');
+      var nt = document.getElementById('inv-note');
+      if (n) INV.up.number = n.value.trim();
+      if (d) INV.up.date = readDate(d.value) || d.value.trim();
+      if (t) INV.up.total = t.value === '' ? null : Number(t.value);
+      if (nt) INV.up.note = nt.value;
+    }
+    ['inv-num', 'inv-date', 'inv-total', 'inv-note'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('change', function () { keepFields(); refresh(); });
+    });
+
+    function take(file) {
+      if (!file) return;
+      note('Reading it\u2026');
+      prepareInvoicePdf(file).then(function (r) {
+        keepFields();
+        INV.up = INV.up || {};
+        INV.up.file = r.b64; INV.up.bytes = r.bytes; INV.up.name = r.name;
+        INV.up.tooBig = null;
+        /* ⚠ Only fills what is still empty — the same rule the receipt reader
+           follows. A misread must never quietly replace a figure somebody
+           has corrected. */
+        if (r.read.number && !INV.up.number) INV.up.number = r.read.number;
+        if (r.read.date && !INV.up.date) INV.up.date = r.read.date;
+        if (r.read.total != null && (INV.up.total == null || INV.up.total === '')) {
+          INV.up.total = r.read.total; INV.up.readTotal = true;
+        }
+        refresh();
+      }).catch(function (err) {
+        if (err && err.tooBig) { INV.up = INV.up || {}; INV.up.tooBig = err.message; refresh(); return; }
+        note((err && err.message) || 'That could not be used.', true);
+      });
+    }
+    var pick = document.getElementById('inv-file');
+    var pb = document.getElementById('inv-pick-btn');
+    var again = document.getElementById('inv-drop-file');
+    if (pb && pick) pb.addEventListener('click', function (e) { e.stopPropagation(); pick.click(); });
+    if (again) again.addEventListener('click', function () {
+      INV.up = INV.up || {}; INV.up.file = null; INV.up.name = null; refresh();
+    });
+    if (pick) pick.addEventListener('change', function () { take(pick.files && pick.files[0]); });
+    var drop = document.getElementById('inv-drop');
+    if (drop) {
+      drop.addEventListener('click', function () { if (pick) pick.click(); });
+      ['dragenter','dragover'].forEach(function (t) {
+        drop.addEventListener(t, function (e) { e.preventDefault(); e.stopPropagation();
+          drop.classList.add('over'); }); });
+      ['dragleave','drop'].forEach(function (t) {
+        drop.addEventListener(t, function (e) { e.preventDefault(); e.stopPropagation();
+          drop.classList.remove('over'); }); });
+      drop.addEventListener('drop', function (e) {
+        take(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]); });
+    }
+
+    /* ---- the expense claims, each in its own panel ----------------------
+       ⚠ Wired on panel open, because none of these controls exist until the
+       row is opened. */
+    function wireClaim(root) {
+      (root || document).querySelectorAll('[data-clm-file]').forEach(function (inp) {
+        if (inp.dataset.wired) return; inp.dataset.wired = '1';
+        var i = Number(inp.dataset.clmFile);
+        var claim = (INV.claims || [])[i];
+        var saySel = (root || document).querySelector('[data-clm-say="' + i + '"]');
+        function cnote(m, bad) {
+          if (saySel) saySel.innerHTML = m
+            ? '<span class="' + (bad ? 'rcpt-bad' : 'rcpt-ok') + '">' + esc(m) + '</span>' : '';
+        }
+        function reopen() {
+          openPanel(claim.summit, claimPanel(C, claim, i));
+          wireClaim(document.getElementById('panel-body'));
+        }
+        function ctake(file) {
+          if (!file) return;
+          cnote('Reading it\u2026');
+          prepareInvoicePdf(file).then(function (r) {
+            INV.claimUp = { i: i, file: r.b64, bytes: r.bytes, name: r.name,
+                            number: r.read.number || '', total: r.read.total != null ? r.read.total : null };
+            reopen();
+          }).catch(function (err) {
+            if (err && err.tooBig) { INV.claimUp = { i: i, tooBig: err.message }; reopen(); return; }
+            cnote((err && err.message) || 'That could not be used.', true);
+          });
+        }
+        inp.addEventListener('change', function () { ctake(inp.files && inp.files[0]); });
+        var pk = (root || document).querySelector('[data-clm-pick="' + i + '"]');
+        if (pk) pk.addEventListener('click', function (e) { e.stopPropagation(); inp.click(); });
+        var dz = (root || document).querySelector('[data-clm-drop="' + i + '"]');
+        if (dz) {
+          dz.addEventListener('click', function () { inp.click(); });
+          ['dragenter','dragover'].forEach(function (t) { dz.addEventListener(t, function (e) {
+            e.preventDefault(); e.stopPropagation(); dz.classList.add('over'); }); });
+          ['dragleave','drop'].forEach(function (t) { dz.addEventListener(t, function (e) {
+            e.preventDefault(); e.stopPropagation(); dz.classList.remove('over'); }); });
+          dz.addEventListener('drop', function (e) {
+            ctake(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]); });
+        }
+      });
+
+      ['num','total','note'].forEach(function (k) {
+        (root || document).querySelectorAll('[data-clm-' + k + ']').forEach(function (el) {
+          if (el.dataset.wired) return; el.dataset.wired = '1';
+          el.addEventListener('change', function () {
+            var i = Number(el.dataset['clm' + k.charAt(0).toUpperCase() + k.slice(1)]);
+            INV.claimUp = INV.claimUp && INV.claimUp.i === i ? INV.claimUp : { i: i };
+            INV.claimUp[k === 'num' ? 'number' : k] =
+              k === 'total' ? (el.value === '' ? null : Number(el.value)) : el.value;
+            var claim = (INV.claims || [])[i];
+            openPanel(claim.summit, claimPanel(C, claim, i));
+            wireClaim(document.getElementById('panel-body'));
+          });
+        });
+      });
+
+      (root || document).querySelectorAll('[data-clm-again]').forEach(function (b) {
+        if (b.dataset.wired) return; b.dataset.wired = '1';
+        b.addEventListener('click', function () {
+          var i = Number(b.dataset.clmAgain);
+          if (INV.claimUp && INV.claimUp.i === i) { INV.claimUp.file = null; INV.claimUp.name = null; }
+          var claim = (INV.claims || [])[i];
+          openPanel(claim.summit, claimPanel(C, claim, i));
+          wireClaim(document.getElementById('panel-body'));
+        });
+      });
+
+      (root || document).querySelectorAll('[data-clm-go]').forEach(function (b) {
+        if (b.dataset.wired) return; b.dataset.wired = '1';
+        b.addEventListener('click', function () {
+          var i = Number(b.dataset.clmGo);
+          var claim = (INV.claims || [])[i];
+          var up = (INV.claimUp && INV.claimUp.i === i) ? INV.claimUp : null;
+          var out = claimOutcome(claim, up, invoices);
+          if (!out.can) { toast(out.label, 'warn'); return; }
+          if (numberUsed(invoices, up.number)) {
+            toast('Invoice ' + up.number + ' has already been sent.', 'warn'); return;
+          }
+          b.disabled = true; b.textContent = 'Sending\u2026';
+          var at = new Date().toISOString();
+          var id = 'xc' + Date.now().toString(36);
+          var path = 'invoices/files/' + C.slug + '-' + id + '.pdf';
+          R.commit(keyFor(C.slug), [R.binaryFile(path, up.file)],
+            'expense claim ' + claim.summit + ' \u2014 ' + C.F.company)
+            .then(function () {
+              return R.update(keyFor(C.slug), 'invoices/' + C.slug + '.json', function (cur) {
+                var next = JSON.parse(JSON.stringify(cur || { invoices: [] }));
+                next.invoices = (next.invoices || []).concat([{
+                  id: id, kind: 'expenses', summit: claim.summit,
+                  number: up.number || '', date: H.print(new Date()),
+                  period: H.periodOfWeek(claim.items[0] && claim.items[0].date) || '',
+                  total: Number(up.total), approvedTotal: claim.total,
+                  diff: Math.round((Number(up.total) - claim.total) * 100) / 100,
+                  note: up.note || '', file: path,
+                  items: claim.items.map(function (e) {
+                    return { id: e.id, slug: e.slug, person: e.person, date: e.date,
+                             cat: e.cat, amount: expenseAllowed(e) };
+                  }),
+                  state: 'submitted', submittedBy: who().name, submittedAt: at,
+                  trail: [{ what: 'Submitted', at: at, by: who().name }]
+                }]);
+                return next;
+              }, 'expense claim ' + claim.summit, { invoices: [] });
+            })
+            .then(function () {
+              INV.claimUp = null;
+              closePanel(true);
+              toast('Expense claim for ' + claim.summit + ' has been submitted.', 'good');
+              refresh();
+            })
+            .catch(function (e) {
+              b.disabled = false; b.textContent = 'Submit This Expense Claim';
+              failed(e);
+            });
+        });
+      });
+    }
+    onPanelOpen(wireClaim);
+
+    var go = document.getElementById('inv-go');
+    if (go) go.addEventListener('click', function () {
+      keepFields();
+      var up = INV.up || {};
+      if (!up.number) { toast('The invoice number is needed \u2014 it is what MISMO quotes back.', 'warn'); return; }
+      /* ⚠ Two invoices with one number is how something gets paid twice. */
+      if (numberUsed(invoices, up.number)) {
+        toast('Invoice ' + up.number + ' has already been sent. Two invoices with one number is ' +
+          'how something gets paid twice \u2014 use the number on this one.', 'warn');
+        return;
+      }
+      var exp = expectedInvoice(C.F, files, period);
+      var out = invoiceOutcome(exp, invoiceChecks(C.F, files, period, exp, invoices), up);
+      if (!out.can) { toast(out.label, 'warn'); return; }
+
+      go.disabled = true; go.textContent = 'Sending\u2026';
+      var at = new Date().toISOString();
+      var id = 'iv' + Date.now().toString(36);
+      var path = 'invoices/files/' + C.slug + '-' + id + '.pdf';
+      /* The PDF goes up FIRST: a record pointing at a file that is not there
+         reads as a lost invoice. */
+      R.commit(keyFor(C.slug), [R.binaryFile(path, up.file)],
+        'invoice ' + up.number + ' \u2014 ' + C.F.company)
+        .then(function () {
+          return R.update(keyFor(C.slug), 'invoices/' + C.slug + '.json', function (cur) {
+            var next = JSON.parse(JSON.stringify(cur || { invoices: [] }));
+            next.invoices = (next.invoices || []).concat([{
+              id: id, number: up.number, date: up.date || H.print(new Date()),
+              period: period, total: Number(up.total),
+              approvedTotal: exp.total,
+              diff: Math.round((Number(up.total) - exp.total) * 100) / 100,
+              note: up.note || '', file: path,
+              lines: exp.lines.map(function (l) {
+                return { orderId: l.order.id, subject: l.order.subject,
+                         hours: l.hours, rate: l.rate, amount: l.amount };
+              }),
+              expensesTotal: exp.expensesTotal,
+              state: 'submitted', submittedBy: who().name, submittedAt: at,
+              trail: [{ what: 'Submitted', at: at, by: who().name }]
+            }]);
+            return next;
+          }, 'invoice ' + up.number, { invoices: [] });
+        })
+        .then(function () {
+          INV.up = null;
+          toast('Invoice ' + up.number + ' has been submitted.', 'good');
+          refresh();
+        })
+        .catch(function (e) {
+          go.disabled = false; go.textContent = 'Submit This Invoice';
+          failed(e);
+        });
     });
   }
 
