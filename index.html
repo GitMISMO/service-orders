@@ -2881,7 +2881,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-16 \u00b7 current week';
+  var BUILD = '2026-10-19 \u00b7 company weeks';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -3533,7 +3533,7 @@ window.H = (function () {
     { label: 'Waiting on You', names: ['Needs You', 'Time to Approve', 'Send Orders',
         'To Review', 'Awaiting Your Approval', 'Awaiting Your Decision'] },
     { label: 'Your Week', names: ['My Hours', 'My Submitted Time',
-        'The Company\u2019s Month'] },
+        'The Company\u2019s Month', 'The Company\u2019s Weeks'] },
     { label: 'Money', names: ['My Invoices', 'My Expenses'] },
     { label: 'Service Orders', names: ['My Service Orders', 'New Service Order',
         'Revise an Order', 'My Agreements', 'Executed Documents',
@@ -5042,7 +5042,8 @@ window.H = (function () {
                 invoicesSection(C, files, C.invoices || [],
                   openPeriod(F, files, C.invoices || [], new Date())))) +
               (person.timeManager
-                ? sect('The Company\u2019s Month', null, monthSection(C, fy, files), !logs) : '');
+                ? sect('The Company\u2019s Month', null, monthSection(C, fy, files), !logs) +
+                  sect('The Company\u2019s Weeks', null, weeksSection(C, fy, files)) : '');
           }).catch(function (e) {
             if (window.console && console.warn) console.warn('hours', e);
             return sect('My Hours', null,
@@ -5107,7 +5108,8 @@ window.H = (function () {
    * carry the order's name, its weekly pace, a balance or any total.  Every
    * one of those is worked out in hours.js from the order itself.
    * ======================================================================= */
-  var HRS = { files: null, mine: null, sha: null, person: null, month: null, week: null };
+  var HRS = { files: null, mine: null, sha: null, person: null, month: null, week: null,
+              coWeek: null };
   /* Who the hours screens are for, kept so a save can redraw them without
      working the answer out a second time. */
   var HCTX = null;
@@ -6942,6 +6944,168 @@ window.H = (function () {
       'throws up differences that all offset one another — that is the cover, not an error.</p>';
   }
 
+  /* ---- The Company's Weeks ------------------------------------------------
+     Meghan, 19 October: the month totals tell a manager what to invoice. They
+     do not tell her how the week went. Smartsheet gave her both, and the
+     weekly one is what she monitors with — the hours AND what each person
+     wrote.
+
+     ⚠ NOTHING NEW IS FETCHED. The Company's Month already loads every
+     time-logging person's whole fiscal year, notes and all, to work out its
+     totals. This draws the part of it that was being summed and thrown away.
+     No extra request, no extra permission, no data crossing a boundary it was
+     not already crossing.
+
+     ⚠ Only ever useful on the company's FULL key. On the hours-only key the
+     read of a colleague's file is refused and falls back to an empty one, so
+     this would draw blank rather than wrong. It is gated on Time Manager, and
+     a time manager is on the full key.
+
+     ⚠ No fee, no rate, no money of any kind, for anybody. This is a status
+     report. Decision 26 does not have to be argued per role here because
+     there is nothing on the screen to argue about. */
+  function weeksSubmitted(files) {
+    var seen = {};
+    (files || []).forEach(function (f) {
+      ((f && f.weeks) || []).forEach(function (wk) { if (wk.weekEnding) seen[wk.weekEnding] = 1; });
+    });
+    return Object.keys(seen).sort(function (a, b) {
+      return (H.parse(b) || 0) - (H.parse(a) || 0);
+    });
+  }
+
+  /* Who sent nothing at all for ONE week.  ⚠ Same rule as the month view: a
+     person whose work went in on a colleague's split is not missing, and
+     somebody who had not started or had already left is not expected. */
+  function whoMissedWeek(F, files, ending) {
+    var on = H.parse(ending);
+    var out = [];
+    (F.people || []).forEach(function (p) {
+      if (!logsTime(F, p)) return;
+      if (on && !active(p, on)) return;
+      var sent = false, covered = false;
+      (files || []).forEach(function (f) {
+        if (!f) return;
+        var wk = H.weekIn(f, ending);
+        if (!wk) return;
+        if (f.slug === p.slug) sent = true;
+        var r = H.rowsOf(wk);
+        for (var id in r) {
+          if (!r.hasOwnProperty(id)) continue;
+          (r[id]['for'] || []).forEach(function (s) {
+            if (s.person === p.name && Number(s.hours)) covered = true;
+          });
+        }
+      });
+      if (!sent && !covered) out.push(p.name);
+    });
+    return out;
+  }
+
+  function weeksSection(C, fy, files) {
+    var F = C.F;
+    var endings = weeksSubmitted(files);
+    if (!endings.length) {
+      return '<p class="empty">No week has been submitted yet this fiscal year. Once your team ' +
+        'starts sending weeks, each one appears here — every person, their hours and what they ' +
+        'wrote, side by side.</p>';
+    }
+    var ending = HRS.coWeek && endings.indexOf(HRS.coWeek) >= 0 ? HRS.coWeek : endings[0];
+
+    /* One entry per person who has this week, alphabetical.  ⚠ By NAME, not by
+       hours — the same reason the month view sorts by order name. A list that
+       reorders itself every time somebody submits is a list you cannot learn. */
+    var entries = [];
+    (files || []).forEach(function (f) {
+      var wk = f && H.weekIn(f, ending);
+      if (wk) entries.push({ person: f.person, slug: f.slug, wk: wk });
+    });
+    entries.sort(function (a, b) {
+      return String(a.person).localeCompare(String(b.person), undefined, { sensitivity: 'base' }); });
+
+    var total = entries.reduce(function (a, e) { return a + H.hoursIn(e.wk); }, 0);
+    var missing = whoMissedWeek(F, files, ending);
+    /* weekSpan takes the fiscal year and the ending STRING, not a parsed date. */
+    var span = H.weekSpan(fy, ending);
+
+    return '<p class="lede">Your whole company’s week, person by person — the hours and the report ' +
+      'each of them wrote, exactly as it was sent. This is the monitoring view; ' +
+      '<b>The Company’s Month</b> above is the one you reconcile an invoice against.</p>' +
+      '<div class="tot"><span class="tot-l">Week Ending</span><span class="tot-v">' +
+      '<select id="w-pick" aria-label="Which week">' + endings.map(function (e) {
+        return '<option value="' + esc(e) + '"' + (e === ending ? ' selected' : '') + '>' +
+          esc(e) + '</option>'; }).join('') + '</select> ' +
+      hrs(total) + ' hours</span></div>' +
+      (span ? '<p class="fineprint">' + esc(span) + '</p>' : '') +
+      (missing.length
+        ? '<div class="note"><b>' + missing.length + ' ' +
+          (missing.length === 1 ? 'person has' : 'people have') + ' sent nothing for this week.</b> ' +
+          esc(missing.join(', ')) +
+          '<br><span class="fineprint">Somebody whose hours went in on a colleague’s entry is not ' +
+          'missing — this counts people with nothing sent at all.</span></div>'
+        : '<div class="note ok"><b>Everybody who was expected has sent this week.</b></div>') +
+      '<div class="rows">' + entries.map(function (e) {
+        var wk = e.wk;
+        var st = H.stateOf(wk);
+        var rows = H.rowsOf(wk);
+        var ids = Object.keys(rows).sort(function (a, b) {
+          var A = orderById(F, a), B = orderById(F, b);
+          return String((A && A.subject) || a).localeCompare(String((B && B.subject) || b),
+            undefined, { sensitivity: 'base', numeric: true });
+        });
+        var wrote = ids.filter(function (id) { return rows[id].thisWeek; }).length;
+        return '<div class="row"><div class="row-h">' +
+          '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
+          '<span class="rt">' + esc(e.person) + '</span>' +
+          '<span class="pill ' + st.tone + '">' + esc(st.label) + '</span>' +
+          (wrote < ids.length
+            ? '<span class="pill warn">' + (ids.length - wrote) + ' with no note</span>' : '') +
+          '<span class="rs num">' + hrs(H.hoursIn(wk)) + ' hours</span>' +
+          '</div><div class="row-b">' +
+          '<div class="tbl"><table><thead><tr><th>Service Order</th><th class="n">Hours</th>' +
+          '<th>What They Wrote</th><th class="hide-narrow hcol">Health</th></tr></thead><tbody>' +
+          ids.map(function (id) {
+            var r = rows[id], o = orderById(F, id);
+            /* The split is read against THIS person because they are the one
+               who submitted the week — splitOf hands the remainder back to the
+               submitter, and the submitter here is whoever the file belongs
+               to, never the manager reading it. */
+            var split = H.splitOf(r, e.person);
+            /* ⚠ Show the attribution whenever it is not simply "this person,
+               all of it". A row logged ENTIRELY for a colleague comes back as a
+               split of LENGTH ONE naming that colleague — testing only for
+               length > 1 hid exactly the case a manager most needs to see, which
+               is one person's week carrying another person's work. */
+            var shared = split.length > 1 ||
+              (split.length === 1 && split[0].person !== e.person);
+            return '<tr><td>' + esc(o ? o.subject : id) +
+              (shared
+                ? '<br><span class="fineprint">Logged for ' + esc(split.map(function (s) {
+                    return s.person + ' ' + hrs(s.hours); }).join(' · ')) + '</span>' : '') +
+              '</td><td class="n">' + hrs(r.hours) + '</td>' +
+              '<td>' + (r.thisWeek ? esc(r.thisWeek) :
+                '<span class="fineprint">No note written</span>') +
+              (r.upcoming ? '<br><span class="fineprint"><b>Upcoming:</b> ' + esc(r.upcoming) +
+                '</span>' : '') +
+              '</td><td class="hide-narrow hcol">' + (r.health ? healthDot(r.health) : '—') +
+              '</td></tr>';
+          }).join('') + '</tbody></table></div>' +
+          '<div class="wkstate ' + st.tone + '"><span class="wk-l">' + esc(st.label) + '</span>' +
+          '<span class="wk-d">' + st.said + '</span></div>' +
+          (wk.returnedWhy
+            ? '<div class="note"><b>This week was sent back.</b> ' + esc(wk.returnedWhy) +
+              '<br><span class="fineprint">' + esc(stamp(wk.returnedAt)) + '.</span></div>' : '') +
+          (wk.versions && wk.versions.length
+            ? '<p class="fineprint"><b>' + wk.versions.length + ' earlier version' +
+              (wk.versions.length === 1 ? '' : 's') + ' of this week ' +
+              (wk.versions.length === 1 ? 'is' : 'are') + ' kept.</b></p>' : '') +
+          '</div></div>';
+      }).join('') + '</div>' +
+      '<p class="fineprint"><b>This is what they sent, not a copy you can change.</b> Correcting a ' +
+      'week is the person’s own job on their screen, or MISMO sending it back — nothing here edits ' +
+      'anybody’s time.</p>';
+  }
+
   /* Who has a week of this month with nothing sent at all.  ⚠ A person whose
      work was covered by a colleague's split entry is NOT missing — that was
      what made the Smartsheet alert fire every month and train everyone to
@@ -7461,6 +7625,8 @@ window.H = (function () {
 
     var mp = document.getElementById('m-pick');
     if (mp) mp.addEventListener('change', function () { HRS.month = mp.value; hoursHome(); });
+    var wp = document.getElementById('w-pick');
+    if (wp) wp.addEventListener('change', function () { HRS.coWeek = wp.value; hoursHome(); });
   }
 
   /* A week with something worth a second look is not blocked — it is shown,
