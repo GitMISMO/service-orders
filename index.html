@@ -2945,7 +2945,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-24e \u00b7 away and invoices';
+  var BUILD = '2026-10-24f \u00b7 help rewritten';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -5168,12 +5168,19 @@ window.H = (function () {
           say(isFac()
             ? hb +
               sect('My Service Orders', yearOrders.length, facListHtml()) +
-              sect('Help', null, helpFor('facilitator', F))
+              /* ⚠ What this person can actually DO decides what the Help
+                 covers. Documenting a screen somebody does not have sends
+                 them looking for it. */
+              sect('Help', null, helpFor('facilitator', F, {
+                expenses: !!(person && person.expenses),
+                timeManager: !!(person && person.timeManager) }))
             : sect('To Review', toReview.length, review) +
               hb +
               sect('My Service Orders', yearOrders.length, all) +
               sect('My Agreements', F.letters.length, ag) +
-              sect('Help', null, helpFor('contractor', F))
+              sect('Help', null, helpFor('contractor', F, {
+                expenses: !!(person && person.expenses),
+                timeManager: !!(person && person.timeManager) }))
           );
           if (person && person.expenses) wireExpenses(C, person, fy);
           /* ⚠ HRS.files, not `files`. The hours files are loaded inside the
@@ -10674,143 +10681,262 @@ window.H = (function () {
   function blk(title, body) {
     return '<div class="hblk"><h4>' + esc(title) + '</h4>' + body + '</div>';
   }
-  function helpFor(kind, F) {
-    var name = ME && ME.name ? ME.name : 'you';
+  /* =========================================================================
+   * HELP
+   *
+   * Jonna, 24 October: detailed, plain-language documentation for four
+   * audiences — MISMO, the consulting company, the people who enter time, and
+   * the people who claim expenses.
+   *
+   * ⚠ Time entry and expenses are TOPICS, not roles. Somebody on an hours-only
+   * account and the company's own signer do exactly the same thing in My
+   * Hours, and writing it twice is how two copies drift apart. The topic
+   * blocks below are shared, and each role's page is assembled from them plus
+   * what is true only for that role.
+   *
+   * ⚠ `opts` carries what this person can actually DO — logs time, claims
+   * expenses, manages the company's time. Help for a screen somebody does not
+   * have is worse than no help: they go looking for it.
+   * ======================================================================= */
+
+  function helpTimeEntry() {
+    return blk('Entering Your Time', steps([
+      'Open <b>My Hours</b>. It opens on the week you are in, with one row for every service order you work on.',
+      'The big date at the top is the <b>week ending</b> — always a Friday. The week runs Monday to that Friday.',
+      'Click a row to open it on the right. Put the hours in <b>Hours This Week</b>.',
+      'Write one line in <b>This Week</b>. <b>That note is the part MISMO actually reads</b> — the hours alone do not say what happened.',
+      '<b>Upcoming</b> is what is next. It is how MISMO sees what is coming without having to ask.',
+      'Set <b>Health</b> — Green, Yellow, Red or N/A — so anything going wrong is visible before it becomes a problem.',
+      '<b>Save Without Sending</b> keeps it for you and sends nothing. Use it as often as you like.',
+      '<b>Submit This Week</b> sends it to MISMO.']))
+    + blk('If You Worked on Something Somebody Else Owns', steps([
+      'Open <b>Did somebody else do some of these hours?</b> inside the order row.',
+      'Name the person and the share of the hours that was theirs.',
+      'Put the <b>whole</b> figure in Hours This Week first, then split it — the split says who did the work, it does not change the total.',
+      'Example: you log 2.00 hours and mark 0.25 as a colleague’s. The order is billed 2.00; the colleague is credited 0.25.',
+      '<b>A week somebody covered for you is not a week you owe.</b> You will not be chased for it.']))
+    + blk('Weeks You Have Missed', steps([
+      'Any earlier week you have not sent appears at the top of <b>My Hours</b> in an amber box.',
+      'Click <b>Log This Week</b> on one to open it with whatever you had already saved in it.',
+      '<b>Hours go on the invoice for the month the week falls in</b>, not the month you type them — so a week logged late still lands in the right place.']))
+    + blk('Changing a Week You Have Already Sent', steps([
+      '<b>You do not need anybody’s permission.</b> Open <b>My Submitted Time</b>, find the week, and press <b>Take It Back to Correct</b>.',
+      'This works even after MISMO has looked at it. The week comes back to you, you fix it, and you send it again.',
+      'It stops being yours only once <b>MISMO has approved the invoice those hours are on</b>. After that you ask, and MISMO decides.',
+      'If your company has already sent an invoice that has not been approved, <b>that invoice comes back with the week</b> — fix the week, then send the invoice again.',
+      '<b>Nothing is ever overwritten.</b> Every version you sent is kept, so what an invoice was raised against can always be shown.']))
+    + blk('When MISMO Sends a Week Back', steps([
+      'It appears in <b>My Submitted Time</b> marked <b>Sent Back to You</b>, with the reason underneath.',
+      'Press <b>Correct This Week</b>. It opens in My Hours with what you sent still in it, so you correct it rather than type it again.',
+      '<b>A week that has been sent back is not billed</b> until you send it again — it carries to the next invoice rather than being lost.']))
+    + blk('Going on Vacation', steps([
+      'Open <b>When I Am Away</b> and put in your <b>First Day Away</b> and <b>Last Day Away</b>.',
+      'Choose <b>Who Is Covering</b> so everybody knows who to ask while you are out.',
+      'Press <b>Add It</b>. <b>MISMO stops chasing you for those weeks.</b>',
+      '<b>A week only stops being expected if you are away for the whole of it.</b> Away Wednesday to Friday still means you worked Monday and Tuesday, so that week is still yours to send.',
+      'You can remove a booking that has not happened yet. Past ones stay as a record.']))
+    + blk('What Happens After You Submit', steps([
+      '<b>Your time is billable as soon as you submit it.</b> Nobody has to approve it first.',
+      'MISMO can still look at any week and send it back if something is wrong, but nothing is waiting on them.',
+      'Your company puts in its invoice; the portal checks that invoice against the hours MISMO holds.',
+      'Once MISMO approves that invoice, the weeks behind it lock. Once it is paid, they close for good.']));
+  }
+
+  function helpExpenses() {
+    return blk('Claiming an Expense', steps([
+      'Open <b>My Expenses</b>. Press <b>Add an Expense</b>.',
+      '<b>Drag the receipt in, or take a photo of it</b> — the portal reads what it can and fills the fields in for you.',
+      'Check what it filled. It only ever fills a field you have left empty; anything you typed is left alone.',
+      'Set the <b>Date</b>, the <b>Category</b> and the <b>Amount</b>.',
+      '<b>Trip or Reason</b> fills itself from the date — January is the Winter Summit, June is Spring, September is Fall, and the month before a summit counts as that summit. Change it if it is wrong.',
+      'Save it. It stays a draft until you send it.']))
+    + blk('The Receipt Rules', steps([
+      'A receipt is required for anything over <b>$25</b>, and for any meal over <b>$15</b>.',
+      'Meals are capped at <b>$115</b> a day across breakfast, lunch and dinner together.',
+      'These are <b>MBA’s travel and expense policy</b>, not the portal’s — they are the same rules MISMO staff follow.',
+      'The portal tells you when something is over a cap <b>before</b> you send it, not after.']))
+    + blk('Sending a Claim', steps([
+      'Expenses are claimed <b>per summit</b>, not per month.',
+      'Everything for one summit is claimed together, usually <b>within a week of the summit ending</b>.',
+      '<b>An expense claim is its own invoice, sent separately from your hours invoice.</b> It is not added to the monthly one and never appears on it.',
+      'That is deliberate: a summit rarely ends when a month does, so the two are on different clocks.',
+      'Open <b>My Invoices</b>, find <b>Expenses to Claim</b>, attach your expense invoice and send it.']))
+    + blk('Why Money Appears Here and Nowhere Else', '<p>If you are on an hours-only account, ' +
+      'this is the <b>only</b> screen in the portal that shows a dollar figure. It has to — it is ' +
+      'your money. <b>No hourly rate, no maximum fee and no invoice total appears anywhere on your ' +
+      'screen</b>, because those belong to your company’s agreement with MISMO rather than to ' +
+      'you.</p>');
+  }
+
+  function helpAwaySeeing() {
+    return blk('Your Company’s Time', steps([
+      '<b>The Company’s Month</b> is the reconciliation view: every service order, the hours against it this month, and who the hours were for.',
+      '<b>Reconcile per service order, never per person.</b> Where people cover for each other the order totals tie exactly, while the same month checked person by person throws up differences that all offset one another.',
+      '<b>The Company’s Weeks</b> is the monitoring view: pick a week and see every person’s hours <b>and the report they wrote</b>, exactly as it was sent.',
+      'It also tells you who has sent nothing for that week — and somebody whose hours went in on a colleague’s entry is <b>not</b> counted missing.',
+      'Neither screen edits anybody’s time. Correcting a week is the person’s own job.']));
+  }
+
+  function helpFor(kind, F, opts) {
+    var o = opts || {};
+    var signIn = blk('Signing In', steps([
+      'Go to <b>resources.mismo.org/service-orders/</b>.',
+      'Type the email address MISMO set you up with, and the password they sent you separately.',
+      'Press <b>Sign In</b>. Your session lasts four hours and ends when you close the tab.',
+      'The account is <b>yours</b>, not your company’s — do not share the password.']));
+
+    /* ---- the people who enter time, and nothing else --------------------- */
     if (kind === 'facilitator') {
-      return blk('Signing In', steps([
-        'Go to <b>resources.mismo.org/service-orders/</b>.',
-        'Type the email address MISMO set you up with, and the password they sent you separately.',
-        'Press <b>Sign In</b>. Your session lasts four hours and ends when you close the tab.']))
-        + blk('Logging Your Time', steps([
-        'Open <b>My Hours</b>. It shows the week you are in, with one row for every service order you work on.',
-        'Click a row to open it. Put the hours in <b>Hours This Week</b>, write one line in <b>This Week</b>, and set <b>Health</b>.',
-        '<b>Upcoming</b> is what is next \u2014 it is what MISMO reads to see what is coming.',
-        'If a colleague did some of those hours, open <b>Did somebody else do some of these hours?</b> and name them with their share.',
-        'Press <b>Save Without Sending</b> as often as you like; press <b>Submit This Week</b> when the week is done.']))
+      return signIn
+        + helpTimeEntry()
+        + (o.expenses ? helpExpenses() : '')
+        + (o.timeManager ? helpAwaySeeing() : '')
         + blk('Seeing Whether an Order Is Running Out', steps([
-        'Open <b>My Service Orders</b>. It shows <b>Allotted</b>, <b>Used</b> and <b>Remaining</b> in hours for every order you work on.',
-        'Those are the whole order, not your share \u2014 when several of you cover the same order, that is the only figure that tells you whether it is close to running out.',
-        'The bar turns amber past 70% and red past 90%. <b>Tell MISMO before it runs out</b>, not after it appears on an invoice.']))
+          'Open <b>My Service Orders</b>. It shows <b>Allotted</b>, <b>Used</b> and <b>Remaining</b> in hours for every order you work on.',
+          'Those are the <b>whole order</b>, not your share — when several of you cover the same order, that is the only figure that says whether it is close to running out.',
+          'The bar turns amber past 70% and red past 90%.',
+          '<b>Tell MISMO before it runs out</b>, not after it appears on an invoice.']))
         + blk('What You Cannot See, and Why', steps([
-        'This screen carries <b>no money at all</b> \u2014 no hourly rate, no maximum fee, no total, and the service order itself cannot be opened.',
-        'The order document is held back because <b>the rate is written on it</b>.',
-        'The maximum fee is held back for the same reason: <b>the fee divided by the hours is the rate</b>, so showing one shows the other.',
-        'Your hours, and how much of each order is left, are everything you need to do the work \u2014 and they are all here.']));
+          'This account carries <b>no rate, no maximum fee and no invoice</b>, and the service order document itself cannot be opened.',
+          'The order is held back because <b>the rate is written on it</b>.',
+          'The maximum fee is held back for the same reason: <b>the fee divided by the hours is the rate</b>, so showing one shows the other.',
+          'This is not a screen that hides them — <b>they never reach your browser at all</b>.',
+          'Your hours, your notes and how much of each order is left are everything you need, and they are all here.']));
     }
+
+    /* ---- the consulting company ------------------------------------------ */
     if (kind === 'contractor') {
-      return blk('Signing In', steps([
-        'Go to <b>resources.mismo.org/service-orders/</b>.',
-        'Type the email address MISMO set you up with, and the password they sent you separately.',
-        'Press <b>Sign In</b>. Your session lasts four hours and ends when you close the tab.',
-        'The account is <b>yours</b>, not your company’s — do not share the password, because whoever has it can accept orders as you.']))
-        + blk('Logging Your Time', steps([
-        'Open <b>My Hours</b>. It shows the week you are in, with one row for every service order you work on.',
-        'Click a row to open it. Put the hours in <b>Hours This Week</b>, write one line in <b>This Week</b>, and set <b>Health</b>.',
-        '<b>Upcoming</b> is what is next — it is what MISMO reads to see what is coming, so it is worth a line.',
-        'If a colleague did some of those hours, open <b>Did somebody else do some of these hours?</b> and name them with their share. Whatever is left stays with you. On a normal week, leave it alone.',
-        'Press <b>Save Without Sending</b> as often as you like — it keeps the week here and sends nothing.',
-        'When the week is done, press <b>Submit This Week</b>.']))
-        + blk('Seeing Whether an Order Is Running Out', steps([
-        'Open any row in <b>My Hours</b>.',
-        '<b>Used by Everyone</b> and <b>Remaining on the Order</b> are the whole order, not your share — when several people work the same order, that is the only figure that tells you whether it is close to its maximum.',
-        'The bar turns amber past 70% and red past 90%. <b>Tell MISMO before it runs out</b>, not after it appears on an invoice.']))
-        + blk('Changing a Week You Have Already Sent', steps([
-        'Open <b>My Submitted Time</b> and choose the week.',
-        'If it says <b>Submitted</b>, MISMO has not approved it yet and it is still yours — press <b>Take It Back to Correct</b>. You need nobody’s permission.',
-        'If it says <b>Approved</b> or <b>Invoiced</b>, write one line in <b>What Is Wrong With This Week</b> and press <b>Ask for It to Be Returned</b>. A reason is required — it is what MISMO reads before deciding.',
-        'If it says <b>Invoiced and Paid</b>, the week does not reopen for anyone. A correction goes on the next period.',
-        'If it says <b>Sent Back to You</b>, press <b>Correct This Week</b> — it opens in My Hours with what you sent still in it.']))
+      return signIn
+        + blk('What You Do Here', steps([
+          '<b>Accept the service orders</b> MISMO sends you, or set one aside with a question.',
+          '<b>Enter your own time</b>, if you work on an order yourself.',
+          '<b>Watch your company’s time</b> and check it before you invoice.',
+          '<b>Send your invoice</b> each month, and your expense claims after each summit.']))
         + blk('Accepting Orders Together', steps([
-        'Open <b>To Review</b>.',
-        'Read the orders. Each one is listed under <b>Read Them Here</b> — click a row and it opens out into the order exactly as it will read.',
-        'Tick the box beside every order you accept. The box at the top of the <b>Service Order</b> column ticks them all at once.',
-        'In <b>Type Your Name to Accept</b>, type your name.',
-        'Check that <b>Title</b> says what you want printed.',
-        'Press <b>Accept the Ticked Orders</b>.']))
-        + blk('Accepting One Order on Its Own', steps([
-        'Under <b>Read Them Here</b>, click the row for that order.',
-        'Read it, then type your name in <b>Type Your Name to Accept This One</b>.',
-        'Press <b>Accept This Order</b>.']))
-        + blk('Setting One Aside With a Question', steps([
-        'Open the order under <b>Read Them Here</b>.',
-        'Press <b>Set It Aside With a Question</b>.',
-        'Type the question in <b>What Is the Question?</b> It is required \u2014 the question is the point.',
-        'Press <b>Send the Question</b>. It goes back to MISMO with the order. <b>An order you set aside is never swept up by Accept the Ticked Orders.</b>']))
-        + blk('What Accepting Records', '<p>Your name as you typed it, your title, the date and the time, and a record of ' +
-          'exactly what the order said when you accepted it. If MISMO changes that order afterwards, it does not ' +
-          'count as accepted any more — it comes back to <b>To Review</b> marked <b>Changed Since Acknowledged</b>, ' +
-          'so nothing is ever accepted on your behalf by accident.</p>' +
-          '<p><b>An accepted order is locked.</b> Changing one after that is a Modification, not an edit.</p>')
-        + blk('Saving an Order as a PDF', steps([
-        'Open <b>My Service Orders</b> and click the order.',
-        'Press <b>Download as PDF</b> at the foot of it.',
-        'Your browser’s print box opens. Choose <b>Save as PDF</b> as the destination, then <b>Save</b>.']))
-        + blk('My Agreements', '<p>Your Master Services Agreement extensions. MISMO sends each one through ' +
-          'DocuSign; the signed copy appears here once it is executed, with its Certificate of Completion, and ' +
-          'it stays. Until then it reads <b>Awaiting Signature</b>.</p>')
-        + blk('If the Page Says Your Link Is Not Active', '<p>The link has been withdrawn or replaced. ' +
-          'Nothing is wrong at your end. Email <b>Jonna Critchley, jcritchley@mismo.org</b> for a new one.</p>');
+          'Open <b>To Review</b>. Every order MISMO has sent you is listed with its full terms.',
+          'Read them. Tick <b>I have read each order above</b>.',
+          'Type your <b>name</b> and <b>title</b> exactly as you want them recorded.',
+          'Press <b>Accept These Orders</b>. All of them are accepted in one action.']))
+        + blk('Accepting One on Its Own, or Asking a Question', steps([
+          'Open the order’s row. Use <b>Accept This Order</b> for that one alone.',
+          'To query one, write what is wrong in <b>What needs looking at</b> and press <b>Set It Aside With a Question</b>.',
+          '<b>A question stops that order and nothing else</b> — the rest are still yours to accept.',
+          'MISMO sees your question, with your words, on their own screen.']))
+        + blk('What Accepting Records', '<p>Your name as you typed it, your title, the date and ' +
+          'the time, and <b>the whole order exactly as it stood on your screen</b>. If MISMO ' +
+          'changes an order after you accept it, the portal says so rather than quietly treating ' +
+          'the new wording as agreed.</p>')
+        + blk('Once Everything Is Signed', steps([
+          'An order is <b>Executed</b> once your company has accepted it and Brian Vieaux has signed for MISMO.',
+          'You are emailed when a set is fully signed.',
+          'Open <b>My Service Orders</b> and use <b>Save as PDF</b> on any order you want a copy of.',
+          '<b>My Agreements</b> holds your Master Services Agreement extensions, which MISMO sends through DocuSign separately.']))
+        + helpTimeEntry()
+        + helpAwaySeeing()
+        + blk('Sending Your Invoice', steps([
+          'Open <b>My Invoices</b>. It names the month being invoiced and shows the lines — every service order, the hours, your rate and the amount.',
+          '<b>Those figures come from the time your people have submitted.</b> Nobody at MISMO has to approve it first.',
+          'Check <b>The Company’s Month</b> against them before you send. Most differences never reach an invoice if you look here first.',
+          'Attach your invoice <b>PDF</b> and put in the <b>total</b>. The portal reads the total off the PDF where it can.',
+          'If your total matches, it goes straight through. If it does not, <b>one line saying why</b> and it can go.',
+          '<b>Your PDF is the document of record</b> — the lines on screen are only the portal’s reading of it.']))
+        + blk('After You Send an Invoice', steps([
+          'MISMO reviews it. Until they <b>approve</b> it, your people can still take a week back and correct it.',
+          'If a week is corrected, <b>the invoice comes back to you with it</b> — fix the week, then send the invoice again. Your invoice number is free to reuse.',
+          'If MISMO has a question, the invoice comes back with it and the hours are yours again.',
+          'Once approved it goes to <b>MBA accounts payable</b>, and the weeks behind it lock.',
+          'Once <b>paid</b>, those weeks close for good — a correction after that goes on the next period.']))
+        + (o.expenses ? helpExpenses() : blk('Expense Claims', steps([
+          'Expenses are claimed <b>per summit</b>, not per month, usually within a week of the summit ending.',
+          '<b>An expense claim is its own invoice, sent separately</b> from your monthly hours invoice.',
+          'Open <b>My Invoices</b> and look for <b>Expenses to Claim</b>.',
+          'Only people MISMO has turned expenses on for see the expense screens.'])))
+        + blk('If the Page Says Your Link Is Not Active', '<p>The link has been withdrawn or ' +
+          'replaced. <b>Email Jonna Critchley</b> at <a href="mailto:jcritchley@mismo.org">' +
+          'jcritchley@mismo.org</a> and she will send a new one.</p>');
     }
+
     if (kind === 'president') {
       return blk('Getting In', steps([
-        'Go to <b>resources.mismo.org/service-orders/</b>. Your MISMO sign-in is your way in — there is no link and no code to keep.',
-        'The page opens on <b>Awaiting Your Approval</b>.']))
+        'Open the link MISMO sent you. It signs you in on its own — there is no password.',
+        'You see every company’s orders that are waiting for your signature, and nothing else.']))
         + blk('Approving One Company', steps([
-        'Click the company’s row. It opens out into every order of theirs waiting for you, with who accepted it and when.',
-        'To read an order in full, click its name under the table.',
-        'Press <b>Approve These N Orders for &lt;company&gt;</b>.']))
+          'Open the company’s row and read the orders inside it.',
+          'Type your name and title, and press <b>Approve</b>.']))
         + blk('Approving Everything at Once', steps([
-        'Press <b>Approve All N Waiting</b> at the top of the section.',
-        'Every company waiting is approved. <b>A company with nothing waiting is not touched</b>, and neither is any order that has not been accepted yet.']))
-        + blk('What Your Approval Records', '<p>Your name, your title, the date and the time, that it came from ' +
-          'your MISMO sign-in, and a record of exactly what the order said. Your approval is the second of the two ' +
-          'signatures an order needs, so <b>the moment you approve it the order is executed</b> and the contracting ' +
-          'company can download it.</p>')
-        + blk('What You Do Not See', '<p>The permanent archive of executed agreements is Jonna’s and the ' +
-          'contracting company’s. You see an order in order to approve it. That is not a setting on this page — ' +
-          'the archive is never sent to your sign-in at all.</p>');
+          'Use <b>Approve Everything Waiting</b> at the top.',
+          'It approves every order on the page, for every company, in one action.']))
+        + blk('What Your Approval Records', '<p>Your name, your title, the date and the time, ' +
+          'that it came from your link, and the order exactly as it stood. <b>Signing is what ' +
+          'makes an order executed</b> — the company is told, and can download it.</p>');
     }
+
     if (kind === 'vp-product') {
       return blk('Getting In', steps([
-        'Go to <b>resources.mismo.org/service-orders/</b>. Your MISMO sign-in is your way in.',
-        'The page opens on <b>Awaiting Your Decision</b>. <b>Nothing goes to a contracting company until you have decided on it.</b>']))
+        'Open the link MISMO sent you. It signs you in on its own.',
+        'You see the orders waiting for your decision before they go out.']))
         + blk('Releasing a Company’s Orders', steps([
-        'Click the company’s row to see every order, its rate, its hours and its maximum fee.',
-        'To read one in full, click its name under the table.',
-        'Press <b>Approve N to Send for &lt;company&gt;</b>. That releases them for MISMO to send.']))
+          'Open the company’s row and read what is in it.',
+          'Press <b>Release These</b>. They can then be sent to the company.']))
         + blk('Holding One Back', steps([
-        'Open the order under the company’s row.',
-        'Type the reason in <b>Why Are You Holding It?</b> — it is required, because a hold '+
-          'with no reason tells Jonna nothing.',
-        'Press <b>Hold This One</b>. It is not sent, and it appears on Jonna’s <b>Needs You</b> '+
-          'list with your words and your name against it.']))
-        + blk('Releasing Everything', steps([
-        'Press <b>Approve All N to Send</b> at the top.']));
+          'Write what needs changing and press <b>Hold</b>.',
+          '<b>A reason is required</b> — it is what Jonna reads.',
+          'A held order does not go out until it has been revised.']));
     }
+
+    /* ---- MISMO ----------------------------------------------------------- */
     return blk('The Order of Things', steps([
-      '<b>' + esc((F && F.vpProduct && F.vpProduct.name) || 'The VP') + '</b> decides on each order first. Until then it is a <b>Draft</b>.',
-      'You send the released ones from <b>Send Orders</b>. Open the company’s row and press <b>Send These N to &lt;their signer&gt;</b>.',
-      'The contracting company accepts them on their own link.',
-      '<b>Brian Vieaux</b> approves them. That is the second signature, so the order becomes <b>Executed</b> at that moment.']))
+      '<b>New Service Order</b> — draft the orders for a company.',
+      '<b>Send Orders</b> — once the VP has released them, send them to the company.',
+      'The company accepts them, or sets one aside with a question.',
+      '<b>Brian signs</b>, and the order is executed. The company is emailed and can download it.',
+      'People enter their time each week. <b>You do not approve it.</b>',
+      'The company sends its invoice. <b>You approve that</b>, and it goes to accounts payable.']))
+      + blk('Time Submitted — What It Is and Is Not', steps([
+        '<b>Nothing in this section is waiting on you.</b> Time is billable the moment it is submitted.',
+        'It is grouped <b>by company</b>: the total first, then the weeks underneath, newest first.',
+        'A company row marked <b>N to check</b> has weeks carrying something worth a look — a missing note, an order over its hours, a split that gives away more than was logged.',
+        'Open a week to see the orders, the hours, what they wrote and the health flag.',
+        'The only action is <b>Send It Back</b>, and only if something is wrong. <b>A reason is required</b> — it is what they read.',
+        'A week you send back is <b>held off the invoice</b> until they fix it, and carries to the next one.']))
+      + blk('Invoices — the One Thing You Approve', steps([
+        '<b>Waiting for You</b> is every invoice a company has sent.',
+        'Each shows <b>their invoice</b> beside <b>the time MISMO holds</b>, and the difference if there is one.',
+        '<b>That figure is worked out fresh from the hours as they stand today</b> — not from what their browser calculated when they sent it. A week corrected since shows here as a difference.',
+        'Open <b>their PDF</b>. It is the document of record; the table on screen is only the portal’s reading of it.',
+        '<b>Approve and Send to Accounts Payable</b> — this is the moment that <b>locks every week behind the invoice</b>.',
+        '<b>Send It Back With a Question</b> — the hours go back to the company with it, so they can correct a week and resend. A question is required.',
+        '<b>Mark as Paid</b> once MBA accounts payable confirms. <b>Paid closes those weeks for good.</b>']))
+      + blk('Not In Yet', '<p>Companies that have time MISMO can be invoiced for and have not sent ' +
+        'an invoice, with what theirs should come to and the date it is due. <b>Nothing is ' +
+        'wrong</b> — it is what you would chase, and the chaser emails their time manager for ' +
+        'you.</p>')
+      + blk('Who Can Correct What, and When', steps([
+        'Submitted, not yet on an approved invoice — <b>theirs</b>, no permission needed.',
+        'On an invoice you have <b>not</b> approved — still theirs, and <b>the invoice comes back with the week</b>.',
+        'On an invoice you <b>have</b> approved — they must ask you. Reopening means crediting and reissuing.',
+        '<b>Paid</b> — nobody. A correction goes on the next period.',
+        'A week you approved back when weeks were approved, that has since changed, arrives marked <b>Changed Since You Approved It</b> with what moved.']))
+      + blk('People, Vacation and Cover', steps([
+        '<b>Company Details</b> holds each company’s people: who logs time, who manages it, who can claim expenses, and the dates they are active.',
+        '<b>Is a Time Manager</b> gives somebody <b>The Company’s Month</b> and <b>The Company’s Weeks</b>.',
+        'People book their own vacation in <b>When I Am Away</b> and name who is covering.',
+        '<b>A week is only excused if they are away for the whole of it.</b> Partial absence still means the week is owed.',
+        'Somebody who has <b>left</b> stops being emailed, but their missing weeks still show on your screens.']))
       + blk('Filing an Executed MSA Extension', steps([
-      'Open <b>Executed Documents</b> and click the company.',
-      'Beside the agreement, press <b>Choose File</b> and pick the whole DocuSign output, <b>including the Certificate of Completion</b>.',
-      'Type the <b>DocuSign Envelope ID</b>.',
-      'Press <b>File It</b>. The company sees it under <b>My Agreements</b> from then on.']))
-      + blk('What Needs You', '<p>Three things stop an order and put it on your desk: a company has ' +
-        'set it aside with a question, the VP has held it, or it changed after it was accepted. ' +
-        '<b>None of them moves on its own.</b></p>' +
-        '<p>The <b>Needs You</b> section lists every one of them with <b>what was actually said</b> and ' +
-        'who said it \u2014 not just a count. The column of the same name on the status board is the same ' +
-        'three things, per company.</p>')
-      + blk('The Email Nudge', '<p>Each of those three also writes a line to ' +
-        '<code>notify/&lt;company&gt;.json</code> in the repository \u2014 a small file that changes ' +
-        '<b>only</b> when an order stops. That is what something else watches to email you, so you are ' +
-        'not mailed 57 times when a company accepts its orders.</p>' +
-        '<p><b>Nothing is emailed until Perry wires that file up</b>, and the line at the top of ' +
-        '<b>Needs You</b> tells you how many are waiting and whether any have gone. ' +
-        '<b>NOTIFY.md</b> in the build package is what he needs \u2014 it gives him three ways and the ' +
-        'exact path to watch.</p>');
+        'Open <b>Executed Documents</b> and find the company.',
+        'Upload the <b>whole DocuSign output</b>, including the Certificate of Completion — that certificate is the evidence of execution and the part an auditor asks for.',
+        'Put in the <b>Envelope ID</b> and press <b>File It</b>.']))
+      + blk('What Needs You', '<p>Three things stop an order and put it on your desk: a company ' +
+        'has set one aside with a question, the VP has held one, or an order changed after it was ' +
+        'accepted. <b>None of them moves on its own.</b> Each is listed with <b>what was actually ' +
+        'said</b> and who said it.</p>')
+      + blk('The Emails, and Where They Come From', steps([
+        '<b>This page cannot send email.</b> It writes what needs saying into a small queue in the repository.',
+        'A scheduled job runs each weekday morning and adds the reminders that are due — unsigned orders, time past due, orders waiting on Brian, and companies whose time is all in but whose invoice has not arrived.',
+        'Power Automate reads that queue every hour, sends the emails and marks them sent.',
+        '<b>The same reminder is held back for seven days</b>, so nobody is mailed daily about the same thing.',
+        'Nobody on vacation is chased, and nobody who has left is emailed at all.']));
   }
 
   /* =========================================================================
