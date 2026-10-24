@@ -2658,6 +2658,21 @@ window.H = (function () {
   };
   function stateOf(wk) { return STATES[(wk && wk.state) || 'submitted'] || STATES.submitted; }
 
+  /* Was this week approved once, and then changed?
+     ⚠ Jonna, 24 October: an approved week can now be taken back and corrected
+     without asking. That is a kindness to the person and a trap for Jonna —
+     she could reapprove a week she already approved, with different figures in
+     it, and never know. Nothing new is stored for this: every submission
+     already becomes a version carrying the state it was in, so the most recent
+     version marked 'approved' IS what she approved last time. */
+  function priorApproval(wk) {
+    var vs = (wk && wk.versions) || [];
+    for (var i = vs.length - 1; i >= 0; i--) {
+      if (vs[i] && vs[i].state === 'approved') return vs[i];
+    }
+    return null;
+  }
+
   /* =========================================================================
    * INVOICE PERIODS AND THE DEADLINE
    *
@@ -2846,7 +2861,7 @@ window.H = (function () {
     parse: parse, print: print, longDate: longDate, addDays: addDays, sameDay: sameDay,
     fyBounds: fyBounds, fyOf: fyOf,
     weekEndings: weekEndings, weekStart: weekStart, weekSpan: weekSpan,
-    weekFor: weekFor, weeksTo: weeksTo,
+    weekFor: weekFor, weeksTo: weeksTo, priorApproval: priorApproval,
     straddle: straddle, splitMonths: splitMonths,
     orderWeeks: orderWeeks, perWeek: perWeek,
     emptyFile: emptyFile, weekIn: weekIn, rowsOf: rowsOf, hoursIn: hoursIn,
@@ -2881,7 +2896,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-19 \u00b7 company weeks';
+  var BUILD = '2026-10-24b \u00b7 take it back';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -4136,7 +4151,14 @@ window.H = (function () {
     sent:      { label: 'Sent to Accounts Payable', tone: 'good',
       said: 'With MBA accounts payable. Payment follows their own run.' },
     paid:      { label: 'Paid', tone: '',
-      said: 'Paid. The weeks behind it are closed.' }
+      said: 'Paid. The weeks behind it are closed.' },
+    /* ⚠ Pulled back by the company because the hours behind it changed. It is
+       not a rejection and not a credit — the invoice never reached MISMO's
+       approval, so it simply stops counting and is sent again once the
+       corrected week has been reapproved. */
+    takenback: { label: 'Taken Back to Correct', tone: 'bad',
+      said: 'Taken back because a week behind it was corrected. Send it again once MISMO has ' +
+            'reapproved that week.' }
   };
   function invState(iv) {
     return INV_STATES[(iv && iv.state) || 'submitted'] || INV_STATES.submitted;
@@ -4149,7 +4171,19 @@ window.H = (function () {
   function openPeriod(F, files, invoices, today) {
     var now = today || new Date();
     var done = {};
-    (invoices || []).forEach(function (iv) { if (iv && iv.period) done[iv.period] = 1; });
+    /* ⚠ An EXPENSE CLAIM carries a period too, and it is NOT the month's
+       hours invoice. Counting one here marked the whole month as billed: a
+       company that claimed its summit expenses first would watch the hours
+       invoice for that month disappear off the screen, with the hours still
+       approved and still unbilled and nothing anywhere saying so. Found by
+       test-lifecycle step 9, 24 October — before the first real run.
+       Only an hours invoice closes a period for hours. */
+    (invoices || []).forEach(function (iv) {
+      if (!iv || !iv.period || iv.kind === 'expenses') return;
+      /* An invoice the company pulled back is not an invoice. */
+      if ((iv.state || 'submitted') === 'takenback') return;
+      done[iv.period] = 1;
+    });
 
     /* Every period that has approved work or approved expenses in it. */
     var has = {};
@@ -4291,6 +4325,9 @@ window.H = (function () {
     var n = String(number || '').trim().toLowerCase();
     if (!n) return false;
     return (invoices || []).some(function (iv) {
+      /* ⚠ A taken-back invoice never went anywhere, so its number is free.
+         Burning a number on a correction would have them inventing one. */
+      if ((iv.state || 'submitted') === 'takenback') return false;
       return String(iv.number || '').trim().toLowerCase() === n;
     });
   }
@@ -6762,6 +6799,51 @@ window.H = (function () {
     });
   }
 
+  /* ======================================================================
+     WHAT LOCKS A WEEK
+     Jonna, 24 October. The lock used to sit on MISMO approving the WEEK.
+     It now sits on MISMO approving the INVOICE that week is on, because that
+     is the moment the figure leaves MISMO and stops being something the
+     person who typed it can put right.
+
+     Before that moment the week is theirs. Approved, or already sitting on an
+     invoice they have sent, they can pull it back, correct it and send it
+     again — Jonna simply reapproves. That is the whole point: if they spot
+     something while raising the invoice, they fix it themselves rather than
+     asking.
+
+     ⚠ DERIVED, not stored. A week is never written as 'invoiced'. Whether it
+     is locked is worked out from the invoice covering its period, so there is
+     one fact in one place — and taking a week back cannot leave a stale
+     'invoiced' marker behind on it.
+     ⚠ An EXPENSE claim locks nothing. It is a different document on a
+     different clock and has no hours behind it. */
+  function weekLock(wk, invoices) {
+    if (((wk && wk.state) || 'submitted') === 'paid') return 'paid';
+    var period = H.periodOfWeek(wk && wk.weekEnding);
+    if (!period) return '';
+    var locked = '';
+    (invoices || []).forEach(function (iv) {
+      if (!iv || iv.kind === 'expenses' || iv.period !== period) return;
+      var st = iv.state || 'submitted';
+      if (st === 'approved' || st === 'sent') locked = locked || 'invoice';
+      if (st === 'paid') locked = 'paid';
+    });
+    return locked;
+  }
+  /* The invoice a week is riding on that has NOT been approved yet — the one
+     that has to come back with the week if they correct it. */
+  function pendingInvoiceFor(wk, invoices) {
+    var period = H.periodOfWeek(wk && wk.weekEnding);
+    var hit = null;
+    (invoices || []).forEach(function (iv) {
+      if (!iv || iv.kind === 'expenses' || iv.period !== period) return;
+      var st = iv.state || 'submitted';
+      if (st === 'submitted' || st === 'question') hit = iv;
+    });
+    return hit;
+  }
+
   /* ---- My Submitted Time --------------------------------------------------
      A person's own record of what they actually sent, week by week, newest
      first.  ⚠ It carries what they TYPED — the notes and the health flag —
@@ -6769,6 +6851,7 @@ window.H = (function () {
      hours and drops the notes is a downgrade on what Smartsheet already does. */
   function submittedSection(C, person, fy, mine) {
     var F = C.F;
+    var invs = C.invoices || [];
     var weeks = (mine.weeks || []).slice().sort(function (a, b) {
       return (H.parse(b.weekEnding) || 0) - (H.parse(a.weekEnding) || 0); });
     if (!weeks.length) {
@@ -6782,6 +6865,8 @@ window.H = (function () {
         var rows = H.rowsOf(wk);
         var ids = Object.keys(rows);
         var ask = wk.returnRequest;
+        var lock = weekLock(wk, invs);
+        var pend = lock ? null : pendingInvoiceFor(wk, invs);
         return '<div class="row"><div class="row-h">' +
           '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
           '<span class="rt">Week Ending ' + esc(wk.weekEnding) + '</span>' +
@@ -6809,11 +6894,25 @@ window.H = (function () {
             ? '<div class="note"><b>You have asked for this week back.</b> ' + esc(ask.why) +
               '<br><span class="fineprint">Asked ' + esc(stamp(ask.at)) + '. MISMO decides, and the ' +
               'answer appears here.</span></div>'
-            : wk.state === 'submitted'
+            /* ⚠ Jonna, 24 October: approval no longer takes the week away from
+               them. Until the INVOICE it sits on has been approved, a week is
+               theirs to correct — approved or not, invoiced or not. */
+            : (!lock && (wk.state === 'submitted' || wk.state === 'approved'))
             ? '<div class="issacts"><button class="tbtn" type="button" data-wkback="' +
                 esc(wk.weekEnding) + '">Take It Back to Correct</button></div>' +
-              '<p class="fineprint">It has not been approved yet, so it is still yours. Taking it back ' +
-              'needs nobody’s permission — what you first sent is kept as its own version.</p>'
+              '<p class="fineprint">' +
+              (wk.state === 'approved'
+                ? 'MISMO has approved this week, but it is still yours to correct — taking it ' +
+                  'back needs nobody’s permission. <b>It has to be approved again</b> once you ' +
+                  'send it, and MISMO is shown what changed.'
+                : 'It has not been approved yet, so it is still yours. Taking it back needs ' +
+                  'nobody’s permission — what you first sent is kept as its own version.') +
+              (pend
+                ? ' <b>Your invoice ' + esc(pend.number || '') + ' comes back with it</b>, because ' +
+                  'the figure on it was worked out from these hours. Send it again once the week ' +
+                  'has been reapproved.'
+                : '') +
+              '</p>'
             : wk.state === 'returned'
             ? '<div class="note"><b>Why it came back.</b> ' + esc(wk.returnedWhy || 'No reason was given.') +
               '<br><span class="fineprint">Sent back ' + esc(stamp(wk.returnedAt)) + '.</span></div>' +
@@ -6821,7 +6920,10 @@ window.H = (function () {
                 esc(wk.weekEnding) + '">Correct This Week</button></div>' +
               '<p class="fineprint">This opens the week in <b>My Hours</b> with what you sent still in ' +
               'it, so you correct it rather than type it out again. What you first submitted is kept.</p>'
-            : wk.state === 'paid'
+            /* ⚠ Only two things lock a week now, and both are about the
+               INVOICE rather than the week: MISMO has approved the invoice it
+               sits on, or that invoice has been paid. */
+            : lock === 'paid'
             ? '<p class="fineprint"><b>These hours have been invoiced and paid, so the week does not ' +
               'reopen — for anyone.</b> A correction goes on the next period, the same way a closed ' +
               'month works in the financial system. If something here is wrong, ' +
@@ -6833,11 +6935,10 @@ window.H = (function () {
               '</div></div>' +
               '<div class="issacts"><button class="tbtn" type="button" data-wkask="' +
                 esc(wk.weekEnding) + '">Ask for It to Be Returned</button></div>' +
-              '<p class="fineprint">Once MISMO has approved a week you cannot take it back yourself, so ' +
-              'the request goes to them. <b>A reason is required</b> — it is what they read before ' +
-              'deciding.' +
-              (wk.state === 'invoiced' ? ' These hours are already on an invoice that has gone out and ' +
-                'has not been paid, so returning the week means crediting and reissuing it.' : '') + '</p>') +
+              '<p class="fineprint"><b>MISMO has approved the invoice these hours are on</b>, so the ' +
+              'week is no longer yours to take back and the request goes to them. <b>A reason is ' +
+              'required</b> — it is what they read before deciding. The invoice has not been paid, ' +
+              'so reopening it means crediting and reissuing that invoice.</p>') +
           (wk.versions && wk.versions.length
             ? '<p class="fineprint"><b>' + wk.versions.length + ' earlier version' +
               (wk.versions.length === 1 ? '' : 's') + ' of this week ' +
@@ -7333,7 +7434,34 @@ window.H = (function () {
         if (next.draft && next.draft.weekEnding === ending) next.draft = null;
       }
       return next;
-    }, 'week taken back: ' + person.name + ' ' + ending);
+    }, 'week taken back: ' + person.name + ' ' + ending)
+      /* ⚠ The invoice comes back with the week. Jonna, 24 October: if they
+         are correcting hours that a sent invoice was costed from, that
+         invoice's figure is now wrong, and leaving it sitting with MISMO is
+         how a wrong number gets approved. It is marked taken back — not
+         rejected, not credited; it never reached approval — which frees its
+         number and reopens the period, so the corrected week can be
+         reapproved and the invoice sent again.
+         An invoice MISMO has already approved is not pulled: by then the week
+         is locked and this function is not reachable. */
+      .then(function (r) {
+        var pend = pendingInvoiceFor({ weekEnding: ending }, C.invoices || []);
+        if (!pend) return r;
+        var at = new Date().toISOString();
+        return R.update(keyFor(C.slug), 'invoices/' + C.slug + '.json', function (cur) {
+          var next = JSON.parse(JSON.stringify(cur || { invoices: [] }));
+          (next.invoices || []).forEach(function (iv) {
+            if (iv.id !== pend.id) return;
+            iv.state = 'takenback';
+            iv.takenBackAt = at;
+            iv.takenBackWhy = 'Week ending ' + ending + ' was taken back to be corrected.';
+            iv.trail = (iv.trail || []).concat([{ what: 'Taken back to correct', at: at,
+                                                  by: person.name }]);
+          });
+          return next;
+        }, 'invoice taken back with week ' + ending, { invoices: [] })
+          .then(function () { return r; });
+      });
   }
 
   function askReturn(C, person, fy, ending, why) {
@@ -7701,22 +7829,72 @@ window.H = (function () {
     var body = '';
     if (asked.length) {
       body += '<h3 class="subh">Asked to Be Reopened</h3>' +
-        '<p class="lede">Somebody wants a week back that is already approved or invoiced. ' +
-        '<b>Read the reason before deciding</b> — a week on an unpaid invoice can be reopened, but ' +
-        'it means crediting and reissuing that invoice.</p>' +
+        '<p class="lede">Somebody wants back a week that is on an invoice <b>you have already ' +
+        'approved</b> — the only kind they can no longer take back themselves. ' +
+        '<b>Read the reason before deciding</b>: reopening it means crediting and reissuing that ' +
+        'invoice.</p>' +
         '<div class="rows">' + asked.map(function (x) { return weekRow(x, true); }).join('') + '</div>';
     }
     if (waiting.length) {
       var hoursWaiting = waiting.reduce(function (a, x) { return a + H.hoursIn(x.wk); }, 0);
       body += (asked.length ? '<h3 class="subh">Waiting for Approval</h3>' : '') +
-        '<p class="lede">Each one is a week somebody has submitted. Approving locks it; returning it ' +
-        'sends it back with your reason and keeps what they sent.</p>' +
+        '<p class="lede">Each one is a week somebody has submitted. Approving it makes it billable; ' +
+        'returning it sends it back with your reason and keeps what they sent. <b>Approving does ' +
+        'not take the week away from them</b> — until you approve the invoice it lands on, they ' +
+        'can still pull it back and correct it, and it comes back here marked as changed.</p>' +
         '<div class="tot"><span class="tot-l">Waiting for You</span>' +
         '<span class="tot-v">' + hrs(hoursWaiting) + ' hours across ' + waiting.length + ' week' +
         (waiting.length === 1 ? '' : 's') + '</span></div>' +
         '<div class="rows">' + waiting.map(function (x) { return weekRow(x, false); }).join('') + '</div>';
     }
     return body;
+  }
+
+  /* What changed since Jonna last approved this week — side by side, by
+     service order, with the hours that moved spelled out rather than left for
+     her to diff by eye. Rows that did not move are still listed: "nothing
+     changed on this order" is information too, and a list that silently drops
+     them makes her wonder what it left out. */
+  function priorBox(F, wk, prior, f) {
+    var now = H.rowsOf(wk), was = H.rowsOf(prior);
+    var ids = {};
+    Object.keys(now).forEach(function (id) { ids[id] = 1; });
+    Object.keys(was).forEach(function (id) { ids[id] = 1; });
+    var list = Object.keys(ids).sort(function (a, b) {
+      var A = orderById(F, a), B = orderById(F, b);
+      return String((A && A.subject) || a).localeCompare(String((B && B.subject) || b),
+        undefined, { sensitivity: 'base', numeric: true });
+    });
+    var wasT = H.hoursIn(prior), nowT = H.hoursIn(wk);
+    var d = Math.round((nowT - wasT) * 100) / 100;
+    return '<div class="note"><b>You approved this week before, and it has changed since.</b> ' +
+      (d === 0
+        ? 'The hours still come to ' + hrs(nowT) + ' — something else on it moved.'
+        : 'It was ' + hrs(wasT) + ' hours and is now ' + hrs(nowT) + ' — ' +
+          (d > 0 ? 'up ' : 'down ') + hrs(Math.abs(d)) + '.') +
+      '<div class="tbl"><table><thead><tr><th>Service Order</th>' +
+      '<th class="n">You Approved</th><th class="n">Now</th>' +
+      '<th class="hide-narrow">What They Wrote Now</th></tr></thead><tbody>' +
+      list.map(function (id) {
+        var o = orderById(F, id);
+        var a = was[id] ? Number(was[id].hours) || 0 : null;
+        var b = now[id] ? Number(now[id].hours) || 0 : null;
+        var moved = (a === null) || (b === null) ||
+                    Math.round((b - a) * 100) / 100 !== 0 ||
+                    String((was[id] || {}).thisWeek || '') !== String((now[id] || {}).thisWeek || '');
+        return '<tr><td>' + esc(o ? o.subject : id) +
+          (a === null ? '<br><span class="fineprint">Added since</span>' : '') +
+          (b === null ? '<br><span class="fineprint">Removed since</span>' : '') +
+          '</td><td class="n">' + (a === null ? '—' : hrs(a)) + '</td>' +
+          '<td class="n">' + (b === null ? '—' : hrs(b)) +
+          (moved ? '' : '<br><span class="fineprint">unchanged</span>') + '</td>' +
+          '<td class="hide-narrow">' + (b === null ? '<span class="fineprint">—</span>'
+            : (now[id].thisWeek ? esc(now[id].thisWeek)
+               : '<span class="fineprint">No note written</span>')) + '</td></tr>';
+      }).join('') + '</tbody></table></div>' +
+      '<span class="fineprint">Approved ' + esc(stamp(prior.at)) + ', taken back and sent again by ' +
+      esc(f.person) + '. What you approved the first time is kept as a version — nothing was ' +
+      'overwritten.</span></div>';
   }
 
   function weekRow(x, isAsk) {
@@ -7726,6 +7904,11 @@ window.H = (function () {
     var st = H.stateOf(wk);
     var tag = f.slug + '|' + wk.weekEnding;
     var ask = wk.returnRequest;
+    /* ⚠ A week Jonna has already approved, that they then took back and
+       changed. It arrives looking exactly like any other submitted week, and
+       approving it a second time without seeing what moved is the one real
+       risk in letting approved weeks reopen. */
+    var prior = H.priorApproval(wk);
     /* Anything on this week worth Jonna's eye before she locks it. */
     var flags = [];
     ids.forEach(function (id) {
@@ -7741,6 +7924,7 @@ window.H = (function () {
     return '<div class="row"><div class="row-h">' +
       '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
       '<span class="rt">' + esc(f.person) + ' · week ending ' + esc(wk.weekEnding) + '</span>' +
+      (prior ? '<span class="pill bad">Changed Since You Approved It</span>' : '') +
       (flags.length ? '<span class="pill warn">' + flags.length + ' to check</span>'
                     : '<span class="pill ' + st.tone + '">' + esc(st.label) + '</span>') +
       '<span class="rs num">' + hrs(H.hoursIn(wk)) + ' hours</span>' +
@@ -7751,6 +7935,7 @@ window.H = (function () {
       fld('Week', H.weekSpan(x.C.F.fiscalYear || 'FY 2027', wk.weekEnding)) +
       fld('Submitted', stamp(wk.submittedAt)) +
       '</div>' +
+      (prior ? priorBox(F, wk, prior, f) : '') +
       (ask ? '<div class="note"><b>They have asked for this week back.</b> ' + esc(ask.why) +
         '<br><span class="fineprint">Asked ' + esc(stamp(ask.at)) + ' by ' + esc(ask.by) + '. ' +
         'The week is ' + esc(st.label.toLowerCase()) + '.</span></div>' : '') +
@@ -7781,10 +7966,13 @@ window.H = (function () {
         (isAsk ? 'Leave It Locked' : 'Send It Back') + '</button>' +
       '</div>' +
       '<p class="fineprint">' + (isAsk
-        ? 'Reopening returns the week to them to correct and resubmit. <b>A reason is required to ' +
-          'refuse</b> — it is what they read. What they submitted is kept either way.'
-        : 'Approving locks the week. Sending it back returns it to them with your reason, and keeps ' +
-          'what they sent as its own version — nothing is edited on their behalf. ' +
+        ? 'Reopening returns the week to them to correct and resubmit, and the invoice it is on ' +
+          'has to be credited and reissued. <b>A reason is required to refuse</b> — it is what ' +
+          'they read. What they submitted is kept either way.'
+        : 'Approving makes the week billable. It does not take it away from them — they can ' +
+          'still correct it until the invoice it lands on has been approved, and you are shown ' +
+          'what changed. Sending it back returns it with your reason and keeps what they sent as ' +
+          'its own version — nothing is edited on their behalf. ' +
           '<b>A reason is required to send one back.</b>') + '</p>' +
       '</div></div>';
   }
