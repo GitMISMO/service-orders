@@ -2945,7 +2945,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-24f \u00b7 help rewritten';
+  var BUILD = '2026-10-24g \u00b7 ending an order';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -3067,6 +3067,11 @@ window.H = (function () {
     if (revAt && o.revisionBinding && (!sentOn || Date.parse(sentOn) < revAt)) sentOn = null;
 
     if (presLast && presLast.decision === 'Approved') {
+      /* ⚠ Only an EXECUTED order can be ended — anything earlier is revised
+         or simply never sent, and neither needs a termination record. */
+      if (o.endedOn) {
+        return { key: 'ended', label: 'Ended ' + o.endedOn, tone: '', sig: presLast, ack: ack };
+      }
       return { key: 'executed', label: 'Executed', tone: 'good', sig: presLast, ack: ack };
     }
     if (presLast && presLast.decision === 'Held') {
@@ -3606,7 +3611,7 @@ window.H = (function () {
         'The Company\u2019s Month', 'The Company\u2019s Weeks', 'Time Submitted'] },
     { label: 'Money', names: ['My Invoices', 'My Expenses', 'Invoices'] },
     { label: 'Service Orders', names: ['My Service Orders', 'New Service Order',
-        'Revise an Order', 'My Agreements', 'Executed Documents',
+        'Revise an Order', 'End a Service Order', 'My Agreements', 'Executed Documents',
         'Already Approved', 'Already Decided'] },
     { label: 'Setup', names: ['Company Details', 'View As'] }
   ];
@@ -3820,7 +3825,10 @@ window.H = (function () {
   /* ⚠ No `facilitator`: it is derived from the people list, which is published
      alongside, so copying it here would be a second source that could go
      stale between publishes. */
-  var HOURS_ORDER_FIELDS = ['id', 'subject', 'estimatedHours', 'fiscalYear'];
+  /* ⚠ 'endedOn' carries NO money and no terms — it is a date. Without it
+     the people logging time keep being offered an order that has ended,
+     because their screen reads this copy and nothing else. */
+  var HOURS_ORDER_FIELDS = ['id', 'subject', 'estimatedHours', 'fiscalYear', 'endedOn'];
   var HOURS_PERSON_FIELDS = ['slug', 'name', 'email', 'orders', 'timeManager',
                              'logsTime', 'expenses', 'activeFrom', 'activeTo'];
 
@@ -4516,9 +4524,14 @@ window.H = (function () {
     return who.length + ' people';
   }
 
-  function ordersForPerson(F, person, year) {
+  function ordersForPerson(F, person, year, on) {
     var all = (F.orders || []).filter(function (o) {
-      return !year || (o.fiscalYear || F.fiscalYear) === year;
+      if (!(!year || (o.fiscalYear || F.fiscalYear) === year)) return false;
+      /* ⚠ An order that has ENDED is not offered for a week after its end
+         date — but it is still offered for the weeks it was running, so a
+         week logged late still finds it. Passing no date means "every order
+         this year", which is what the list screens want. */
+      return orderRunning(o, on);
     });
     var mine = {};
     ((person && person.orders) || []).forEach(function (id) { mine[id] = 1; });
@@ -4552,7 +4565,43 @@ window.H = (function () {
     F = applyAdditions(F, local.additions);
     F = applyDetails(F, local.details);
     F = applySent(F, local.sent);
-    return applyRevisions(F, local.revisions);
+    F = applyRevisions(F, local.revisions);
+    return applyEndings(F, local.endings);
+  }
+
+  /* ---- ending an executed order -----------------------------------------
+     Jonna, 24 October: a facilitator left Phoenix and her order had already
+     been executed, so there was nothing to cancel — it was a live agreement
+     with nobody to do the work.
+
+     ⚠ An executed order is NOT deleted and NOT hidden. It was signed by both
+     parties; pretending it never existed would orphan every hour logged
+     against it and every invoice line that carried it. It is given an END
+     DATE. It stays on record, keeps its history, and stops accepting new
+     time from that date.
+
+     ⚠ Hours already logged stay billable. Work done before the order ended
+     is still work done, and holding it back would mean a company losing money
+     because somebody resigned. */
+  function applyEndings(F, endings) {
+    var byOrder = {};
+    (endings || []).forEach(function (e) { if (e && e.orderId) byOrder[e.orderId] = e; });
+    (F.orders || []).forEach(function (o) {
+      var e = byOrder[o.id];
+      if (!e) return;
+      o.endedOn = e.endsOn;
+      o.endedWhy = e.why;
+      o.endedBy = e.by;
+      o.endedAt = e.at;
+    });
+    return F;
+  }
+  /* Was this order still running in the week ending on this date? */
+  function orderRunning(o, on) {
+    if (!o || !o.endedOn) return true;
+    var end = H.parse(o.endedOn);
+    if (!end || !on) return true;
+    return on <= end;
   }
 
   /* ---- fetching a filed document --------------------------------------
@@ -4703,6 +4752,22 @@ window.H = (function () {
       return next;
     }, 'revised ' + record.order, { revisions: [] });
   }
+  /* One record per order ended. Written to the same file as the revisions and
+     the company details, and appended the same way, so a 409 re-reads and
+     re-applies rather than clobbering somebody else's change. */
+  function addEnding(slug, record) {
+    return R.update(keyFor(slug), 'revisions/' + slug + '.json', function (cur) {
+      var next = JSON.parse(JSON.stringify(cur || {}));
+      next.company = next.company || slug;
+      /* ⚠ Replaced, not appended, where the same order is ended twice —
+         correcting the date should change the date, not leave two endings in
+         the file for applyEndings to pick between. */
+      next.endings = (next.endings || []).filter(function (e) {
+        return e.orderId !== record.orderId; }).concat([record]);
+      return next;
+    }, 'ended ' + record.order, { revisions: [] });
+  }
+
   /* Write the hours copy for one company. ⚠ Built from the file as the page
      has it — revisions and company details already merged — so what a
      facilitator reads is the current truth, minus the money. */
@@ -5389,7 +5454,10 @@ window.H = (function () {
        week sees their own lines where they always are, with everything they
        may pick up underneath — rather than one merged list that reorders
        itself as soon as somebody else's order is added. */
-    var split = ordersForPerson(F, person, fy);
+    /* ⚠ Against the WEEK BEING LOGGED, not against today. An order that
+       ended in March is still the right order for a week in February, and a
+       week logged late has to find it. */
+    var split = ordersForPerson(F, person, fy, H.parse(ending));
     var showAll = HRS.showAll == null ? !split.own.length : HRS.showAll;
     if (!split.cover.length) showAll = false;
     var orders = showAll ? split.all : (split.own.length ? split.own : split.all);
@@ -8266,6 +8334,80 @@ window.H = (function () {
     }, msg, { invoices: [] });
   }
 
+  /* Ending an executed order, and putting one back. */
+  /* ⚠ ROOT-AWARE. These controls live in the side panel, which is NOT inside
+     #view — openPanel hands each registered wiring function the panel body.
+     Scoping to #view found nothing and the buttons did nothing at all. */
+  function wireEndings(rows, redraw, root) {
+    var R0 = root || document;
+    function fieldsFor(i) {
+      var on = R0.querySelector('.endf[data-i="' + i + '"][data-k="on"]');
+      var why = R0.querySelector('.endf[data-i="' + i + '"][data-k="why"]');
+      return { on: on ? String(on.value || '').trim() : '',
+               why: why ? String(why.value || '').trim() : '', onEl: on, whyEl: why };
+    }
+    Array.prototype.forEach.call(R0.querySelectorAll('[data-endgo]'), function (b) {
+      if (b.dataset.endwired) return; b.dataset.endwired = '1';
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var n = rows[Number(b.dataset.endgo)]; if (!n) return;
+        var f = fieldsFor(b.dataset.endgo);
+        if (!f.on) { toast('A date is needed.', 'bad'); if (f.onEl) f.onEl.focus(); return; }
+        if (!H.parse(f.on)) {
+          toast('Write the date as MM/DD/YY.', 'bad'); if (f.onEl) f.onEl.focus(); return; }
+        if (!f.why) {
+          toast('A reason is required \u2014 it is what the company reads.', 'bad');
+          if (f.whyEl) f.whyEl.focus(); return; }
+        var was = b.textContent;
+        b.disabled = true; b.textContent = 'Saving\u2026';
+        var at = new Date().toISOString();
+        addEnding(n.C.slug, { orderId: n.order.id, order: n.order.subject,
+                              endsOn: f.on, why: f.why, by: ME.name, at: at })
+          .then(function () {
+            /* \u26a0 The hours copy has to be republished, or the people logging
+               time keep being offered an order that has ended \u2014 their screen
+               reads orders-public/, not this one. */
+            return publishHoursCopy(n.C.slug, applyEndings(n.C.F,
+              [{ orderId: n.order.id, endsOn: f.on, why: f.why, by: ME.name, at: at }]));
+          })
+          .then(function () {
+            return notify(n.C.slug, {
+              kind: 'order-ended', company: n.C.F.company,
+              orderId: n.order.id, order: n.order.subject, endsOn: f.on,
+              who: ME.name, said: n.order.subject + ' ends on ' + f.on + '. ' + f.why,
+              raisedOn: at, forAttentionOf: null, sent: false, sentOn: null });
+          })
+          .then(function () { toast('Ended. Hours already logged are unaffected.', 'ok'); redraw(); })
+          .catch(function (er) { b.disabled = false; b.textContent = was; failed(er); });
+      });
+    });
+    Array.prototype.forEach.call(R0.querySelectorAll('[data-endundo]'), function (b) {
+      if (b.dataset.endwired) return; b.dataset.endwired = '1';
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var n = rows[Number(b.dataset.endundo)]; if (!n) return;
+        b.disabled = true;
+        R.update(keyFor(n.C.slug), 'revisions/' + n.C.slug + '.json', function (cur) {
+          var next = JSON.parse(JSON.stringify(cur || {}));
+          next.endings = (next.endings || []).filter(function (x) {
+            return x.orderId !== n.order.id; });
+          return next;
+        }, 'end removed: ' + n.order.subject, { revisions: [] })
+          .then(function () {
+            var F2 = JSON.parse(JSON.stringify(n.C.F));
+            (F2.orders || []).forEach(function (o) {
+              if (o.id === n.order.id) {
+                delete o.endedOn; delete o.endedWhy; delete o.endedBy; delete o.endedAt;
+              }
+            });
+            return publishHoursCopy(n.C.slug, F2);
+          })
+          .then(function () { toast('Put back. It is running again.', 'ok'); redraw(); })
+          .catch(function (er) { b.disabled = false; failed(er); });
+      });
+    });
+  }
+
   function wireInvoiceDecisions(list, redraw) {
     function ctx(tag) {
       var p = String(tag).split('|');
@@ -9883,7 +10025,7 @@ window.H = (function () {
       });
       var LABEL = { draft: 'Draft', vp: 'Released to Send', vphold: 'Held by the VP', sent: 'Sent',
         question: 'Question Raised', acknowledged: 'Acknowledged', changed: 'Changed Since Acknowledged',
-        preshold: 'Held by the President', executed: 'Executed' };
+        preshold: 'Held by the President', executed: 'Executed', ended: 'Ended' };
 
       /* ---- the Status Board, in the Website Migration HQ shape -------------
          ⚠ Eight equal white boxes gave every status the same weight, so the one
@@ -10070,6 +10212,81 @@ window.H = (function () {
         };
       })();
 
+
+      /* ---- End a Service Order --------------------------------------------
+         Jonna, 24 October: a facilitator left Phoenix mid-year and her order
+         had already been executed. There was nothing in the portal that could
+         touch it — Revise an Order deliberately excludes executed orders,
+         because a change to a signed agreement is a Modification, not a
+         revision.
+
+         ⚠ Ending is not revising and not deleting. The order stays, keeps its
+         signatures, keeps every hour logged against it, and keeps appearing in
+         Executed Documents. What changes is that it stops accepting NEW time
+         from the end date, and says why. */
+      var endAny = (function () {
+        var rows = [], k = 0;
+        list.forEach(function (C) {
+          C.F.orders.forEach(function (o) {
+            var s = C.st[o.id];
+            if (s.key !== 'executed' && s.key !== 'ended') return;
+            rows.push({ company: C.F.company, order: o, st: s, C: C, idx: k++ });
+          });
+        });
+        var live = rows.filter(function (n) { return !n.order.endedOn; });
+        if (!rows.length) {
+          return { count: 0, body: '<p class="empty">No order has been executed yet. An order that ' +
+            'has not been signed by both sides is not ended — it is revised, or simply never ' +
+            'sent.</p>' };
+        }
+        return {
+          count: live.length,
+          body: '<p class="lede">An executed order is a signed agreement, so it is <b>ended</b> ' +
+            'rather than cancelled or deleted. It keeps its signatures and every hour already ' +
+            'logged against it, and those hours stay billable — work done before the end date is ' +
+            'still work done. <b>What stops is new time</b>: nobody can log against it for a week ' +
+            'after the date you set.</p>' +
+            '<div class="hqrows">' + rows.map(function (n) {
+              var o = n.order, ended = !!o.endedOn;
+              var body = '<div class="fields">' +
+                fld('Company', n.company) +
+                fld('Status', n.st.label) +
+                fld('Maximum Fee', feeLabel(o), 1) +
+                (ended ? fld('Ended', o.endedOn, 1) : '') +
+                '</div>' +
+                (ended
+                  ? '<div class="note"><b>This order ended on ' + esc(o.endedOn) + '.</b> ' +
+                    esc(o.endedWhy || 'No reason was recorded.') +
+                    '<br><span class="fineprint">Recorded by ' + esc(o.endedBy || 'MISMO') +
+                    ' on ' + esc(stamp(o.endedAt)) + '. Hours logged before that date are ' +
+                    'unaffected and still billable. Change the date below if it was wrong.' +
+                    '</span></div>'
+                  : '') +
+                '<div class="revgrid">' +
+                '<div class="f"><label>Last Day This Order Runs</label>' +
+                '<input type="text" class="endf" data-i="' + n.idx + '" data-k="on" ' +
+                'placeholder="MM/DD/YY" value="' + esc(o.endedOn || '') + '"></div>' +
+                '<div class="f wide"><label>Why It Is Ending</label>' +
+                '<input type="text" class="endf" data-i="' + n.idx + '" data-k="why" ' +
+                'placeholder="One line — it goes on the record and to the company" value="' +
+                esc(o.endedWhy || '') + '"></div>' +
+                '</div>' +
+                '<div class="issacts">' +
+                '<button class="tbtn" type="button" data-endgo="' + n.idx + '">' +
+                  (ended ? 'Change the End Date' : 'End This Order') + '</button>' +
+                (ended ? '<button class="tbtn ghost" type="button" data-endundo="' + n.idx +
+                  '">Put It Back</button>' : '') +
+                '</div>' +
+                '<p class="fineprint"><b>A date and a reason are both required.</b> The company is ' +
+                'told, and the reason is what they read. <b>Nothing is deleted</b> — the order, ' +
+                'its signatures and its hours all stay exactly where they are.</p>' +
+                '<div class="dochost">' + P.orderDoc(n.C.F, o) + '</div>';
+              return panelRow('end-' + n.idx, o.subject, n.company, feeLabel(o), body, pill(n.st));
+            }).join('') + '</div>',
+          rows: rows
+        };
+      })();
+
       var sendBody = '<p class="lede">An order can be sent once ' + esc(list[0].F.vpProduct.name) +
         ' has released it. Sending writes the date onto the order; the contracting company sees it ' +
         'the next time they sign in. Choose a company to see what is ready.</p>' +
@@ -10223,6 +10440,7 @@ window.H = (function () {
            something is actually waiting, because that IS a decision for her. */
         sect('Invoices', invWaiting || null, invBody, invWaiting > 0) +
         sect('Revise an Order', reviseAny.count, reviseAny.body) +
+        sect('End a Service Order', endAny.count || null, endAny.body) +
         sect('New Service Order', null, newOrderForm(list)) +
         sect('Company Details', list.length, companyDetails(list)) +
         sect('Send Orders', tally.vp || 0, sendBody) +
@@ -10231,6 +10449,11 @@ window.H = (function () {
         sect('Help', null, helpFor('admin', list[0] && list[0].F)));
       if (by) wireApprove(list, by, adminView);
       wireInvoiceDecisions(list, adminView);
+      /* ⚠ The ending controls live in a side PANEL, which does not exist in
+         the DOM until the row is clicked — wiring once here would find
+         nothing. onPanelOpen runs it again each time a panel opens, the same
+         way the revise and download controls are handled. */
+      onPanelOpen(function (pb) { wireEndings(endAny.rows || [], adminView, pb); });
       if (canViewAs()) wireViewAs(list);
 
       onPanelOpen(wireAdminControls);
