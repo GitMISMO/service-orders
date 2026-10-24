@@ -112,7 +112,11 @@ h1,h2,h3,h4{letter-spacing:-.012em;margin:0}
  stroke-linecap:round;stroke-linejoin:round;transition:transform .15s}
 .row.open .chev{transform:rotate(90deg)}
 .row-b{display:none;padding:4px 16px 18px;border-top:1px solid var(--rule,var(--border))}
-.row.open .row-b{display:block}
+/* ⚠ CHILD, not descendant. Rows nest now — a company opens into its
+   weeks — and a descendant selector meant opening the company also
+   displayed every week body inside it, so the drill-down arrived already
+   unfolded. Each row shows its OWN body and nobody else's. */
+.row.open > .row-b{display:block}
 
 /* ── fields, separate not blobs ──────────────────────────────── */
 .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px 20px;margin:14px 0 4px}
@@ -1880,7 +1884,7 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
 <main class="wrap"><div id="view"></div></main>
 <div id="printhost"></div>
 
-<script>window.RELAY={"base": "https://rgvdi67cg27o5kcmiytcqbqnrm0hmztx.lambda-url.us-east-1.on.aws", "projects": ["so-phoenix", "so-actualize", "so-trex", "so-falcon", "so-trudigital", "so-vianteye", "so-phoenix-hours", "so-actualize-hours", "so-trex-hours", "so-falcon-hours", "so-trudigital-hours", "so-vianteye-hours"], "slugs": {"so-phoenix": "phoenixteam", "so-actualize": "actualize", "so-trex": "trex", "so-falcon": "falcon", "so-trudigital": "trudigital", "so-vianteye": "vianteye", "so-phoenix-hours": "phoenixteam", "so-actualize-hours": "actualize", "so-trex-hours": "trex", "so-falcon-hours": "falcon", "so-trudigital-hours": "trudigital", "so-vianteye-hours": "vianteye"}, "note": "base is the relay's Lambda function URL. projects is every key this page may sign in against, tried in turn; the token is not project-bound, so the first that works covers them all. slugs maps a project key to the filename its data uses. lite names the HOURS-ONLY keys: a person holding one of those can read orders-public/ and nothing else, so a rate is not merely hidden from their screen, it never reaches their browser. All four are configuration: a sixth company is a change HERE and in projects.json, and nowhere else.", "lite": ["so-phoenix-hours", "so-actualize-hours", "so-trex-hours", "so-falcon-hours", "so-trudigital-hours", "so-vianteye-hours"]};</script>
+<script>window.RELAY={"base": "https://rgvdi67cg27o5kcmiytcqbqnrm0hmztx.lambda-url.us-east-1.on.aws", "projects": ["so-phoenix", "so-actualize", "so-trex", "so-falcon", "so-trudigital", "so-phoenix-hours", "so-actualize-hours", "so-trex-hours", "so-falcon-hours", "so-trudigital-hours"], "slugs": {"so-phoenix": "phoenixteam", "so-actualize": "actualize", "so-trex": "trex", "so-falcon": "falcon", "so-trudigital": "trudigital", "so-phoenix-hours": "phoenixteam", "so-actualize-hours": "actualize", "so-trex-hours": "trex", "so-falcon-hours": "falcon", "so-trudigital-hours": "trudigital"}, "note": "base is the relay's Lambda function URL. projects is every key this page may sign in against, tried in turn; the token is not project-bound, so the first that works covers them all. slugs maps a project key to the filename its data uses. lite names the HOURS-ONLY keys: a person holding one of those can read orders-public/ and nothing else, so a rate is not merely hidden from their screen, it never reaches their browser. All four are configuration: a sixth company is a change HERE and in projects.json, and nowhere else.", "lite": ["so-phoenix-hours", "so-actualize-hours", "so-trex-hours", "so-falcon-hours", "so-trudigital-hours"]};</script>
 <div class="modal" id="confirm" hidden role="alertdialog" aria-modal="true" aria-labelledby="confirm-t">
   <div class="modal-box"><h2 id="confirm-t">You have unsaved changes.</h2>
   <p id="confirm-p">Save them before closing?</p>
@@ -2665,6 +2669,50 @@ window.H = (function () {
      it, and never know. Nothing new is stored for this: every submission
      already becomes a version carrying the state it was in, so the most recent
      version marked 'approved' IS what she approved last time. */
+  /* ---- being away -------------------------------------------------------
+     Jonna, 24 October: somebody can put themselves on vacation so the chasing
+     stops, and name who is covering.
+
+     ⚠ It lives in the person's OWN hours file, not in the company record.
+     The company record is written with the full key; an hours-only account
+     cannot touch it. Their own file is the one thing they can always write,
+     so this is the only place a contractor can set this for themselves.
+
+     ⚠ A week stops being expected ONLY when the away period covers the WHOLE
+     of it. Away Wednesday to Friday still means they worked Monday and
+     Tuesday, and a week quietly written off because somebody took two days is
+     time that never gets billed. */
+  function awayList(file) { return (file && file.away) || []; }
+  function awayCovers(file, fy, endingStr) {
+    var e = parse(endingStr); if (!e) return null;
+    /* ⚠ The MONDAY, not weekStart(). A reporting week runs to a Friday, and
+       weekStart hands back the day after the previous Friday — a Saturday.
+       Asking a vacation to cover from the Saturday meant an ordinary Monday
+       to Friday booking never covered any week at all, and everybody on
+       holiday was still chased. The working week is the Friday minus four. */
+    var st = addDays(e, -4);
+    var list = awayList(file);
+    for (var i = 0; i < list.length; i++) {
+      var a = list[i], af = parse(a.from), at = parse(a.to);
+      if (!af || !at) continue;
+      if (af <= st && at >= e) return a;
+    }
+    return null;
+  }
+  /* Away at all during the week — not enough to excuse it, but enough to say
+     so beside it rather than leaving it looking like a plain omission. */
+  function awayDuring(file, fy, endingStr) {
+    var e = parse(endingStr); if (!e) return null;
+    var st = addDays(e, -4);
+    var list = awayList(file);
+    for (var i = 0; i < list.length; i++) {
+      var a = list[i], af = parse(a.from), at = parse(a.to);
+      if (!af || !at) continue;
+      if (af <= e && at >= st) return a;
+    }
+    return null;
+  }
+
   function priorApproval(wk) {
     var vs = (wk && wk.versions) || [];
     for (var i = vs.length - 1; i >= 0; i--) {
@@ -2862,6 +2910,7 @@ window.H = (function () {
     fyBounds: fyBounds, fyOf: fyOf,
     weekEndings: weekEndings, weekStart: weekStart, weekSpan: weekSpan,
     weekFor: weekFor, weeksTo: weeksTo, priorApproval: priorApproval,
+    awayList: awayList, awayCovers: awayCovers, awayDuring: awayDuring,
     straddle: straddle, splitMonths: splitMonths,
     orderWeeks: orderWeeks, perWeek: perWeek,
     emptyFile: emptyFile, weekIn: weekIn, rowsOf: rowsOf, hoursIn: hoursIn,
@@ -2896,7 +2945,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-24b \u00b7 take it back';
+  var BUILD = '2026-10-24e \u00b7 away and invoices';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -3167,6 +3216,10 @@ window.H = (function () {
       h.dataset.wired = '1';
       h.addEventListener('click', function (e) {
         if (e.target.closest('input,button,select,textarea,label,a')) return;
+        /* ⚠ Rows nest now — a company opens into its weeks. Without this the
+           click on an inner header bubbles to the outer one and shuts the
+           company you just opened. Only the header actually clicked reacts. */
+        if (e.target.closest('.row-h') !== h) return;
         h.parentElement.classList.toggle('open');
       });
     });
@@ -3545,11 +3598,13 @@ window.H = (function () {
      Everything Else — so adding a section can never make it vanish from the
      rail, which is the failure mode a hard-coded list has. */
   var RAIL_GROUPS = [
-    { label: 'Waiting on You', names: ['Needs You', 'Time to Approve', 'Send Orders',
+    { label: 'Waiting on You', names: ['Needs You', 'Send Orders',
         'To Review', 'Awaiting Your Approval', 'Awaiting Your Decision'] },
-    { label: 'Your Week', names: ['My Hours', 'My Submitted Time',
-        'The Company\u2019s Month', 'The Company\u2019s Weeks'] },
-    { label: 'Money', names: ['My Invoices', 'My Expenses'] },
+    /* ⚠ 'Time Submitted' is NOT under Waiting on You any more. Nothing in it
+       waits on her — it is where she looks at what has come in. */
+    { label: 'Your Week', names: ['My Hours', 'My Submitted Time', 'When I Am Away',
+        'The Company\u2019s Month', 'The Company\u2019s Weeks', 'Time Submitted'] },
+    { label: 'Money', names: ['My Invoices', 'My Expenses', 'Invoices'] },
     { label: 'Service Orders', names: ['My Service Orders', 'New Service Order',
         'Revise an Order', 'My Agreements', 'Executed Documents',
         'Already Approved', 'Already Decided'] },
@@ -4055,16 +4110,22 @@ window.H = (function () {
       ((f && f.weeks) || []).forEach(function (wk) {
         if (H.periodOfWeek(wk.weekEnding) !== period) return;
         var st = (wk.state || 'submitted');
-        /* Only approved work is billed. Anything else is named and carried. */
-        if (st !== 'approved') {
+        /* ⚠ SUBMITTED TIME IS BILLABLE. Jonna, 24 October: she does not want
+           to approve time weekly, only when the invoice arrives — so a weekly
+           approval cannot be the gate any more, or every invoice would read
+           $0.00 and be stopped. What she approves is the INVOICE, and that one
+           approval stands for the hours behind it.
+           A week she has SENT BACK is the exception: it is being corrected, so
+           it is held off the invoice and named rather than billed half-right. */
+        if (st === 'returned') {
           var rows0 = H.rowsOf(wk);
-          var any = Object.keys(rows0).some(function (id) { return Number(rows0[id].hours); });
-          if (any && st !== 'invoiced' && st !== 'paid') {
+          if (Object.keys(rows0).some(function (id) { return Number(rows0[id].hours); })) {
             notApproved++;
             notApprovedWeeks.push({ person: f.person, weekEnding: wk.weekEnding, state: st });
           }
           return;
         }
+        if (st !== 'submitted' && st !== 'approved') return;
         var rows = H.rowsOf(wk);
         Object.keys(rows).forEach(function (id) {
           var h = Number(rows[id].hours) || 0;
@@ -4189,7 +4250,9 @@ window.H = (function () {
     var has = {};
     (files || []).forEach(function (f) {
       ((f && f.weeks) || []).forEach(function (wk) {
-        if ((wk.state || '') !== 'approved') return;
+        /* Same basis as the invoice itself: submitted time counts. */
+        var st = wk.state || 'submitted';
+        if (st !== 'submitted' && st !== 'approved') return;
         var rows = H.rowsOf(wk);
         if (Object.keys(rows).some(function (id) { return Number(rows[id].hours); })) {
           has[H.periodOfWeek(wk.weekEnding)] = 1;
@@ -4315,7 +4378,8 @@ window.H = (function () {
     return { key: 'note', label: 'Needs a Note', tone: 'warn',
       can: !!(up.note && String(up.note).trim()), diff: diff,
       say: 'Your invoice is ' + money(Math.abs(diff)) + (diff > 0 ? ' more' : ' less') +
-           ' than the ' + money(exp.total) + ' MISMO has approved. That can be perfectly ' +
+           ' than the ' + money(exp.total) + ' of time MISMO holds for this month. That can be ' +
+           'perfectly ' +
            'right \u2014 an expense, an agreed adjustment, a credit. <b>One line saying what ' +
            'it is</b> and it can go.' };
   }
@@ -4339,14 +4403,16 @@ window.H = (function () {
     var out = [];
     if (!exp.lines.length && !exp.expensesTotal) {
       out.push({ stop: true, key: 'nothing',
-        say: 'Nothing has been approved for ' + esc(H.periodLabel(period)) + ' yet, so there is ' +
-             'nothing to invoice. Weeks have to be approved by MISMO before they can be billed.' });
+        say: 'No time has been submitted for ' + esc(H.periodLabel(period)) + ' yet, so there is ' +
+             'nothing to invoice. Hours are billable as soon as they are submitted — nobody has ' +
+             'to approve them first.' });
     }
     if (exp.notApproved) {
       out.push({ stop: false, key: 'notApproved',
-        say: exp.notApproved + ' ' + (exp.notApproved === 1 ? 'week is' : 'weeks are') +
-             ' submitted but not yet approved, so ' + (exp.notApproved === 1 ? 'it is' : 'they are') +
-             ' not on this invoice. ' + (exp.notApproved === 1 ? 'It carries' : 'They carry') +
+        say: exp.notApproved + ' ' + (exp.notApproved === 1 ? 'week has' : 'weeks have') +
+             ' been sent back by MISMO to be corrected, so ' +
+             (exp.notApproved === 1 ? 'it is' : 'they are') + ' not on this invoice. ' +
+             (exp.notApproved === 1 ? 'It carries' : 'They carry') +
              ' to the next one rather than being lost.' });
     }
     exp.held.forEach(function (h) { out.push({ stop: false, key: h.why, say: h.say }); });
@@ -5068,7 +5134,12 @@ window.H = (function () {
             return (logs
               ? sect('My Hours', null, hoursSection(C, person, fy, mine, files), true) +
                 sect('My Submitted Time', (mine.weeks || []).length,
-                     submittedSection(C, person, fy, mine))
+                     submittedSection(C, person, fy, mine)) +
+                /* ⚠ Only for somebody who actually logs time. Being away is
+                   about not being chased, and nobody chases a person who was
+                   never expected to send a week. */
+                sect('When I Am Away', (H.awayList(mine) || []).length || null,
+                     awaySection(C, person, fy, mine))
               : '') +
               (person.expenses
                 ? sect('My Expenses', xs, expensesSection(C, person, mine))
@@ -5123,6 +5194,7 @@ window.H = (function () {
           onPanelOpen(wireDownloads);
           wireDownloads(document);
           if (person) wireHours(C, person, fy);
+          if (person && logsTime(F, person)) wireAway(C, person, fy);
           var fyEl2 = document.getElementById('fy-pick');
           if (fyEl2) fyEl2.addEventListener('change', function () {
             ISS_YEAR = fyEl2.value; contractorView();
@@ -6369,7 +6441,7 @@ window.H = (function () {
       '<div class="note ' + (out.tone || '') + '"><b>' + esc(out.label) + '.</b> ' + out.say + '</div>';
 
     return head +
-      '<h4 class="subh">Hours MISMO Has Approved</h4>' + lines +
+      '<h4 class="subh">Hours MISMO Has on Record</h4>' + lines +
       (exp.expensesTotal
         ? '<p class="fineprint"><b>' + money(exp.expensesTotal) + ' of approved expenses falls in ' +
           esc(H.periodLabel(period)) + ' and is NOT on this invoice.</b> Expenses are claimed ' +
@@ -6730,6 +6802,14 @@ window.H = (function () {
               }, 'expense claim ' + claim.summit, { invoices: [] });
             })
             .then(function () {
+              return notify(C.slug, {
+                kind: 'claim-submitted', company: C.F.company,
+                invoice: up.number || '', summit: claim.summit, total: Number(up.total),
+                who: who().name,
+                said: C.F.company + ' has submitted an expense claim for ' + claim.summit + '.',
+                raisedOn: at, forAttentionOf: 'jcritchley@mismo.org', sent: false, sentOn: null });
+            })
+            .then(function () {
               INV.claimUp = null;
               closePanel(true);
               toast('Expense claim for ' + claim.summit + ' has been submitted.', 'good');
@@ -6786,6 +6866,18 @@ window.H = (function () {
             }]);
             return next;
           }, 'invoice ' + up.number, { invoices: [] });
+        })
+        .then(function () {
+          /* ⚠ Jonna asked to be told the moment one arrives. The notice goes
+             in the same queue as everything else and the flow sends it — this
+             page still cannot email anybody. */
+          return notify(C.slug, {
+            kind: 'invoice-submitted', company: C.F.company,
+            invoice: up.number, period: period, total: Number(up.total),
+            who: who().name,
+            said: C.F.company + ' has submitted invoice ' + up.number + ' for ' +
+                  H.periodLabel(period) + '.',
+            raisedOn: at, forAttentionOf: 'jcritchley@mismo.org', sent: false, sentOn: null });
         })
         .then(function () {
           INV.up = null;
@@ -7045,6 +7137,126 @@ window.H = (function () {
       'throws up differences that all offset one another — that is the cover, not an error.</p>';
   }
 
+
+  /* ---- When I Am Away -----------------------------------------------------
+     Jonna, 24 October: a time reporter can put themselves on vacation so the
+     chasing stops, and name who is covering.
+
+     ⚠ Saved into their OWN hours file. An hours-only account cannot write the
+     company record, so this is the only place they can set it themselves —
+     and it is the file the scheduled chaser already reads, so it gets the
+     answer without a second lookup. */
+  function awaySection(C, person, fy, mine) {
+    var F = C.F;
+    var list = H.awayList(mine).slice().sort(function (a, b) {
+      return (H.parse(b.from) || 0) - (H.parse(a.from) || 0); });
+    var mates = colleagues(F, person.name, new Date());
+    var today = new Date();
+    var nowAway = null;
+    list.forEach(function (a) {
+      var f = H.parse(a.from), t = H.parse(a.to);
+      if (f && t && f <= today && t >= today) nowAway = a;
+    });
+
+    return '<p class="lede">Put yourself down as away and <b>MISMO stops chasing you for those ' +
+      'weeks</b>. Say who is covering so everybody knows who to ask.</p>' +
+      (nowAway
+        ? '<div class="note ok"><b>You are down as away right now</b> — ' +
+          esc(nowAway.from) + ' to ' + esc(nowAway.to) + '.' +
+          (nowAway.cover ? ' ' + esc(nowAway.cover) + ' is covering.' : '') + '</div>'
+        : '') +
+      '<div class="fields">' +
+      '<div class="f"><label for="aw-from">First Day Away</label>' +
+      '<input id="aw-from" type="date"></div>' +
+      '<div class="f"><label for="aw-to">Last Day Away</label>' +
+      '<input id="aw-to" type="date"></div>' +
+      '<div class="f"><label for="aw-cover">Who Is Covering</label>' +
+      '<select id="aw-cover"><option value="">Nobody</option>' +
+      mates.map(function (m) {
+        return '<option value="' + esc(m.name) + '">' + esc(m.name) + '</option>'; }).join('') +
+      '</select></div>' +
+      '</div>' +
+      '<div class="issacts"><button class="tbtn" type="button" id="aw-go">Add It</button></div>' +
+      '<p class="fineprint"><b>A week only stops being expected if you are away for the whole of ' +
+      'it.</b> Away Wednesday to Friday still means you worked Monday and Tuesday, so that week is ' +
+      'still yours to send — the reminder just says you were away part of it.</p>' +
+      (list.length
+        ? '<h4 class="subh">Already Booked</h4>' +
+          '<div class="tbl"><table><thead><tr><th>From</th><th>To</th><th>Covering</th>' +
+          '<th class="n"></th></tr></thead><tbody>' +
+          list.map(function (a, i) {
+            var t = H.parse(a.to);
+            var past = t && t < today;
+            return '<tr><td>' + esc(a.from) + '</td><td>' + esc(a.to) + '</td><td>' +
+              (a.cover ? esc(a.cover) : '<span class="fineprint">Nobody named</span>') +
+              '</td><td class="n">' +
+              (past ? '<span class="fineprint">Past</span>'
+                    : '<button class="tbtn ghost" type="button" data-awdel="' + i +
+                      '">Remove</button>') +
+              '</td></tr>'; }).join('') + '</tbody></table></div>'
+        : '<p class="empty">You have nothing booked.</p>');
+  }
+
+  function wireAway(C, person, fy) {
+    /* The hours screens are rebuilt from scratch, so the booked list and
+       every reminder that reads it are right immediately. */
+    function awayRedraw() { HRS.files = null; hoursHome(); }
+    function save(change, msg) {
+      return R.update(keyFor(C.slug), hoursPath(person, fy), function (cur) {
+        var next = JSON.parse(JSON.stringify(cur));
+        next.away = next.away || [];
+        change(next);
+        return next;
+      }, msg);
+    }
+    var go = $('#aw-go');
+    if (go) go.addEventListener('click', function () {
+      var from = ($('#aw-from') || {}).value || '';
+      var to = ($('#aw-to') || {}).value || '';
+      var cover = ($('#aw-cover') || {}).value || '';
+      if (!from || !to) { toast('Both days are needed.', 'bad'); return; }
+      /* <input type="date"> hands back YYYY-MM-DD; everything else in this
+         file speaks MM/DD/YY, and a date stored in the wrong shape would be
+         invisible to every check that reads it. */
+      function us(iso) {
+        var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+        return m ? (m[2] + '/' + m[3] + '/' + m[1].slice(2)) : iso;
+      }
+      var f = us(from), t = us(to);
+      if ((H.parse(t) || 0) < (H.parse(f) || 0)) {
+        toast('The last day is before the first.', 'bad'); return;
+      }
+      go.disabled = true;
+      save(function (next) {
+        next.away.push({ from: f, to: t, cover: cover || null,
+                         setAt: new Date().toISOString(), setBy: person.name });
+      }, 'away: ' + person.name + ' ' + f + ' to ' + t)
+        .then(function () { toast('Booked. You will not be chased for those weeks.', 'good'); awayRedraw(); })
+        .catch(function (e) { go.disabled = false; failed(e); });
+    });
+    $$('#view [data-awdel]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var i = Number(b.dataset.awdel);
+        b.disabled = true;
+        /* ⚠ Matched on its VALUES, not on the index. The list is sorted newest
+           first for the screen while the file keeps insertion order, so the
+           row's position is not the file's position. */
+        var list = H.awayList(HRS.mine).slice().sort(function (a, c) {
+          return (H.parse(c.from) || 0) - (H.parse(a.from) || 0); });
+        var gone = list[i];
+        if (!gone) { b.disabled = false; return; }
+        save(function (next) {
+          next.away = (next.away || []).filter(function (a) {
+            return !(a.from === gone.from && a.to === gone.to && (a.cover || null) === (gone.cover || null));
+          });
+        }, 'away removed: ' + person.name + ' ' + gone.from)
+          .then(function () { toast('Removed.', 'ok'); awayRedraw(); })
+          .catch(function (er) { b.disabled = false; failed(er); });
+      });
+    });
+  }
+
   /* ---- The Company's Weeks ------------------------------------------------
      Meghan, 19 October: the month totals tell a manager what to invoice. They
      do not tell her how the week went. Smartsheet gave her both, and the
@@ -7084,6 +7296,10 @@ window.H = (function () {
     (F.people || []).forEach(function (p) {
       if (!logsTime(F, p)) return;
       if (on && !active(p, on)) return;
+      /* Away for the whole week — the week was never expected. */
+      var mine = null;
+      (files || []).forEach(function (f) { if (f && f.slug === p.slug) mine = f; });
+      if (mine && H.awayCovers(mine, mine.fiscalYear || 'FY 2027', ending)) return;
       var sent = false, covered = false;
       (files || []).forEach(function (f) {
         if (!f) return;
@@ -7256,6 +7472,9 @@ window.H = (function () {
         if (H.monthOf(s) !== month) return;
         if (d > today) return;
         if (!active(p, d)) return;     // not yet started, or already left
+        /* ⚠ Away for the whole week: not expected at all, so not owed and not
+           reported missing. Jonna, 24 October. */
+        if (H.awayCovers(f, f && f.fiscalYear ? f.fiscalYear : 'FY 2027', s)) return;
         if (!sentWeeks[s] && !covered[s]) owed.push(s);
       });
       if (owed.length) out.push({ person: p.name, weeks: owed });
@@ -7816,38 +8035,439 @@ window.H = (function () {
     });
   }
 
-  function approveSection(list, by) {
-    var all = everyWeek(list, by);
-    var waiting = all.filter(function (x) { return x.wk.state === 'submitted'; });
-    var asked = all.filter(function (x) { return x.wk.returnRequest; });
 
-    if (!waiting.length && !asked.length) {
-      return '<p class="empty">No time is waiting on you. Weeks appear here the moment somebody ' +
-        'submits one, and a request to reopen an approved week appears here too.</p>';
+  /* =========================================================================
+   * MISMO'S SIDE OF AN INVOICE
+   *
+   * Decision 36 left this as the last open item, and until it existed an
+   * invoice went into invoices/<slug>.json and was read by nobody: the
+   * company could send one and Jonna had nowhere to see it.
+   *
+   * ⚠ This is the ONLY place an invoice is approved, and approving it is what
+   * locks the weeks behind it (see weekLock). Sending one back with a question
+   * unlocks them again by the same rule, with no extra write — the lock is
+   * derived from the invoice's state, so the question IS the unlock.
+   * ======================================================================= */
+  function invTotalHours(iv) {
+    return (iv.lines || []).reduce(function (a, l) { return a + (Number(l.hours) || 0); }, 0);
+  }
+  /* What MISMO holds for the period this invoice covers, worked out fresh —
+     never the approvedTotal the company's browser wrote. If somebody corrected
+     a week after the invoice went in, the figure that matters is today's. */
+  function heldFor(C, period) {
+    var files = C.__files || [];
+    return expectedInvoice(C.F, files, period);
+  }
+
+  function mismoInvoices(list) {
+    var waiting = [], done = [], missing = [];
+    list.forEach(function (C) {
+      (C.invoices || []).forEach(function (iv) {
+        var st = iv.state || 'submitted';
+        if (st === 'takenback') return;            /* pulled back; not MISMO's */
+        var row = { C: C, iv: iv, st: st };
+        if (st === 'submitted' || st === 'question') waiting.push(row); else done.push(row);
+      });
+      /* A company with billable time in an open period and nothing sent. */
+      var period = openPeriod(C.F, C.__files || [], C.invoices || [], new Date());
+      if (period) {
+        var e = expectedInvoice(C.F, C.__files || [], period);
+        if (e.total > 0) missing.push({ C: C, period: period, exp: e });
+      }
+    });
+    var ord = { submitted: 0, question: 1 };
+    waiting.sort(function (a, b) {
+      return (ord[a.st] - ord[b.st]) ||
+        String(a.C.F.company).localeCompare(String(b.C.F.company), undefined, { sensitivity: 'base' });
+    });
+    done.sort(function (a, b) { return String(b.iv.submittedAt || '').localeCompare(String(a.iv.submittedAt || '')); });
+    missing.sort(function (a, b) {
+      return String(a.C.F.company).localeCompare(String(b.C.F.company), undefined, { sensitivity: 'base' });
+    });
+    return { waiting: waiting, done: done, missing: missing };
+  }
+
+  function invoicesAdminSection(list) {
+    var g = mismoInvoices(list);
+    if (!g.waiting.length && !g.done.length && !g.missing.length) {
+      return '<p class="empty">No company has sent an invoice yet, and none is due. Invoices ' +
+        'appear here the moment one is submitted — you approve it here and nowhere else.</p>';
+    }
+    var mismatch = g.waiting.filter(function (r) {
+      return Math.abs(Number(heldFor(r.C, r.iv.period).total) - Number(r.iv.total || 0)) > 0.005;
+    }).length;
+    var payable = g.done.filter(function (r) { return r.st === 'sent'; }).length;
+
+    var head = '<p class="lede">Every invoice a company has sent, and what the portal makes of it ' +
+      'against the time MISMO holds. <b>Approving one is what locks the weeks behind it</b> — ' +
+      'until you do, the company can still correct them. Sending one back with a question hands ' +
+      'the hours back too.</p>' +
+      '<div class="tot"><span class="tot-l">Waiting for You</span><span class="tot-v">' +
+      g.waiting.length + (g.waiting.length === 1 ? ' invoice' : ' invoices') +
+      (mismatch ? ' · ' + mismatch + ' that do not match' : '') +
+      (g.missing.length ? ' · ' + g.missing.length + ' not in yet' : '') +
+      (payable ? ' · ' + payable + ' with payable' : '') +
+      '</span></div>';
+
+    var body = '';
+    if (g.waiting.length) {
+      body += '<div class="rows">' + g.waiting.map(function (r) { return invRow(r); }).join('') + '</div>';
+    } else {
+      body += '<div class="note ok"><b>Nothing is waiting on you.</b></div>';
+    }
+
+    if (g.missing.length) {
+      body += '<h3 class="subh">Not In Yet</h3>' +
+        '<p class="lede">These companies have time MISMO can be invoiced for and have not sent an ' +
+        'invoice. <b>Nothing is wrong</b> — it is what you would chase.</p>' +
+        '<div class="rows">' + g.missing.map(function (m) {
+          var due = H.dueDate ? H.dueDate(m.period) : null;
+          var ds = H.dueState ? H.dueState(m.period, new Date()) : null;
+          return '<div class="row"><div class="row-h">' +
+            '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
+            '<span class="rt">' + esc(m.C.F.company) + '</span>' +
+            (ds && ds.late ? '<span class="pill bad">Overdue</span>' : '') +
+            '<span class="rs num">' + money(m.exp.total) + '</span>' +
+            '</div><div class="row-b">' +
+            '<div class="fields">' +
+            fld('Period', H.periodLabel(m.period), 1) +
+            fld('Time MISMO Holds', money(m.exp.total), 1) +
+            fld('Hours', hrs(m.exp.lines.reduce(function (a, l) { return a + l.hours; }, 0)), 1) +
+            fld('Due', due ? H.print(due) : '—', 1) +
+            '</div>' +
+            '<div class="tbl"><table><thead><tr><th>Service Order</th><th class="n">Hours</th>' +
+            '<th class="n">Rate</th><th class="n">Amount</th></tr></thead><tbody>' +
+            m.exp.lines.map(function (l) {
+              return '<tr><td>' + esc(l.order.subject) + '</td><td class="n">' + hrs(l.hours) +
+                '</td><td class="n">' + money(l.rate) + '</td><td class="n">' + money(l.amount) +
+                '</td></tr>'; }).join('') + '</tbody></table></div>' +
+            '<p class="fineprint">This is what their invoice should come to if nothing changes. ' +
+            'They see the same figure on their own screen.</p>' +
+            '</div></div>';
+        }).join('') + '</div>';
+    }
+
+    if (g.done.length) {
+      body += '<h3 class="subh">Already Dealt With</h3>' +
+        '<div class="rows">' + g.done.map(function (r) { return invRow(r); }).join('') + '</div>';
+    }
+    return head + body;
+  }
+
+  function invRow(r) {
+    var C = r.C, iv = r.iv, st = r.st;
+    var s = invState(iv);
+    var held = heldFor(C, iv.period);
+    var theirs = Number(iv.total || 0);
+    var diff = Math.round((theirs - Number(held.total || 0)) * 100) / 100;
+    var tag = C.slug + '|' + iv.id;
+    var open = st === 'submitted' || st === 'question';
+
+    return '<div class="row"><div class="row-h">' +
+      '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
+      '<span class="rt">' + esc(C.F.company) + ' · ' + esc(iv.number || 'no number') + '</span>' +
+      (diff ? '<span class="pill bad">Does Not Match</span>'
+            : '<span class="pill ' + s.tone + '">' + esc(s.label) + '</span>') +
+      '<span class="rs num">' + money(theirs) + '</span>' +
+      '</div><div class="row-b">' +
+      '<div class="fields">' +
+      fld('Company', C.F.company, 1) +
+      fld('Invoice Number', iv.number || '—', 1) +
+      fld('Period', H.periodLabel(iv.period), 1) +
+      fld('Their Invoice', money(theirs), 1) +
+      fld('Time MISMO Holds', money(held.total), 1) +
+      fld('Difference', diff ? money(diff) : 'None', 1) +
+      fld('Submitted', (iv.submittedBy ? iv.submittedBy + ' · ' : '') + stamp(iv.submittedAt), 1) +
+      fld('State', s.label, 1) +
+      '</div>' +
+      (diff
+        ? '<div class="note"><b>This invoice is ' + money(Math.abs(diff)) +
+          (diff > 0 ? ' more' : ' less') + ' than the time MISMO holds for ' +
+          esc(H.periodLabel(iv.period)) + '.</b> ' +
+          (iv.note ? 'They said: ' + esc(iv.note)
+                   : '<b>They gave no reason.</b> That is worth asking about before approving.') +
+          '<br><span class="fineprint">The figure on the left is worked out from the hours as they ' +
+          'stand today, not from what their browser calculated when they sent it — so a week ' +
+          'corrected since will show here as a difference.</span></div>'
+        : '<div class="note ok"><b>It matches the time MISMO holds, to the cent.</b>' +
+          (iv.note ? ' They added: ' + esc(iv.note) : '') + '</div>') +
+      (held.notApproved
+        ? '<div class="note"><b>' + held.notApproved + ' ' +
+          (held.notApproved === 1 ? 'week is' : 'weeks are') + ' sent back and being corrected</b>, ' +
+          'so ' + (held.notApproved === 1 ? 'it is' : 'they are') + ' not in the figure above.</div>'
+        : '') +
+      '<h4 class="subh">What They Billed</h4>' +
+      '<div class="tbl"><table><thead><tr><th>Service Order</th><th class="n">Hours</th>' +
+      '<th class="n">Rate</th><th class="n">Amount</th></tr></thead><tbody>' +
+      (iv.lines || []).map(function (l) {
+        return '<tr><td>' + esc(l.subject || l.orderId) + '</td><td class="n">' + hrs(l.hours) +
+          '</td><td class="n">' + money(l.rate) + '</td><td class="n">' + money(l.amount) +
+          '</td></tr>'; }).join('') +
+      '</tbody></table></div>' +
+      (iv.file
+        ? '<div class="issacts"><button class="tbtn ghost dlfile" type="button" data-slug="' +
+          esc(C.slug) + '" data-path="' + esc(iv.file) + '" data-name="' +
+          esc((iv.number || 'invoice') + '.pdf') + '">Open Their Invoice PDF</button></div>' +
+          '<p class="fineprint">Their PDF is the document of record — the table above is only the ' +
+          'portal’s reading of it.</p>'
+        : '<p class="fineprint">No PDF is attached to this one.</p>') +
+      (iv.questionWhy
+        ? '<div class="note"><b>You sent this back.</b> ' + esc(iv.questionWhy) +
+          '<br><span class="fineprint">' + esc(stamp(iv.questionAt)) + '. The hours went back to ' +
+          'them with it, so they can correct a week and send it again.</span></div>'
+        : '') +
+      (open
+        ? '<div class="fields"><div class="f wide">' +
+          '<label>Your Question, if You Are Sending It Back</label>' +
+          '<input type="text" data-ivwhy="' + esc(tag) + '" placeholder="One line — what you need to know">' +
+          '</div></div>' +
+          '<div class="issacts">' +
+          '<button class="tbtn" type="button" data-ivok="' + esc(tag) + '">' +
+            'Approve and Send to Accounts Payable</button>' +
+          '<button class="tbtn ghost" type="button" data-ivno="' + esc(tag) + '">' +
+            'Send It Back With a Question</button>' +
+          '</div>' +
+          '<p class="fineprint"><b>Approving locks every week behind this invoice.</b> After that ' +
+          'the company cannot correct one without asking you, and reopening means crediting and ' +
+          'reissuing. Sending it back hands the hours straight back to them. ' +
+          '<b>A question is required to send one back.</b></p>'
+        : st === 'sent'
+          ? '<div class="issacts"><button class="tbtn" type="button" data-ivpaid="' + esc(tag) +
+            '">Mark as Paid</button></div>' +
+            '<p class="fineprint">Tick this when MBA accounts payable confirms payment. ' +
+            '<b>Paid closes the weeks behind it for good</b> — a correction after that goes on ' +
+            'the next period.</p>'
+          : '') +
+      ((iv.trail || []).length
+        ? '<h4 class="subh">What Has Happened to It</h4><div class="tbl"><table><thead><tr>' +
+          '<th>What</th><th>When</th><th>Who</th></tr></thead><tbody>' +
+          iv.trail.map(function (t) {
+            return '<tr><td>' + esc(t.what) + '</td><td>' + esc(stamp(t.at)) + '</td><td>' +
+              esc(t.by || '—') + '</td></tr>'; }).join('') + '</tbody></table></div>'
+        : '') +
+      '</div></div>';
+  }
+
+  /* ---- the three decisions ------------------------------------------------
+     Each one writes the invoice AND a line to notify/, because every one of
+     them is something a person on the other end is waiting to hear. */
+  function setInvoice(C, id, change, msg) {
+    return R.update(keyFor(C.slug), 'invoices/' + C.slug + '.json', function (cur) {
+      var next = JSON.parse(JSON.stringify(cur || { invoices: [] }));
+      (next.invoices || []).forEach(function (iv) { if (iv.id === id) change(iv); });
+      return next;
+    }, msg, { invoices: [] });
+  }
+
+  function wireInvoiceDecisions(list, redraw) {
+    function ctx(tag) {
+      var p = String(tag).split('|');
+      var C = null, iv = null;
+      list.forEach(function (c) {
+        if (c.slug !== p[0]) return;
+        (c.invoices || []).forEach(function (x) { if (x.id === p[1]) { C = c; iv = x; } });
+      });
+      return C ? { C: C, iv: iv } : null;
+    }
+
+    $$('#view [data-ivok]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var c = ctx(b.dataset.ivok); if (!c) return;
+        b.disabled = true; b.textContent = 'Approving…';
+        var at = new Date().toISOString();
+        setInvoice(c.C, c.iv.id, function (iv) {
+          /* ⚠ Straight to 'sent'. Decision 36 made this ONE action — approving
+             and handing it to accounts payable are the same moment, so a
+             separate 'approved' resting state would be a step nobody takes. */
+          iv.state = 'sent';
+          iv.approvedBy = ME.name; iv.approvedAt = at;
+          iv.questionWhy = null; iv.questionAt = null;
+          iv.trail = (iv.trail || []).concat([
+            { what: 'Approved and sent to accounts payable', at: at, by: ME.name }]);
+        }, 'invoice approved: ' + c.C.slug + ' ' + (c.iv.number || c.iv.id))
+          .then(function () {
+            return notify(c.C.slug, {
+              kind: 'invoice-approved', company: c.C.F.company,
+              invoice: c.iv.number || c.iv.id, period: c.iv.period,
+              total: c.iv.total, who: ME.name,
+              said: 'Invoice ' + (c.iv.number || '') + ' has been approved and sent to accounts payable.',
+              raisedOn: at, forAttentionOf: null, sent: false, sentOn: null });
+          })
+          .then(function () { toast('Approved and sent to accounts payable.', 'good'); redraw(); })
+          .catch(function (er) {
+            b.disabled = false; b.textContent = 'Approve and Send to Accounts Payable'; failed(er); });
+      });
+    });
+
+    $$('#view [data-ivno]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var c = ctx(b.dataset.ivno); if (!c) return;
+        var box = $('#view [data-ivwhy="' + b.dataset.ivno + '"]');
+        var why = box ? String(box.value || '').trim() : '';
+        if (!why) {
+          toast('A question is required — it is what they read.', 'bad');
+          if (box) box.focus();
+          return;
+        }
+        b.disabled = true;
+        var at = new Date().toISOString();
+        setInvoice(c.C, c.iv.id, function (iv) {
+          iv.state = 'question';
+          iv.questionWhy = why; iv.questionAt = at; iv.questionBy = ME.name;
+          iv.trail = (iv.trail || []).concat([{ what: 'Sent back with a question', at: at, by: ME.name }]);
+        }, 'invoice question: ' + c.C.slug + ' ' + (c.iv.number || c.iv.id))
+          .then(function () {
+            return notify(c.C.slug, {
+              kind: 'invoice-question', company: c.C.F.company,
+              invoice: c.iv.number || c.iv.id, period: c.iv.period,
+              who: ME.name, said: why, raisedOn: at,
+              forAttentionOf: null, sent: false, sentOn: null });
+          })
+          .then(function () {
+            toast('Sent back. The hours are theirs again.', 'ok'); redraw(); })
+          .catch(function (er) { b.disabled = false; failed(er); });
+      });
+    });
+
+    $$('#view [data-ivpaid]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var c = ctx(b.dataset.ivpaid); if (!c) return;
+        b.disabled = true; b.textContent = 'Marking…';
+        var at = new Date().toISOString();
+        setInvoice(c.C, c.iv.id, function (iv) {
+          iv.state = 'paid'; iv.paidAt = at; iv.paidBy = ME.name;
+          iv.trail = (iv.trail || []).concat([{ what: 'Paid', at: at, by: ME.name }]);
+        }, 'invoice paid: ' + c.C.slug + ' ' + (c.iv.number || c.iv.id))
+          .then(function () {
+            return notify(c.C.slug, {
+              kind: 'invoice-paid', company: c.C.F.company,
+              invoice: c.iv.number || c.iv.id, period: c.iv.period,
+              total: c.iv.total, who: ME.name,
+              said: 'Invoice ' + (c.iv.number || '') + ' has been paid.',
+              raisedOn: at, forAttentionOf: null, sent: false, sentOn: null });
+          })
+          .then(function () { toast('Marked paid. Those weeks are closed.', 'good'); redraw(); })
+          .catch(function (er) { b.disabled = false; b.textContent = 'Mark as Paid'; failed(er); });
+      });
+    });
+  }
+
+  /* ---- Time Submitted -----------------------------------------------------
+     Jonna, 24 October: she does not approve time weekly any more — she
+     approves the invoice. But she still wants to SEE what has come in, and to
+     see it BY COMPANY: the total first, the weeks underneath.
+
+     ⚠ Nothing in here is a gate. The only thing that still waits on her is a
+     request to reopen a week that an approved invoice has locked — that she
+     must answer, so it sits at the top and is what the section counts. */
+  function reviewSection(list, by) {
+    var all = everyWeek(list, by);
+    var asked = all.filter(function (x) { return x.wk.returnRequest; });
+    var open = all.filter(function (x) {
+      var st = x.wk.state || 'submitted';
+      return !x.wk.returnRequest && (st === 'submitted' || st === 'approved');
+    });
+
+    if (!open.length && !asked.length) {
+      return '<p class="empty">No time has been submitted yet. Weeks appear here the moment ' +
+        'somebody sends one — you do not have to do anything with them, they are billable as ' +
+        'they stand.</p>';
     }
 
     var body = '';
     if (asked.length) {
-      body += '<h3 class="subh">Asked to Be Reopened</h3>' +
+      body += '<h3 class="subh">Waiting on You</h3>' +
         '<p class="lede">Somebody wants back a week that is on an invoice <b>you have already ' +
         'approved</b> — the only kind they can no longer take back themselves. ' +
         '<b>Read the reason before deciding</b>: reopening it means crediting and reissuing that ' +
         'invoice.</p>' +
         '<div class="rows">' + asked.map(function (x) { return weekRow(x, true); }).join('') + '</div>';
     }
-    if (waiting.length) {
-      var hoursWaiting = waiting.reduce(function (a, x) { return a + H.hoursIn(x.wk); }, 0);
-      body += (asked.length ? '<h3 class="subh">Waiting for Approval</h3>' : '') +
-        '<p class="lede">Each one is a week somebody has submitted. Approving it makes it billable; ' +
-        'returning it sends it back with your reason and keeps what they sent. <b>Approving does ' +
-        'not take the week away from them</b> — until you approve the invoice it lands on, they ' +
-        'can still pull it back and correct it, and it comes back here marked as changed.</p>' +
-        '<div class="tot"><span class="tot-l">Waiting for You</span>' +
-        '<span class="tot-v">' + hrs(hoursWaiting) + ' hours across ' + waiting.length + ' week' +
-        (waiting.length === 1 ? '' : 's') + '</span></div>' +
-        '<div class="rows">' + waiting.map(function (x) { return weekRow(x, false); }).join('') + '</div>';
+
+    if (open.length) {
+      /* Group by company, because that is the unit she thinks in — and the
+         unit an invoice arrives in. */
+      var byCo = {}, order = [];
+      open.forEach(function (x) {
+        var k = x.C.slug;
+        if (!byCo[k]) { byCo[k] = { C: x.C, weeks: [] }; order.push(k); }
+        byCo[k].weeks.push(x);
+      });
+      order.sort(function (a, b) {
+        return String(byCo[a].C.F.company).localeCompare(String(byCo[b].C.F.company),
+          undefined, { sensitivity: 'base' });
+      });
+      var grand = open.reduce(function (a, x) { return a + H.hoursIn(x.wk); }, 0);
+
+      body += (asked.length ? '<h3 class="subh">Time Submitted</h3>' : '') +
+        '<p class="lede">Every week that has come in, by company. <b>None of it is waiting on ' +
+        'you</b> — time is billable as soon as it is submitted, and what you approve is the ' +
+        'invoice. Look if you want to, and send a week back if something is wrong with it.</p>' +
+        '<div class="tot"><span class="tot-l">Submitted</span><span class="tot-v">' +
+        hrs(grand) + ' hours across ' + order.length + ' compan' +
+        (order.length === 1 ? 'y' : 'ies') + '</span></div>' +
+        '<div class="rows">' + order.map(function (k) {
+          var g = byCo[k], F = g.C.F;
+          var tot = g.weeks.reduce(function (a, x) { return a + H.hoursIn(x.wk); }, 0);
+          var folk = {};
+          g.weeks.forEach(function (x) { folk[x.file.person] = 1; });
+          var people = Object.keys(folk).length;
+          /* How many of this company's weeks carry something worth her eye. */
+          var flagged = g.weeks.filter(function (x) { return weekFlags(x).length; }).length;
+          /* Newest week first inside a company, then by person, so the most
+             recent thing she has not seen is the first thing she reads. */
+          var sorted = g.weeks.slice().sort(function (a, b) {
+            var d = (H.parse(b.wk.weekEnding) || 0) - (H.parse(a.wk.weekEnding) || 0);
+            if (d) return d;
+            return String(a.file.person).localeCompare(String(b.file.person),
+              undefined, { sensitivity: 'base' });
+          });
+          var mons = {};
+          sorted.forEach(function (x) { mons[H.monthOf(x.wk.weekEnding)] = 1; });
+          var monList = Object.keys(mons).map(function (m) { return H.monthLabel(m); });
+          return '<div class="row"><div class="row-h">' +
+            '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
+            '<span class="rt">' + esc(F.company) + '</span>' +
+            (flagged ? '<span class="pill warn">' + flagged + ' to check</span>' : '') +
+            '<span class="rs num">' + hrs(tot) + ' hours</span>' +
+            '</div><div class="row-b">' +
+            '<div class="fields">' +
+            fld('Submitted', hrs(tot) + ' hours', 1) +
+            fld('People', String(people), 1) +
+            fld('Weeks', String(sorted.length), 1) +
+            fld('Covering', monList.join(', ') || '\u2014', 1) +
+            '</div>' +
+            (flagged
+              ? '<div class="note"><b>' + flagged + ' of these ' +
+                (flagged === 1 ? 'weeks has' : 'weeks have') + ' something worth a look.</b> ' +
+                'Nothing is blocked — open the week to see what it is.</div>'
+              : '') +
+            '<div class="rows">' + sorted.map(function (x) { return weekRow(x, false); }).join('') +
+            '</div></div></div>';
+        }).join('') + '</div>';
     }
     return body;
+  }
+
+  /* Anything on a week worth Jonna\u2019s eye. Pulled out of weekRow so the
+     company above it can count them without rendering every week first. */
+  function weekFlags(x) {
+    var F = x.C.F, wk = x.wk;
+    var rows = H.rowsOf(wk);
+    var out = [];
+    Object.keys(rows).forEach(function (id) {
+      var o = orderById(F, id);
+      if (!o) { out.push('Hours against something with no service order behind it'); return; }
+      var used = H.usedOnOrder(x.C.__files || [], id);
+      var tot = Number(o.estimatedHours) || 0;
+      if (tot && used > tot) out.push(esc(o.subject) + ' is over its hours');
+      if (!rows[id].thisWeek) out.push(esc(o.subject) + ' has no note');
+      if (H.splitOver(rows[id])) out.push(esc(o.subject) + ' splits away more hours than were logged');
+    });
+    return out;
   }
 
   /* What changed since Jonna last approved this week — side by side, by
@@ -7909,17 +8529,7 @@ window.H = (function () {
        approving it a second time without seeing what moved is the one real
        risk in letting approved weeks reopen. */
     var prior = H.priorApproval(wk);
-    /* Anything on this week worth Jonna's eye before she locks it. */
-    var flags = [];
-    ids.forEach(function (id) {
-      var o = orderById(F, id);
-      if (!o) { flags.push('Hours against something with no service order behind it'); return; }
-      var used = H.usedOnOrder(x.C.__files || [], id);
-      var tot = Number(o.estimatedHours) || 0;
-      if (tot && used > tot) flags.push(esc(o.subject) + ' is over its hours');
-      if (!rows[id].thisWeek) flags.push(esc(o.subject) + ' has no note');
-      if (H.splitOver(rows[id])) flags.push(esc(o.subject) + ' splits away more hours than were logged');
-    });
+    var flags = weekFlags(x);
 
     return '<div class="row"><div class="row-h">' +
       '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
@@ -7939,7 +8549,7 @@ window.H = (function () {
       (ask ? '<div class="note"><b>They have asked for this week back.</b> ' + esc(ask.why) +
         '<br><span class="fineprint">Asked ' + esc(stamp(ask.at)) + ' by ' + esc(ask.by) + '. ' +
         'The week is ' + esc(st.label.toLowerCase()) + '.</span></div>' : '') +
-      (flags.length ? '<div class="note"><b>Worth a look before you approve.</b><ul class="checks">' +
+      (flags.length ? '<div class="note"><b>Worth a look.</b><ul class="checks">' +
         flags.map(function (fl) { return '<li>' + fl + '</li>'; }).join('') + '</ul></div>' : '') +
       '<div class="tbl"><table><thead><tr><th>Service Order</th><th class="n">Hours</th>' +
       '<th class="hide-narrow">What They Wrote</th><th class="hide-narrow hcol">Health</th></tr></thead><tbody>' +
@@ -7960,8 +8570,13 @@ window.H = (function () {
       '<input type="text" data-apwhy="' + esc(tag) + '" placeholder="One line — what they need to change">' +
       '</div></div>' +
       '<div class="issacts">' +
-      '<button class="tbtn" type="button" data-apok="' + esc(tag) + '">' +
-        (isAsk ? 'Reopen This Week' : 'Approve This Week') + '</button>' +
+      /* ⚠ There is no Approve This Week any more. Jonna approves the INVOICE
+         and that one approval stands for the hours behind it, so a second
+         approve button here would be the weekly gate she has said she does not
+         want. Reopening a LOCKED week is still hers alone — that one stays. */
+      (isAsk
+        ? '<button class="tbtn" type="button" data-apok="' + esc(tag) + '">Reopen This Week</button>'
+        : '') +
       '<button class="tbtn ghost" type="button" data-apno="' + esc(tag) + '">' +
         (isAsk ? 'Leave It Locked' : 'Send It Back') + '</button>' +
       '</div>' +
@@ -7969,11 +8584,10 @@ window.H = (function () {
         ? 'Reopening returns the week to them to correct and resubmit, and the invoice it is on ' +
           'has to be credited and reissued. <b>A reason is required to refuse</b> — it is what ' +
           'they read. What they submitted is kept either way.'
-        : 'Approving makes the week billable. It does not take it away from them — they can ' +
-          'still correct it until the invoice it lands on has been approved, and you are shown ' +
-          'what changed. Sending it back returns it with your reason and keeps what they sent as ' +
-          'its own version — nothing is edited on their behalf. ' +
-          '<b>A reason is required to send one back.</b>') + '</p>' +
+        : '<b>You do not have to do anything with this week.</b> It is billable as it stands and ' +
+          'it is still theirs to correct. Send it back only if something on it is wrong — that ' +
+          'returns it with your reason and keeps what they sent as its own version, so nothing is ' +
+          'edited on their behalf. <b>A reason is required to send one back.</b>') + '</p>' +
       '</div></div>';
   }
 
@@ -9568,9 +10182,13 @@ window.H = (function () {
       loadAllHours(list).then(function (by) {
         list.forEach(function (C) { C.__files = by[C.slug] || []; });
         var wks = everyWeek(list, by);
-        var waiting = wks.filter(function (x) {
-          return x.wk.state === 'submitted' || x.wk.returnRequest; }).length;
-        drawAdmin(approveSection(list, by), waiting, by);
+        /* ⚠ The badge counts what WAITS on her, and submitted time no longer
+           does — it is billable as it stands. Only a request to reopen a week
+           an approved invoice has locked is a decision she still has to make.
+           Counting every submitted week here put a number beside a section
+           that is now just somewhere to look. */
+        var waiting = wks.filter(function (x) { return !!x.wk.returnRequest; }).length;
+        drawAdmin(reviewSection(list, by), waiting, by);
       }).catch(function (e) {
         if (window.console && console.warn) console.warn('hours', e);
         drawAdmin('<div class="note"><b>Time could not be read just now.</b> Nothing has been lost — ' +
@@ -9579,12 +10197,24 @@ window.H = (function () {
       });
 
       function drawAdmin(approveBody, waiting, by) {
+      /* ⚠ Built HERE, inside drawAdmin, because it needs C.__files — the
+         hours — and those arrive in the same callback that hands this
+         function its approveBody. Building it above would price every invoice
+         against no hours at all and report every one as a difference. */
+      var invG = mismoInvoices(list);
+      var invWaiting = invG.waiting.length;
+      var invBody = invoicesAdminSection(list);
       /* ⚠ The Status Board is not a section any more.  It is the first thing
          on the page and there is never a reason to fold it away — a collapsible
          header above it was one more click between Jonna and the answer. */
       say('<div class="board">' + board + '</div>' +
         sect('Needs You', needs.length, needsBody, needs.length > 0) +
-        sect('Time to Approve', waiting, approveBody, waiting > 0) +
+        /* ⚠ null, not 0 — a count badge reading "0" beside a section that is
+           just somewhere to look is noise. */
+        sect('Time Submitted', waiting || null, approveBody, waiting > 0) +
+        /* ⚠ The one place an invoice is approved. It opens itself when
+           something is actually waiting, because that IS a decision for her. */
+        sect('Invoices', invWaiting || null, invBody, invWaiting > 0) +
         sect('Revise an Order', reviseAny.count, reviseAny.body) +
         sect('New Service Order', null, newOrderForm(list)) +
         sect('Company Details', list.length, companyDetails(list)) +
@@ -9593,6 +10223,7 @@ window.H = (function () {
         (canViewAs() ? sect('View As', null, viewAsSection(list)) : '') +
         sect('Help', null, helpFor('admin', list[0] && list[0].F)));
       if (by) wireApprove(list, by, adminView);
+      wireInvoiceDecisions(list, adminView);
       if (canViewAs()) wireViewAs(list);
 
       onPanelOpen(wireAdminControls);
