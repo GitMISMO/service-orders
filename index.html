@@ -3362,7 +3362,7 @@ window.H = (function () {
   /* =========================================================================
    * VIEW AS — Jonna seeing a company's own screen, for training
    *
-   * She is platformAdmin with admin on all five project keys, so the page can
+   * She is platformAdmin with admin on all six project keys, so the page can
    * read any company's real files from her own sign-in.  ⚠ This is not
    * impersonation and borrows nobody's password: it is reading files she
    * already has the right to read and drawing them in the company's layout.
@@ -8835,8 +8835,8 @@ window.H = (function () {
          not what the chooser intended. If those two ever disagreed, the banner
          would be the thing telling Jonna the check had passed. */
       '<span class="va-r">' + esc(VIEWAS.person || '') + ' · ' +
-        ({ 'vp-product': 'the VP’s decision queue, across all five companies',
-           president: 'the President’s approval queue, across all five companies'
+        ({ 'vp-product': 'the VP’s decision queue, across all six companies',
+           president: 'the President’s approval queue, across all six companies'
          }[VIEWAS.role] ||
          (isFac() ? 'a facilitator — no rate, no fee, hours only'
                   : 'the signer — everything they see')) + '</span>' +
@@ -10064,7 +10064,7 @@ window.H = (function () {
 
       var board =
         '<div class="vhead"><div class="grow"><h1>Where Everything Has Got To</h1>' +
-        '<p>Every FY 2027 service order across all five contracting companies, and what is ' +
+        '<p>Every FY 2027 service order across all six contracting companies, and what is ' +
         'waiting on whom.</p></div></div>' +
 
         '<div class="headline">' +
