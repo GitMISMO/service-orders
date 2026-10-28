@@ -2945,7 +2945,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-28c \u00b7 view as sees it too';
+  var BUILD = '2026-10-28d · certification reviews on invoices';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -4114,7 +4114,7 @@ window.H = (function () {
    * August 2026, every one offsetting another exactly. Person-level sits
    * beside it as attribution and is explicitly not a difference.
    * ======================================================================= */
-  function expectedInvoice(F, files, period) {
+  function expectedInvoice(F, files, period, reviews) {
     var orders = {};
     (F.orders || []).forEach(function (o) { orders[o.id] = o; });
 
@@ -4191,13 +4191,25 @@ window.H = (function () {
     var expTotal = exps.reduce(function (a, e) { return a + expenseAllowed(e); }, 0);
     expTotal = Math.round(expTotal * 100) / 100;
 
+  /* Certification reviews billed on this invoice (CERTIFICATION REVIEWS ON
+     THE INVOICE, below). Each carries the fee MISMO pays for it; one with no
+     fee recorded counts as nothing here and is named on screen. */
+  var rvs = (reviews || []).slice();
+  var rvTotal = rvs.reduce(function (a, r) { return a + (r.fee == null ? 0 : (Number(r.fee) || 0)); }, 0);
+  rvTotal = Math.round(rvTotal * 100) / 100;
+  var hasHourly = (F.orders || []).some(function (o) { return !perReviewOrder(o); });
+  var hasReview = (F.orders || []).some(function (o) { return perReviewOrder(o); });
+
     return {
       period: period,
       lines: lines,
       expenses: exps,
       expensesTotal: expTotal,          /* FYI only — claimed separately */
       hoursTotal: Math.round(hoursTotal * 100) / 100,
-      total: Math.round(hoursTotal * 100) / 100,
+      reviews: rvs,
+    reviewsTotal: rvTotal,
+    reviewsOnly: hasReview && !hasHourly,
+    total: Math.round((hoursTotal + rvTotal) * 100) / 100,
       held: held,
       notApproved: notApproved,
       notApprovedWeeks: notApprovedWeeks
@@ -4391,7 +4403,7 @@ window.H = (function () {
     return { key: 'note', label: 'Needs a Note', tone: 'warn',
       can: !!(up.note && String(up.note).trim()), diff: diff,
       say: 'Your invoice is ' + money(Math.abs(diff)) + (diff > 0 ? ' more' : ' less') +
-           ' than the ' + money(exp.total) + ' of time MISMO holds for this month. That can be ' +
+           ' than the ' + money(exp.total) + (exp.reviewsOnly ? ' of certification reviews' : exp.reviewsTotal ? ' of time and certification reviews' : ' of time') + ' MISMO holds for this month. That can be ' +
            'perfectly ' +
            'right \u2014 an expense, an agreed adjustment, a credit. <b>One line saying what ' +
            'it is</b> and it can go.' };
@@ -4414,7 +4426,12 @@ window.H = (function () {
      the invoice or merely wants saying. */
   function invoiceChecks(F, files, period, exp, priorInvoices) {
     var out = [];
-    if (!exp.lines.length && !exp.expensesTotal) {
+    if (!exp.lines.length && !exp.expensesTotal && !(exp.reviews || []).length && exp.reviewsOnly) {
+    out.push({ stop: true, key: 'nothing',
+      say: 'No certification reviews are ticked on this invoice, so there is nothing to invoice ' +
+        'yet. A review appears in the list above once your work on it is finished and MISMO ' +
+        'has approved it.' });
+  } else if (!exp.lines.length && !exp.expensesTotal && !(exp.reviews || []).length) {
       out.push({ stop: true, key: 'nothing',
         say: 'No time has been submitted for ' + esc(H.periodLabel(period)) + ' yet, so there is ' +
              'nothing to invoice. Hours are billable as soon as they are submitted — nobody has ' +
@@ -4429,6 +4446,15 @@ window.H = (function () {
              ' to the next one rather than being lost.' });
     }
     exp.held.forEach(function (h) { out.push({ stop: false, key: h.why, say: h.say }); });
+  /* A ticked review with no fee recorded in the Certification Management System. */
+  var noFee = (exp.reviews || []).filter(function (r) { return r.fee == null; });
+  if (noFee.length) {
+    out.push({ stop: false, key: 'reviewNoFee',
+      say: noFee.length + (noFee.length === 1 ? ' review has' : ' reviews have') + ' no fee ' +
+        'recorded by MISMO yet, so ' + (noFee.length === 1 ? 'it counts' : 'they count') +
+        ' as $0.00 here. If your invoice charges for ' + (noFee.length === 1 ? 'it' : 'them') +
+        ', say so in the note and MISMO will confirm the fee.' });
+  }
     /* Expenses sent but not yet approved are carried, not lost — the same way
        an unapproved week is, and said in the same words so the two read alike. */
     var waiting = expensesIn(files, period, ['submitted']);
@@ -4467,6 +4493,188 @@ window.H = (function () {
     return out;
   }
   function invoiceStops(checks) { return (checks || []).filter(function (c) { return c.stop; }); }
+
+/* =========================================================================
+ * CERTIFICATION REVIEWS ON THE INVOICE — Jonna, 28 October 2026
+ *
+ * Falcon is paid per review, not per hour, and invoices once a month for the
+ * reviews it has finished. Actualize logs hours AND does Product assessments,
+ * and puts both on the same monthly invoice. Neither worked before: the
+ * expected figure was built from hours alone, so a reviews-only month read
+ * "nothing to invoice" and stopped, and a mixed one read as a difference.
+ *
+ * Where the reviews come from: the Certification Management System already
+ * publishes each firm's own engagements to its assessor repository —
+ * engagements/<slug>.json, built by cms-data's build-engagements.js — with
+ * the fee MISMO pays for each (assessorFee). It is read here through the
+ * firm's assessor key (as-<slug>), so it carries nothing the firm cannot
+ * already see in the Assessor Portal. No relay or projects.json change.
+ *
+ * ⚠ A review is billable once the firm's work on it is finished: approved
+ *   and with MISMO's licensing step, or certified.
+ * ⚠ A review is billed ONCE. Every review on an invoice that has not been
+ *   taken back is off the list for good; a taken-back invoice frees them.
+ * ⚠ An OPTIONAL read. A sign-in without the assessor key, or a file that
+ *   cannot be read, leaves the invoice exactly as it was — hours only — and
+ *   says why. It must never take the page down.
+ * ======================================================================= */
+var REVIEW_FINISHED = ['ApprovedPendingLicense', 'LicenseSent', 'Certified'];
+function reviewFinished(e) {
+  if (!e) return false;
+  if (e.finished === true || e.done === true) return true;
+  return REVIEW_FINISHED.indexOf(e.state) >= 0;
+}
+function reviewKey(e) {
+  return [e.row, String(e.kind || '').toLowerCase(),
+    e.renewalNumber == null ? '' : e.renewalNumber].join('|');
+}
+function reviewKindLabel(k) {
+  k = String(k || '').toLowerCase();
+  if (k === 'renewal') return 'Renewal';
+  if (k === 'initial' || k === 'restart') return 'Initial';
+  return k ? k.charAt(0).toUpperCase() + k.slice(1) : '—';
+}
+/* The per-review service order a review falls under, by program and kind —
+   "FY 2027 RON Renewal Assessment…". Whole words, so RON never matches
+   "electronic". None found is allowed: the fee still comes from the CMS. */
+function reviewOrderFor(F, e) {
+  var prog = String(e.program || '').replace(/[^A-Za-z0-9 ]/g, '');
+  var kind = String(e.kind || '').toLowerCase();
+  if (kind === 'restart') kind = 'initial';
+  var hit = null;
+  (F.orders || []).forEach(function (o) {
+    if (hit || !perReviewOrder(o)) return;
+    var subj = String(o.subject || '');
+    if (prog && !new RegExp('\\b' + prog + '\\b', 'i').test(subj)) return;
+    if (kind && !new RegExp('\\b' + kind + '\\b', 'i').test(subj)) return;
+    hit = o;
+  });
+  return hit;
+}
+function reviewsBilled(invoices) {
+  var by = {};
+  (invoices || []).forEach(function (iv) {
+    if (!iv || (iv.state || 'submitted') === 'takenback') return;
+    (iv.reviews || []).forEach(function (r) { if (r && r.key) by[r.key] = iv; });
+  });
+  return by;
+}
+/* Finished reviews not yet on an invoice, in board order. */
+function reviewsOpen(C, invoices) {
+  var file = C && C.reviewsFile;
+  if (!file || !Array.isArray(file.engagements)) return [];
+  var billed = reviewsBilled(invoices);
+  return file.engagements.filter(function (e) {
+    return reviewFinished(e) && !billed[reviewKey(e)];
+  }).map(function (e) {
+    var o = reviewOrderFor(C.F || {}, e);
+    var fee = (e.assessorFee == null || e.assessorFee === '') ? null : Number(e.assessorFee);
+    return { key: reviewKey(e), row: e.row, org: e.org || '', program: e.program || '',
+      product: e.product || '', kind: e.kind || '',
+      renewalNumber: e.renewalNumber == null ? null : e.renewalNumber,
+      state: e.state || '', stateLabel: e.stateLabel || e.state || '',
+      fee: (fee == null || !isFinite(fee)) ? null : fee,
+      orderId: o ? o.id : null, subject: o ? (o.subject || '') : '' };
+  }).sort(function (a, b) { return (Number(a.row) || 0) - (Number(b.row) || 0); });
+}
+/* The ones on this invoice: every finished review is ticked until somebody
+   unticks it, because the portal already knows what should be billed. An
+   unticked one stays on the list for the next invoice. */
+function reviewsPicked(C, invoices) {
+  var off = INV.reviewsOff || {};
+  return reviewsOpen(C, invoices).filter(function (r) { return !off[r.key]; });
+}
+/* Read the firm's engagements onto C. Only for a company that has per-review
+   orders, only on the full key, and only if this sign-in holds the firm's
+   assessor key — asking without it would be refused, and a refused read is
+   not worth the risk of a signed-out page. */
+function withReviews(C) {
+  if (!C || C.hoursOnly) return C;
+  var F = C.F || {};
+  C.reviewsWanted = (F.orders || []).some(function (o) { return perReviewOrder(o); });
+  if (!C.reviewsWanted) return C;
+  var key = 'as-' + C.slug;
+  var acc = (ME && ME.access) || {};
+  if (!Object.prototype.hasOwnProperty.call(acc, key)) {
+    C.reviewsError = 'This sign-in does not include the Assessor Portal, which is where ' +
+      'finished reviews are read from. Email Jonna Critchley at jcritchley@mismo.org and she ' +
+      'can switch it on. Until then, add any reviews to your invoice and say so in the note.';
+    return C;
+  }
+  return R.read(key, 'engagements/' + C.slug + '.json').then(function (r) {
+    C.reviewsFile = (r && r.data) || null;
+    return C;
+  }).catch(function (e) {
+    if (window.console && console.warn) console.warn('reviews', e);
+    C.reviewsError = (e && (e.status === 404 || e.missing))
+      ? 'No finished reviews have been published for this company yet.'
+      : 'They could not be read just now. Nothing has been lost — reload, and tell Jonna ' +
+        'if it keeps happening.';
+    return C;
+  });
+}
+/* The tick list on the invoice screen. */
+function reviewsBlock(C, open, exp) {
+  if (!C || !C.reviewsWanted) return '';
+  var head = '<h4 class="subh">Certification Reviews</h4>';
+  if (C.reviewsError) {
+    return head + '<div class="note"><b>Your finished certification reviews could not be ' +
+      'listed.</b> ' + esc(C.reviewsError) + '</div>';
+  }
+  if (!open.length) {
+    return head + '<p class="empty">No finished certification reviews are waiting to be ' +
+      'invoiced. A review appears here once your work on it is finished and MISMO has ' +
+      'approved it.</p>';
+  }
+  var off = INV.reviewsOff || {};
+  return head +
+    '<p class="fineprint"><b>Every review you have finished and not yet invoiced.</b> The fee ' +
+    'is what MISMO pays for that review. Untick one you are not billing this time and it ' +
+    'stays here for the next invoice.</p>' +
+    '<div class="tbl"><table><thead><tr><th>Bill</th><th>Company</th><th>Certification</th>' +
+    '<th>Review</th><th class="hide-narrow">Where It Is</th><th class="n">Fee</th></tr></thead><tbody>' +
+    open.map(function (r) {
+      return '<tr><td><input type="checkbox" data-inv-rv="' + esc(r.key) + '"' +
+        (off[r.key] ? '' : ' checked') + ' aria-label="Bill this review"></td>' +
+        '<td>' + esc(r.org) + '</td>' +
+        '<td>' + esc(r.program) +
+        (r.product ? ' <span class="fineprint">' + esc(r.product) + '</span>' : '') + '</td>' +
+        '<td>' + esc(reviewKindLabel(r.kind)) + '</td>' +
+        '<td class="hide-narrow">' + esc(r.stateLabel) + '</td>' +
+        '<td class="n">' + (r.fee == null ? '<span class="fineprint">Not set</span>' : money(r.fee)) +
+        '</td></tr>';
+    }).join('') +
+    '</tbody><tfoot><tr><th></th><th>On This Invoice</th><th></th><th></th>' +
+    '<th class="hide-narrow"></th><th class="n">' + money((exp && exp.reviewsTotal) || 0) +
+    '</th></tr></tfoot></table></div>';
+}
+/* The reviews a SENT invoice carries. On MISMO's side (C given) each fee is
+   checked against what the CMS says now. */
+function reviewsTable(list, C) {
+  list = list || [];
+  if (!list.length) return '';
+  var now = {};
+  var eng = C && C.reviewsFile && C.reviewsFile.engagements;
+  (eng || []).forEach(function (e) { now[reviewKey(e)] = e; });
+  var total = list.reduce(function (a, r) { return a + (r.fee == null ? 0 : (Number(r.fee) || 0)); }, 0);
+  return '<h4 class="subh">Certification Reviews on This Invoice</h4>' +
+    '<div class="tbl"><table><thead><tr><th>Company</th><th>Certification</th><th>Review</th>' +
+    '<th class="n">Fee</th></tr></thead><tbody>' +
+    list.map(function (r) {
+      var e = now[r.key];
+      var cur = (e && e.assessorFee != null && e.assessorFee !== '') ? Number(e.assessorFee) : null;
+      var differs = !!(eng && e && cur != null && r.fee != null &&
+        Math.abs(cur - Number(r.fee)) > 0.005);
+      return '<tr><td>' + esc(r.org) + '</td><td>' + esc(r.program) +
+        (r.product ? ' <span class="fineprint">' + esc(r.product) + '</span>' : '') + '</td>' +
+        '<td>' + esc(reviewKindLabel(r.kind)) + '</td>' +
+        '<td class="n">' + (r.fee == null ? '<span class="fineprint">Not set</span>' : money(r.fee)) +
+        (differs ? '<br><span class="pill bad">CMS now says ' + money(cur) + '</span>' : '') +
+        '</td></tr>';
+    }).join('') +
+    '</tbody><tfoot><tr><th>Total</th><th></th><th></th><th class="n">' +
+    money(Math.round(total * 100) / 100) + '</th></tr></tfoot></table></div>';
+}
 
   /* ⚠ THE ONE RULE for which service orders a person may log time against.
      Three screens used to work this out from `person.orders` separately — My
@@ -4655,6 +4863,9 @@ window.H = (function () {
   }
 
   function loadCompany(slug) {
+  return loadCompanyCore(slug).then(withReviews);
+}
+function loadCompanyCore(slug) {
     /* ⚠ An hours-only key takes a DIFFERENT PATH ENTIRELY, rather than the
        same reads with the money dropped afterwards. It asks for one file that
        has no money in it, and asks for nothing else — so there is no request
@@ -6452,17 +6663,24 @@ window.H = (function () {
     var F = C.F;
     INV.list = invoices || [];
     INV.period = period;
+  var rvWaiting = reviewsOpen(C, invoices);
 
     if (!period) {
       return '<p class="lede">Your invoices to MISMO, and what the portal makes of them before ' +
         'you send one.</p>' +
         '<p class="empty"><b>Nothing to invoice for hours.</b> Every period with approved hours ' +
         'on it has been invoiced. The next one opens on the 1st.</p>' +
+      (rvWaiting.length
+        ? '<p class="fineprint"><b>' + rvWaiting.length +
+          (rvWaiting.length === 1 ? ' finished certification review is' : ' finished certification reviews are') +
+          ' waiting.</b> ' + (rvWaiting.length === 1 ? 'It goes' : 'They go') +
+          ' on the next invoice.</p>'
+        : '') +
         claimsBlock(C, files, invoices) +
         sentInvoices(C, invoices);
     }
 
-    var exp = expectedInvoice(F, files, period);
+    var exp = expectedInvoice(F, files, period, reviewsPicked(C, invoices));
     var checks = invoiceChecks(F, files, period, exp, invoices);
     var out = invoiceOutcome(exp, checks, INV.up);
     var due = H.dueState(period, new Date());
@@ -6478,7 +6696,12 @@ window.H = (function () {
     var head =
       '<p class="lede">An invoice covers <b>the month prior</b> and is due by the end of the ' +
       'first full week of the month after it. <b>The portal already knows what it should say</b> ' +
-      '\u2014 the hours your people have submitted, at each order\u2019s own rate.</p>' +
+      (exp.reviewsOnly
+      ? '\u2014 the certification reviews you have finished, at the fee for each.</p>'
+      : exp.reviewsTotal
+        ? '\u2014 the hours your people have submitted, at each order\u2019s own rate, and the ' +
+          'certification reviews you have finished.</p>'
+        : '\u2014 the hours your people have submitted, at each order\u2019s own rate.</p>') +
       '<div class="wkband' + (due.key === 'late' ? ' is-late' : '') + '">' +
         '<div class="wkband-l">' +
           '<span class="wkband-k">Invoice For</span>' +
@@ -6491,7 +6714,8 @@ window.H = (function () {
              Jonna approves the INVOICE, and this figure is worked out from the
              hours exactly as submitted. Calling it approved told the company
              something had been agreed that had not. Jonna, 28 October. */
-          '<span class="wkband-u">the time MISMO holds</span>' +
+          '<span class="wkband-u">' + (exp.reviewsOnly ? 'the reviews MISMO holds'
+      : exp.reviewsTotal ? 'the time and reviews MISMO holds' : 'the time MISMO holds') + '</span>' +
         '</div>' +
       '</div>';
 
@@ -6573,7 +6797,8 @@ window.H = (function () {
       '<div class="note ' + (out.tone || '') + '"><b>' + esc(out.label) + '.</b> ' + out.say + '</div>';
 
     return head +
-      '<h4 class="subh">Hours MISMO Has on Record</h4>' + lines +
+      (exp.reviewsOnly ? '' : '<h4 class="subh">Hours MISMO Has on Record</h4>' + lines) +
+      reviewsBlock(C, rvWaiting, exp) +
       (exp.expensesTotal
         ? '<p class="fineprint"><b>' + money(exp.expensesTotal) + ' of approved expenses falls in ' +
           esc(H.periodLabel(period)) + ' and is NOT on this invoice.</b> Expenses are claimed ' +
@@ -6698,7 +6923,8 @@ window.H = (function () {
       '</div>' +
       (iv.note ? '<p class="fineprint"><b>What you said the difference was:</b> ' +
         esc(iv.note) + '</p>' : '') +
-      '<h4 class="subh">Where It Has Got To</h4>' +
+      reviewsTable(iv.reviews) +
+    '<h4 class="subh">Where It Has Got To</h4>' +
       '<div class="invtrail">' + (iv.trail || []).map(function (t) {
         return '<div class="trow"><span class="tsd"></span><span>' + esc(t.what) + '</span>' +
           '<span class="fineprint">' + esc(stamp(t.at)) + (t.by ? ' \u00b7 ' + esc(t.by) : '') +
@@ -6777,6 +7003,17 @@ window.H = (function () {
       if (t) INV.up.total = t.value === '' ? null : Number(t.value);
       if (nt) INV.up.note = nt.value;
     }
+  /* The certification reviews on this invoice: unticking one keeps it for the
+     next invoice. Kept in INV so a redraw does not tick it again. */
+  document.querySelectorAll('[data-inv-rv]').forEach(function (cb) {
+    cb.addEventListener('change', function () {
+      keepFields();
+      INV.reviewsOff = INV.reviewsOff || {};
+      var k = cb.getAttribute('data-inv-rv');
+      if (cb.checked) delete INV.reviewsOff[k]; else INV.reviewsOff[k] = 1;
+      refresh();
+    });
+  });
     ['inv-num', 'inv-date', 'inv-total', 'inv-note'].forEach(function (id) {
       var el = document.getElementById(id);
       if (!el) return;
@@ -6967,7 +7204,7 @@ window.H = (function () {
           'how something gets paid twice \u2014 use the number on this one.', 'warn');
         return;
       }
-      var exp = expectedInvoice(C.F, files, period);
+      var exp = expectedInvoice(C.F, files, period, reviewsPicked(C, invoices));
       var out = invoiceOutcome(exp, invoiceChecks(C.F, files, period, exp, invoices), up);
       if (!out.can) { toast(out.label, 'warn'); return; }
 
@@ -6993,6 +7230,12 @@ window.H = (function () {
                          hours: l.hours, rate: l.rate, amount: l.amount };
               }),
               expensesTotal: exp.expensesTotal,
+            reviews: (exp.reviews || []).map(function (r) {
+              return { key: r.key, row: r.row, org: r.org, program: r.program, product: r.product,
+                kind: r.kind, renewalNumber: r.renewalNumber, state: r.state, fee: r.fee,
+                orderId: r.orderId, subject: r.subject };
+            }),
+            reviewsTotal: exp.reviewsTotal || 0,
               state: 'submitted', submittedBy: who().name, submittedAt: at,
               trail: [{ what: 'Submitted', at: at, by: who().name }]
             }]);
@@ -7012,7 +7255,7 @@ window.H = (function () {
             raisedOn: at, forAttentionOf: 'jcritchley@mismo.org', sent: false, sentOn: null });
         })
         .then(function () {
-          INV.up = null;
+          INV.up = null; INV.reviewsOff = null;
           toast('Invoice ' + up.number + ' has been submitted.', 'good');
           refresh();
         })
@@ -8191,9 +8434,9 @@ window.H = (function () {
   /* What MISMO holds for the period this invoice covers, worked out fresh —
      never the approvedTotal the company's browser wrote. If somebody corrected
      a week after the invoice went in, the figure that matters is today's. */
-  function heldFor(C, period) {
+  function heldFor(C, period, iv) {
     var files = C.__files || [];
-    return expectedInvoice(C.F, files, period);
+    return expectedInvoice(C.F, files, period, iv ? iv.reviews : null);
   }
 
   function mismoInvoices(list) {
@@ -8208,7 +8451,7 @@ window.H = (function () {
       /* A company with billable time in an open period and nothing sent. */
       var period = openPeriod(C.F, C.__files || [], C.invoices || [], new Date());
       if (period) {
-        var e = expectedInvoice(C.F, C.__files || [], period);
+        var e = expectedInvoice(C.F, C.__files || [], period, reviewsOpen(C, C.invoices || []));
         if (e.total > 0) missing.push({ C: C, period: period, exp: e });
       }
     });
@@ -8231,7 +8474,7 @@ window.H = (function () {
         'appear here the moment one is submitted — you approve it here and nowhere else.</p>';
     }
     var mismatch = g.waiting.filter(function (r) {
-      return Math.abs(Number(heldFor(r.C, r.iv.period).total) - Number(r.iv.total || 0)) > 0.005;
+      return Math.abs(Number(heldFor(r.C, r.iv.period, r.iv).total) - Number(r.iv.total || 0)) > 0.005;
     }).length;
     var payable = g.done.filter(function (r) { return r.st === 'sent'; }).length;
 
@@ -8278,7 +8521,8 @@ window.H = (function () {
               return '<tr><td>' + esc(l.order.subject) + '</td><td class="n">' + hrs(l.hours) +
                 '</td><td class="n">' + money(l.rate) + '</td><td class="n">' + money(l.amount) +
                 '</td></tr>'; }).join('') + '</tbody></table></div>' +
-            '<p class="fineprint">This is what their invoice should come to if nothing changes. ' +
+            reviewsTable(m.exp.reviews) +
+          '<p class="fineprint">This is what their invoice should come to if nothing changes. ' +
             'They see the same figure on their own screen.</p>' +
             '</div></div>';
         }).join('') + '</div>';
@@ -8294,7 +8538,7 @@ window.H = (function () {
   function invRow(r) {
     var C = r.C, iv = r.iv, st = r.st;
     var s = invState(iv);
-    var held = heldFor(C, iv.period);
+    var held = heldFor(C, iv.period, iv);
     var theirs = Number(iv.total || 0);
     var diff = Math.round((theirs - Number(held.total || 0)) * 100) / 100;
     var tag = C.slug + '|' + iv.id;
@@ -8333,6 +8577,7 @@ window.H = (function () {
           (held.notApproved === 1 ? 'week is' : 'weeks are') + ' sent back and being corrected</b>, ' +
           'so ' + (held.notApproved === 1 ? 'it is' : 'they are') + ' not in the figure above.</div>'
         : '') +
+      reviewsTable(iv.reviews, C) +
       '<h4 class="subh">What They Billed</h4>' +
       '<div class="tbl"><table><thead><tr><th>Service Order</th><th class="n">Hours</th>' +
       '<th class="n">Rate</th><th class="n">Amount</th></tr></thead><tbody>' +
