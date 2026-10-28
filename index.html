@@ -1884,7 +1884,7 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
 <main class="wrap"><div id="view"></div></main>
 <div id="printhost"></div>
 
-<script>window.RELAY={"base": "https://rgvdi67cg27o5kcmiytcqbqnrm0hmztx.lambda-url.us-east-1.on.aws", "projects": ["so-phoenix", "so-actualize", "so-trex", "so-falcon", "so-trudigital", "so-vianteye", "so-phoenix-hours", "so-actualize-hours", "so-trex-hours", "so-falcon-hours", "so-trudigital-hours", "so-vianteye-hours"], "slugs": {"so-phoenix": "phoenixteam", "so-actualize": "actualize", "so-trex": "trex", "so-falcon": "falcon", "so-trudigital": "trudigital", "so-vianteye": "vianteye", "so-phoenix-hours": "phoenixteam", "so-actualize-hours": "actualize", "so-trex-hours": "trex", "so-falcon-hours": "falcon", "so-trudigital-hours": "trudigital", "so-vianteye-hours": "vianteye"}, "note": "base is the relay's Lambda function URL. projects is every key this page may sign in against, tried in turn; the token is not project-bound, so the first that works covers them all. slugs maps a project key to the filename its data uses. lite names the HOURS-ONLY keys: a person holding one of those can read orders-public/ and nothing else, so a rate is not merely hidden from their screen, it never reaches their browser. All four are configuration: a sixth company is a change HERE and in projects.json, and nowhere else.", "lite": ["so-phoenix-hours", "so-actualize-hours", "so-trex-hours", "so-falcon-hours", "so-trudigital-hours", "so-vianteye-hours"]};</script>
+<script>window.RELAY={"base": "https://rgvdi67cg27o5kcmiytcqbqnrm0hmztx.lambda-url.us-east-1.on.aws", "projects": ["so-phoenix", "so-actualize", "so-trex", "so-falcon", "so-trudigital", "so-phoenix-hours", "so-actualize-hours", "so-trex-hours", "so-falcon-hours", "so-trudigital-hours"], "slugs": {"so-phoenix": "phoenixteam", "so-actualize": "actualize", "so-trex": "trex", "so-falcon": "falcon", "so-trudigital": "trudigital", "so-phoenix-hours": "phoenixteam", "so-actualize-hours": "actualize", "so-trex-hours": "trex", "so-falcon-hours": "falcon", "so-trudigital-hours": "trudigital"}, "note": "base is the relay's Lambda function URL. projects is every key this page may sign in against, tried in turn; the token is not project-bound, so the first that works covers them all. slugs maps a project key to the filename its data uses. lite names the HOURS-ONLY keys: a person holding one of those can read orders-public/ and nothing else, so a rate is not merely hidden from their screen, it never reaches their browser. All four are configuration: a sixth company is a change HERE and in projects.json, and nowhere else.", "lite": ["so-phoenix-hours", "so-actualize-hours", "so-trex-hours", "so-falcon-hours", "so-trudigital-hours"]};</script>
 <div class="modal" id="confirm" hidden role="alertdialog" aria-modal="true" aria-labelledby="confirm-t">
   <div class="modal-box"><h2 id="confirm-t">You have unsaved changes.</h2>
   <p id="confirm-p">Save them before closing?</p>
@@ -2945,7 +2945,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-24g \u00b7 ending an order';
+  var BUILD = '2026-10-28b \u00b7 who may invoice';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -3362,7 +3362,7 @@ window.H = (function () {
   /* =========================================================================
    * VIEW AS — Jonna seeing a company's own screen, for training
    *
-   * She is platformAdmin with admin on all six project keys, so the page can
+   * She is platformAdmin with admin on all five project keys, so the page can
    * read any company's real files from her own sign-in.  ⚠ This is not
    * impersonation and borrows nobody's password: it is reading files she
    * already has the right to read and drawing them in the company's layout.
@@ -3979,6 +3979,7 @@ window.H = (function () {
       if (!o) return;
       if (o.email != null) p.email = o.email;
       if (o.fullAccess != null) p.fullAccess = !!o.fullAccess;
+      if (o.canInvoice != null) p.canInvoice = !!o.canInvoice;
       if (o.timeManager != null) p.timeManager = !!o.timeManager;
       /* The orders this person normally logs against. Replaced outright rather
          than merged — a list that could only ever grow would make removing an
@@ -4224,10 +4225,10 @@ window.H = (function () {
     /* ⚠ Pulled back by the company because the hours behind it changed. It is
        not a rejection and not a credit — the invoice never reached MISMO's
        approval, so it simply stops counting and is sent again once the
-       corrected week has been reapproved. */
+       corrected week has been sent again. */
     takenback: { label: 'Taken Back to Correct', tone: 'bad',
-      said: 'Taken back because a week behind it was corrected. Send it again once MISMO has ' +
-            'reapproved that week.' }
+      said: 'Taken back because a week behind it was corrected. Send it again once that week ' +
+            'has been corrected and resubmitted.' }
   };
   function invState(iv) {
     return INV_STATES[(iv && iv.state) || 'submitted'] || INV_STATES.submitted;
@@ -4376,7 +4377,7 @@ window.H = (function () {
       return { key: 'needtotal', label: 'The Total Is Still Needed', tone: 'warn', can: false,
         say: 'The portal could not find the total on this PDF. Type it and it will be checked ' +
              'the same way. This is the only figure it ever asks for \u2014 the lines are ' +
-             'already known from your approved hours.' };
+             'already known from the hours your people have submitted.' };
     }
     var diff = Math.round((Number(up.total) - exp.total) * 100) / 100;
     if (Math.abs(diff) < 0.005) {
@@ -4910,6 +4911,15 @@ window.H = (function () {
      their own sign-in would. If the two could ever differ, View As would be
      worth nothing as a check. */
   function isFac() { return REALROLE !== 'signer'; }
+  /* Who may send this company's invoice.
+     ⚠ The signer always can — it is their company's money — and anybody
+     Jonna has switched on explicitly. Nothing is inferred from logging time or
+     from managing it: sending an invoice is a different job from either. */
+  function canInvoice(F, me) {
+    if (!isFac()) return true;
+    var pr = personFor(F, me);
+    return !!(pr && pr.canInvoice);
+  }
 
   function contractorView() {
     busy();
@@ -5211,7 +5221,16 @@ window.H = (function () {
                 : '') +
               /* ⚠ Signers only. Decision 26: an invoice is money, so My
                  Invoices is absent from a facilitator's rail entirely. */
-              (isFac() ? '' : sect('My Invoices', (C.invoices || []).length,
+              /* ⚠ null, not 0 — a badge reading "0" beside a section is noise.
+                 Same fix as the admin side. */
+              /* ⚠ Jonna, 28 October: invoicing used to be welded to "Sees
+                 Everything the Signer Sees", so the only way to let somebody
+                 send the invoice was to hand them the rates, the orders and
+                 the review screen as well. Richard at TruDigital needs to
+                 invoice and nothing else. canInvoice is its own switch.
+                 ⚠ It cannot work on an hours-only key — invoices/ is not
+                 readable there at all — which is said on the switch itself. */
+              (!canInvoice(F, who()) ? '' : sect('My Invoices', (C.invoices || []).length || null,
                 invoicesSection(C, files, C.invoices || [],
                   openPeriod(F, files, C.invoices || [], new Date())))) +
               (person.timeManager
@@ -5238,7 +5257,8 @@ window.H = (function () {
                  them looking for it. */
               sect('Help', null, helpFor('facilitator', F, {
                 expenses: !!(person && person.expenses),
-                timeManager: !!(person && person.timeManager) }))
+                timeManager: !!(person && person.timeManager),
+                canInvoice: canInvoice(F, who()) }))
             : sect('To Review', toReview.length, review) +
               hb +
               sect('My Service Orders', yearOrders.length, all) +
@@ -5254,7 +5274,11 @@ window.H = (function () {
              which is why the figures were right while the wiring threw.
              HRS.files is where that callback parks them, and it is the only
              copy either of them should be reading. */
-          if (!isFac()) {
+          /* ⚠ The SAME question that decides whether the section is drawn.
+             Gating the drawing on canInvoice and the wiring on isFac left
+             somebody with the switch on looking at an invoice screen whose
+             buttons did nothing at all. */
+          if (canInvoice(F, who())) {
             var invFiles = HRS.files || [];
             wireInvoices(C, invFiles, C.invoices || [],
               openPeriod(F, invFiles, C.invoices || [], new Date()));
@@ -6425,7 +6449,7 @@ window.H = (function () {
     var head =
       '<p class="lede">An invoice covers <b>the month prior</b> and is due by the end of the ' +
       'first full week of the month after it. <b>The portal already knows what it should say</b> ' +
-      '\u2014 your approved hours at each order\u2019s own rate, and your approved expenses.</p>' +
+      '\u2014 the hours your people have submitted, at each order\u2019s own rate.</p>' +
       '<div class="wkband' + (due.key === 'late' ? ' is-late' : '') + '">' +
         '<div class="wkband-l">' +
           '<span class="wkband-k">Invoice For</span>' +
@@ -6434,7 +6458,11 @@ window.H = (function () {
         '</div>' +
         '<div class="wkband-r">' +
           '<span class="wkband-h">' + money(exp.total) + '</span>' +
-          '<span class="wkband-u">what MISMO has approved</span>' +
+          /* ⚠ NOT "what MISMO has approved". Nobody approves time any more —
+             Jonna approves the INVOICE, and this figure is worked out from the
+             hours exactly as submitted. Calling it approved told the company
+             something had been agreed that had not. Jonna, 28 October. */
+          '<span class="wkband-u">the time MISMO holds</span>' +
         '</div>' +
       '</div>';
 
@@ -7068,16 +7096,21 @@ window.H = (function () {
             ? '<div class="issacts"><button class="tbtn" type="button" data-wkback="' +
                 esc(wk.weekEnding) + '">Take It Back to Correct</button></div>' +
               '<p class="fineprint">' +
+              /* ⚠ 'approved' is a LEGACY week state. Nothing sets it any more —
+                 Jonna approves the invoice, not the week — but weeks approved
+                 before that changed still carry it, and telling those people
+                 their week has to be 'approved again' describes a step that no
+                 longer exists. Jonna, 28 October. */
               (wk.state === 'approved'
-                ? 'MISMO has approved this week, but it is still yours to correct — taking it ' +
-                  'back needs nobody’s permission. <b>It has to be approved again</b> once you ' +
-                  'send it, and MISMO is shown what changed.'
-                : 'It has not been approved yet, so it is still yours. Taking it back needs ' +
+                ? 'MISMO looked at this week back when weeks were approved one by one. <b>It ' +
+                  'is still yours to correct</b> — taking it back needs nobody’s permission, ' +
+                  'and it is billable again the moment you send it. MISMO is shown what changed.'
+                : 'It is billable as it stands and it is still yours. Taking it back needs ' +
                   'nobody’s permission — what you first sent is kept as its own version.') +
               (pend
                 ? ' <b>Your invoice ' + esc(pend.number || '') + ' comes back with it</b>, because ' +
-                  'the figure on it was worked out from these hours. Send it again once the week ' +
-                  'has been reapproved.'
+                  'the figure on it was worked out from these hours. Correct the week, send it ' +
+                  'again, and your invoice goes back with the right figure on it.'
                 : '') +
               '</p>'
             : wk.state === 'returned'
@@ -8835,8 +8868,8 @@ window.H = (function () {
          not what the chooser intended. If those two ever disagreed, the banner
          would be the thing telling Jonna the check had passed. */
       '<span class="va-r">' + esc(VIEWAS.person || '') + ' · ' +
-        ({ 'vp-product': 'the VP’s decision queue, across all six companies',
-           president: 'the President’s approval queue, across all six companies'
+        ({ 'vp-product': 'the VP’s decision queue, across all five companies',
+           president: 'the President’s approval queue, across all five companies'
          }[VIEWAS.role] ||
          (isFac() ? 'a facilitator — no rate, no fee, hours only'
                   : 'the signer — everything they see')) + '</span>' +
@@ -8896,7 +8929,7 @@ window.H = (function () {
       'buttons. If they wrote, a training session would accept live service orders and submit live ' +
       'time — and an acknowledgment recorded while you were driving the screen would be worthless ' +
       'while looking genuine. Every write is refused at the source, not by greying out a button.</div>' +
-      '<div class="note ok"><b>You are not borrowing anybody’s password.</b> You hold all six ' +
+      '<div class="note ok"><b>You are not borrowing anybody’s password.</b> You hold all five ' +
       'project keys, so the page is reading records you already have the right to read and drawing ' +
       'them in the company’s layout instead of yours.</div>' +
       '<p class="fineprint"><b>A facilitator’s screen carries no dollar figure at all</b> — no ' +
@@ -9886,6 +9919,8 @@ window.H = (function () {
               '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
               '<span class="rt">' + esc(pr.name) + '</span>' +
               (pr.fullAccess ? '<span class="pill good">Sees Everything</span>' : '') +
+              (pr.canInvoice && !pr.fullAccess
+                ? '<span class="pill">Can Invoice</span>' : '') +
               (pr.timeManager ? '<span class="pill">Time Manager</span>' : '') +
               (pr.expenses ? '<span class="pill">Expenses</span>' : '') +
               (pr.activeTo ? '<span class="pill warn">Left ' + esc(pr.activeTo) + '</span>' : '') +
@@ -9897,6 +9932,10 @@ window.H = (function () {
               '<select class="cdf" data-p="' + pp + '" data-k="pfull">' +
               '<option value="no"' + (pr.fullAccess ? '' : ' selected') + '>No — hours only, no money</option>' +
               '<option value="yes"' + (pr.fullAccess ? ' selected' : '') + '>Yes</option></select></div>' +
+              '<div class="f"><label>Can Submit Invoices for the Company</label>' +
+              '<select class="cdf" data-p="' + pp + '" data-k="pinv">' +
+              '<option value="no"' + (pr.canInvoice ? '' : ' selected') + '>No</option>' +
+              '<option value="yes"' + (pr.canInvoice ? ' selected' : '') + '>Yes</option></select></div>' +
               '<div class="f"><label>Company Time Manager</label>' +
               '<select class="cdf" data-p="' + pp + '" data-k="ptm">' +
               '<option value="no"' + (pr.timeManager ? '' : ' selected') + '>No</option>' +
@@ -9979,6 +10018,9 @@ window.H = (function () {
           '<select class="cdn" data-p="' + p + '" data-k="nfull">' +
           '<option value="no">No \u2014 hours only, no money</option>' +
           '<option value="yes">Yes</option></select></div>' +
+          '<div class="f"><label>Can Submit Invoices for the Company</label>' +
+          '<select class="cdn" data-p="' + p + '" data-k="ninv">' +
+          '<option value="no">No</option><option value="yes">Yes</option></select></div>' +
           '</div>' +
           '<p class="fineprint"><b>Adding them here does not give them a sign-in.</b> That is a ' +
           'separate step in the admin panel, and their email has to match what is typed above or ' +
@@ -10064,7 +10106,7 @@ window.H = (function () {
 
       var board =
         '<div class="vhead"><div class="grow"><h1>Where Everything Has Got To</h1>' +
-        '<p>Every FY 2027 service order across all six contracting companies, and what is ' +
+        '<p>Every FY 2027 service order across all five contracting companies, and what is ' +
         'waiting on whom.</p></div></div>' +
 
         '<div class="headline">' +
@@ -10521,6 +10563,8 @@ window.H = (function () {
             if (val(pp, 'pemail') !== (pr.email || '')) one.email = val(pp, 'pemail');
             var full = val(pp, 'pfull') === 'yes';
             if (full !== !!pr.fullAccess) one.fullAccess = full;
+            var inv = val(pp, 'pinv') === 'yes';
+            if (inv !== !!pr.canInvoice) one.canInvoice = inv;
             var tm = val(pp, 'ptm') === 'yes';
             if (tm !== !!pr.timeManager) one.timeManager = tm;
             /* ⚠ Compared against the EFFECTIVE answer, not against a stored
@@ -10556,6 +10600,7 @@ window.H = (function () {
               logsTime: nval('nlogs') !== 'no',
               expenses: nval('nexp') === 'yes',
               fullAccess: nval('nfull') === 'yes',
+              canInvoice: nval('ninv') === 'yes',
               activeFrom: readDate(nval('nfrom')) || '',
               addedBy: who().name,
               addedOn: new Date().toISOString()
@@ -10991,6 +11036,29 @@ window.H = (function () {
       'you.</p>');
   }
 
+  /* ⚠ Only for somebody Jonna has switched invoicing on for. It is its own
+     switch now, so this is its own block rather than something buried in the
+     consulting company's page. */
+  function helpInvoicing() {
+    return blk('Sending the Company’s Invoice', steps([
+      'Open <b>My Invoices</b>. It names the month being invoiced and shows the lines — every service order, the hours, the rate and the amount.',
+      '<b>Those figures come from the time your people have submitted.</b> Nobody at MISMO approves the time first.',
+      'The total on the right is <b>the time MISMO holds</b> for that month — what your invoice should come to if nothing changes.',
+      'Attach your invoice <b>PDF</b> and put in the <b>total</b>. The portal reads the total off the PDF where it can.',
+      'If your total matches, it goes straight through. If it does not, <b>one line saying why</b> and it can go.',
+      '<b>Your PDF is the document of record</b> — the lines on screen are only the portal’s reading of it.']))
+    + blk('After You Send One', steps([
+      'MISMO reviews it. Until they <b>approve</b> it, your people can still take a week back and correct it.',
+      'If a week is corrected, <b>the invoice comes back to you with it</b> — fix the week, send it again, and your invoice number is free to reuse.',
+      'If MISMO has a question, the invoice comes back with it and the hours are yours again.',
+      'Once approved it goes to <b>MBA accounts payable</b>, and the weeks behind it lock.',
+      'Once <b>paid</b>, those weeks close for good — a correction after that goes on the next period.']))
+    + blk('Expense Claims Are Separate', '<p>Expenses are claimed <b>per summit</b>, not per ' +
+      'month, usually within a week of the summit ending. <b>An expense claim is its own ' +
+      'invoice, sent separately</b> — it is never added to the monthly hours invoice. Look for ' +
+      '<b>Expenses to Claim</b> at the foot of My Invoices.</p>');
+  }
+
   function helpAwaySeeing() {
     return blk('Your Company’s Time', steps([
       '<b>The Company’s Month</b> is the reconciliation view: every service order, the hours against it this month, and who the hours were for.',
@@ -11014,6 +11082,7 @@ window.H = (function () {
         + helpTimeEntry()
         + (o.expenses ? helpExpenses() : '')
         + (o.timeManager ? helpAwaySeeing() : '')
+        + (o.canInvoice ? helpInvoicing() : '')
         + blk('Seeing Whether an Order Is Running Out', steps([
           'Open <b>My Service Orders</b>. It shows <b>Allotted</b>, <b>Used</b> and <b>Remaining</b> in hours for every order you work on.',
           'Those are the <b>whole order</b>, not your share — when several of you cover the same order, that is the only figure that says whether it is close to running out.',
