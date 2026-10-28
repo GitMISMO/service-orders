@@ -6685,7 +6685,11 @@ function loadCompanyCore(slug) {
     var out = invoiceOutcome(exp, checks, INV.up);
     var due = H.dueState(period, new Date());
 
-    var dueSay = due.key === 'open'
+    /* A company paid only per review has no month of hours behind the invoice, so
+       an old period is not 'overdue' for it — nothing was due then. */
+    var dueSay = (exp.reviewsOnly && due.key === 'late')
+      ? '<b>Send it when you are ready</b> — it covers every review finished and not yet invoiced.'
+      : due.key === 'open'
       ? '<b>Due ' + esc(due.due) + '</b> \u2014 ' + due.days +
         (due.days === 1 ? ' day' : ' days') + ' from now.'
       : due.key === 'today'
@@ -6702,7 +6706,7 @@ function loadCompanyCore(slug) {
         ? '\u2014 the hours your people have submitted, at each order\u2019s own rate, and the ' +
           'certification reviews you have finished.</p>'
         : '\u2014 the hours your people have submitted, at each order\u2019s own rate.</p>') +
-      '<div class="wkband' + (due.key === 'late' ? ' is-late' : '') + '">' +
+      '<div class="wkband' + (due.key === 'late' && !exp.reviewsOnly ? ' is-late' : '') + '">' +
         '<div class="wkband-l">' +
           '<span class="wkband-k">Invoice For</span>' +
           '<span class="wkband-d">' + esc(H.periodLabel(period)) + '</span>' +
@@ -8506,7 +8510,7 @@ function loadCompanyCore(slug) {
           return '<div class="row"><div class="row-h">' +
             '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
             '<span class="rt">' + esc(m.C.F.company) + '</span>' +
-            (ds && ds.late ? '<span class="pill bad">Overdue</span>' : '') +
+            (ds && ds.late && !m.exp.reviewsOnly ? '<span class="pill bad">Overdue</span>' : '') +
             '<span class="rs num">' + money(m.exp.total) + '</span>' +
             '</div><div class="row-b">' +
             '<div class="fields">' +
