@@ -2945,7 +2945,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-28b \u00b7 who may invoice';
+  var BUILD = '2026-10-28c \u00b7 view as sees it too';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -3829,8 +3829,12 @@ window.H = (function () {
      the people logging time keep being offered an order that has ended,
      because their screen reads this copy and nothing else. */
   var HOURS_ORDER_FIELDS = ['id', 'subject', 'estimatedHours', 'fiscalYear', 'endedOn'];
+  /* ⚠ 'canInvoice' is a boolean, not money. It is carried so an hours-only
+     screen can say plainly that the switch is on but the sign-in cannot reach
+     the invoices — rather than silently showing nothing. */
   var HOURS_PERSON_FIELDS = ['slug', 'name', 'email', 'orders', 'timeManager',
-                             'logsTime', 'expenses', 'activeFrom', 'activeTo'];
+                             'logsTime', 'expenses', 'activeFrom', 'activeTo',
+                             'canInvoice'];
 
   function hoursCopy(F) {
     function pick(src, fields) {
@@ -4911,12 +4915,24 @@ window.H = (function () {
      their own sign-in would. If the two could ever differ, View As would be
      worth nothing as a check. */
   function isFac() { return REALROLE !== 'signer'; }
+  var ONLITE = false;        /* this screen is drawn from the hours-only copy */
   /* Who may send this company's invoice.
      ⚠ The signer always can — it is their company's money — and anybody
      Jonna has switched on explicitly. Nothing is inferred from logging time or
      from managing it: sending an invoice is a different job from either. */
   function canInvoice(F, me) {
+    /* ⚠ Not on an hours-only sign-in, whatever the switch says. invoices/ is
+       not readable there, so the section would draw itself empty and look
+       broken. The switch needs the full key behind it; wantsInvoice below is
+       what lets the screen say so. */
+    if (ONLITE) return false;
     if (!isFac()) return true;
+    var pr = personFor(F, me);
+    return !!(pr && pr.canInvoice);
+  }
+  /* Switched on, but on a sign-in that cannot reach the invoices. */
+  function wantsInvoice(F, me) {
+    if (!ONLITE) return false;
     var pr = personFor(F, me);
     return !!(pr && pr.canInvoice);
   }
@@ -4924,12 +4940,14 @@ window.H = (function () {
   function contractorView() {
     busy();
     REALROLE = 'facilitator';         // ⚠ reset first: never inherit the last screen's answer
+    ONLITE = false;
     loadCompany(who().slug).then(function (C) {
       var F = C.F, sigs = C.sigs;
       /* ⚠ Decided ONCE, here, before a single row is built — from who() , which
          is the person being viewed in View As and the signed-in person
          otherwise. Every isFac() call below reads this answer. */
       REALROLE = C.hoursOnly ? 'facilitator' : roleFor(F, who(), C.slug);
+      ONLITE = !!C.hoursOnly;
       if (VIEWAS && C.hoursOnly) VIEWAS.builtOn = F.builtOn || null;
       var st = {};
       F.orders.forEach(function (o) { st[o.id] = statusOf(o, sigs); });
@@ -5230,6 +5248,17 @@ window.H = (function () {
                  invoice and nothing else. canInvoice is its own switch.
                  ⚠ It cannot work on an hours-only key — invoices/ is not
                  readable there at all — which is said on the switch itself. */
+              /* Switched on, but signed in on the hours-only key — say so,
+                 rather than leaving them looking for a section that is not
+                 there and cannot be. */
+              (wantsInvoice(F, who())
+                ? sect('My Invoices', null,
+                    '<div class="note"><b>You are set up to send your company\u2019s invoice, but ' +
+                    'this sign-in cannot reach the invoices.</b> Invoicing needs the full ' +
+                    'company sign-in rather than the hours-only one. <b>Email Jonna Critchley</b> ' +
+                    'at <a href="mailto:jcritchley@mismo.org">jcritchley@mismo.org</a> and she ' +
+                    'can switch it over.</div>')
+                : '') +
               (!canInvoice(F, who()) ? '' : sect('My Invoices', (C.invoices || []).length || null,
                 invoicesSection(C, files, C.invoices || [],
                   openPeriod(F, files, C.invoices || [], new Date())))) +
@@ -8969,12 +8998,16 @@ window.H = (function () {
         return;
       }
       var n = ordersForPerson(F, pr, F.fiscalYear);
+      /* ⚠ "hours only, no money" is not true of somebody who may invoice —
+         an invoice IS money. Saying it in the chooser would have Jonna
+         picking a screen expecting one thing and getting another. */
+      var money = pr.canInvoice ? ' \u2014 can send the invoice'
+                                : ' \u2014 hours only, no money';
       out.push({ key: pr.slug, name: pr.name, role: 'facilitator',
-                 what: n.all.length
+                 what: (n.all.length
                    ? 'logs ' + n.own.length + ' of their own' +
-                     (n.cover.length ? ', can cover ' + n.cover.length + ' more' : '') +
-                     ' \u2014 hours only, no money'
-                   : 'time manager \u2014 hours only, no money' });
+                     (n.cover.length ? ', can cover ' + n.cover.length + ' more' : '')
+                   : (pr.timeManager ? 'time manager' : 'logs no time')) + money });
     });
     return out;
   }
@@ -9042,7 +9075,13 @@ window.H = (function () {
        stale; an unpublished one shows the same message they get. */
     var asIdentity = { slug: C.slug, name: pick.name,
       email: rec ? (rec.email || '') : ((F.signers.order || {}).email || '') };
-    var lite = roleFor(F, asIdentity) === 'facilitator';
+    /* ⚠ Somebody who may INVOICE is not on the hours-only key, whatever
+       their role says. invoices/ cannot be read there at all — the relay
+       refuses it — so to invoice at all they must hold the full key, and View
+       As has to load what they actually load. Reading the hours copy for them
+       drew the facilitator's screen with no invoice section on it, which is
+       exactly the lie View As exists to prevent. Jonna, 28 October. */
+    var lite = roleFor(F, asIdentity) === 'facilitator' && !(rec && rec.canInvoice);
 
     VIEWAS = {
       slug: C.slug,
