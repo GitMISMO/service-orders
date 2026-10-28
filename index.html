@@ -2945,7 +2945,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-10-28d · certification reviews on invoices';
+  var BUILD = '2026-10-28e · reviews already invoiced in MACTS';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -4519,6 +4519,22 @@ window.H = (function () {
  *   says why. It must never take the page down.
  * ======================================================================= */
 var REVIEW_FINISHED = ['ApprovedPendingLicense', 'LicenseSent', 'Certified'];
+/* Reviews the firms invoiced BEFORE the portal took invoicing on — MACTS
+   'Assessor Invoice Date', caught up by Jonna on 28 Oct 2026. Billed once means
+   billed once, so these never come back onto an invoice here.
+   ⚠ Keyed by CMS row (row|kind|renewal number), never by company name: this
+   file is public. The value is the date the firm invoiced it. */
+var REVIEWS_BILLED_BEFORE = {
+  falcon: {
+    '333|initial|': '02/03/26',
+    '376|renewal|2': '08/03/26',
+    '383|renewal|5': '08/03/26',
+    '391|renewal|6': '09/28/26',
+    '393|renewal|6': '09/28/26',
+    '396|renewal|5': '09/28/26'
+  },
+  actualize: {}
+};
 function reviewFinished(e) {
   if (!e) return false;
   if (e.finished === true || e.done === true) return true;
@@ -4564,8 +4580,9 @@ function reviewsOpen(C, invoices) {
   var file = C && C.reviewsFile;
   if (!file || !Array.isArray(file.engagements)) return [];
   var billed = reviewsBilled(invoices);
+  var prior = REVIEWS_BILLED_BEFORE[C.slug] || {};
   return file.engagements.filter(function (e) {
-    return reviewFinished(e) && !billed[reviewKey(e)];
+    return reviewFinished(e) && !billed[reviewKey(e)] && !prior[reviewKey(e)];
   }).map(function (e) {
     var o = reviewOrderFor(C.F || {}, e);
     var fee = (e.assessorFee == null || e.assessorFee === '') ? null : Number(e.assessorFee);
