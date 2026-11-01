@@ -1,0 +1,17 @@
+{
+  "name": "MISMO Expenses",
+  "short_name": "Expenses",
+  "description": "Snap a receipt, check what it filled in, and send it to MISMO.",
+  "id": "/service-orders/?app=expenses",
+  "start_url": "/service-orders/?app=expenses",
+  "scope": "/service-orders/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0d314c",
+  "theme_color": "#0d314c",
+  "icons": [
+    { "src": "/service-orders/xp-icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/service-orders/xp-icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/service-orders/xp-icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
