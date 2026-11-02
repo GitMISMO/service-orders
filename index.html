@@ -2945,7 +2945,7 @@ window.H = (function () {
      exactly like a fresh one. The stamp is printed on the error screen and on
      the sign-in screen, so a fault report says which build it came from
      instead of costing a round of guessing. Bump it on every upload. */
-  var BUILD = '2026-11-02 \u00b7 paid per review';
+  var BUILD = '2026-11-02b \u00b7 smoother, and the emails';
 
   var $ = function (s, root) { return (root || document).querySelector(s); };
   var $$ = function (s, root) {
@@ -6622,8 +6622,11 @@ window.H = (function () {
           'value="' + esc(up.note || '') + '"></div>'
         : '');
 
+    /* ⚠ Carries an id so typing in a field can UPDATE it rather than
+       rebuilding the page around it. See restate() in wireInvoices. */
     var outcome =
-      '<div class="note ' + (out.tone || '') + '"><b>' + esc(out.label) + '.</b> ' + out.say + '</div>';
+      '<div class="note ' + (out.tone || '') + '" id="inv-outcome"><b>' + esc(out.label) +
+      '.</b> ' + out.say + '</div>';
 
     return head +
       '<h4 class="subh">Hours MISMO Has on Record</h4>' + lines +
@@ -6716,7 +6719,8 @@ window.H = (function () {
         ? '<div class="f"><label>What the Difference Is</label><input type="text" ' +
           'data-clm-note="' + i + '" value="' + esc(up.note || '') + '"></div>'
         : '') +
-      '<div class="note ' + (out.tone || '') + '"><b>' + esc(out.label) + '.</b> ' + out.say + '</div>' +
+      '<div class="note ' + (out.tone || '') + '" id="clm-outcome"><b>' + esc(out.label) +
+        '.</b> ' + out.say + '</div>' +
       '<div class="onebar"><button class="gobtn" type="button" data-clm-go="' + i + '"' +
       (out.can ? '' : ' disabled') + '>Submit This Expense Claim</button></div>';
   }
@@ -6811,6 +6815,15 @@ window.H = (function () {
     return out;
   }
 
+  /* Where a confirmation goes back to. The person who pressed the button
+     first — it is their invoice — and the company's signer only if that
+     account has no address of its own. */
+  function senderEmail(C) {
+    var me = who() || {};
+    if (me.email) return me.email;
+    return ((C.F.signers || {}).order || {}).email || null;
+  }
+
   function wireInvoices(C, files, invoices, period) {
     function refresh() { HRS.files = null; hoursHome(); }
     var say = document.getElementById('inv-say');
@@ -6830,10 +6843,38 @@ window.H = (function () {
       if (t) INV.up.total = t.value === '' ? null : Number(t.value);
       if (nt) INV.up.note = nt.value;
     }
+    /* ⚠ Typing a field used to call refresh(), which threw away the loaded
+       hours and REBUILT THE WHOLE SCREEN — a network round-trip per field,
+       and the page jumping under you after every entry. Falcon, 2 November:
+       "everytime we entered one piece of information it does a refresh (like
+       it's saving per each entry)."
+
+       Nothing typed in these four fields changes anybody's hours, so none of
+       it needs re-reading. What DOES change is the answer at the bottom: does
+       this invoice match, does it still need a line of explanation, can it be
+       sent. So that is the only thing updated. */
+    function restate() {
+      keepFields();
+      var exp = expectedInvoice(C.F, files, period);
+      var out = invoiceOutcome(exp, invoiceChecks(C.F, files, period, exp, invoices), INV.up);
+      var box = document.getElementById('inv-outcome');
+      if (box) {
+        box.className = 'note ' + (out.tone || '');
+        box.innerHTML = '<b>' + esc(out.label) + '.</b> ' + out.say;
+      }
+      var go = document.getElementById('inv-go');
+      if (go) go.disabled = !out.can;
+      var qc = document.getElementById('inv-qc');
+      if (qc) qc.textContent = out.label;
+    }
     ['inv-num', 'inv-date', 'inv-total', 'inv-note'].forEach(function (id) {
       var el = document.getElementById(id);
       if (!el) return;
-      el.addEventListener('change', function () { keepFields(); refresh(); });
+      /* `input` as well as `change`: the answer keeps up as they type rather
+         than only when they click away, which is what makes it feel settled
+         instead of lurching. */
+      el.addEventListener('input', restate);
+      el.addEventListener('change', restate);
     });
 
     function take(file) {
@@ -6926,15 +6967,30 @@ window.H = (function () {
       ['num','total','note'].forEach(function (k) {
         (root || document).querySelectorAll('[data-clm-' + k + ']').forEach(function (el) {
           if (el.dataset.wired) return; el.dataset.wired = '1';
-          el.addEventListener('change', function () {
+          /* ⚠ This used to RE-OPEN THE WHOLE PANEL on every field, which
+             rebuilt its contents and threw away the cursor with them — worse
+             than the invoice screen's rebuild, because the panel also scrolled
+             back to the top. Nothing typed here changes an expense; only the
+             answer at the bottom moves, so only that is updated. */
+          function restateClaim() {
             var i = Number(el.dataset['clm' + k.charAt(0).toUpperCase() + k.slice(1)]);
             INV.claimUp = INV.claimUp && INV.claimUp.i === i ? INV.claimUp : { i: i };
             INV.claimUp[k === 'num' ? 'number' : k] =
               k === 'total' ? (el.value === '' ? null : Number(el.value)) : el.value;
             var claim = (INV.claims || [])[i];
-            openPanel(claim.summit, claimPanel(C, claim, i));
-            wireClaim(document.getElementById('panel-body'));
-          });
+            if (!claim) return;
+            var up = INV.claimUp;
+            var out = claimOutcome(claim, up.file ? up : null, invoices);
+            var box = document.getElementById('clm-outcome');
+            if (box) {
+              box.className = 'note ' + (out.tone || '');
+              box.innerHTML = '<b>' + esc(out.label) + '.</b> ' + out.say;
+            }
+            var go = (root || document).querySelector('[data-clm-go="' + i + '"]');
+            if (go) go.disabled = !out.can;
+          }
+          el.addEventListener('input', restateClaim);
+          el.addEventListener('change', restateClaim);
         });
       });
 
@@ -7059,10 +7115,25 @@ window.H = (function () {
           return notify(C.slug, {
             kind: 'invoice-submitted', company: C.F.company,
             invoice: up.number, period: period, total: Number(up.total),
-            who: who().name,
+            who: who().name, to: 'jcritchley@mismo.org',
             said: C.F.company + ' has submitted invoice ' + up.number + ' for ' +
-                  H.periodLabel(period) + '.',
-            raisedOn: at, forAttentionOf: 'jcritchley@mismo.org', sent: false, sentOn: null });
+                  H.periodLabel(period) + ', ' + money(Number(up.total)) + '.',
+            raisedOn: at, forAttentionOf: 'jcritchley@mismo.org', sent: false, sentOn: null })
+            .then(function () {
+              /* ⚠ A second notice, to the person who pressed the button.
+                 Jonna, 2 November: they want to know it landed. Without this
+                 the only confirmation is a toast that disappears, and the
+                 next thing they hear is nothing for a week. */
+              return notify(C.slug, {
+                kind: 'invoice-received', company: C.F.company,
+                invoice: up.number, period: period, total: Number(up.total),
+                to: senderEmail(C), toName: who().name, who: who().name,
+                said: 'MISMO has received invoice ' + up.number + ' for ' +
+                      H.periodLabel(period) + ', ' + money(Number(up.total)) +
+                      '. It is with MISMO for review — you will be emailed again once it has ' +
+                      'been approved and sent to accounts payable.',
+                raisedOn: at, forAttentionOf: null, sent: false, sentOn: null });
+            });
         })
         .then(function () {
           INV.up = null;
@@ -8238,6 +8309,22 @@ window.H = (function () {
    * unlocks them again by the same rule, with no extra write — the lock is
    * derived from the invoice's state, so the question IS the unlock.
    * ======================================================================= */
+  /* MBA's accounts payable. ⚠ One place, so it is changed once. */
+  var AP_EMAIL = 'Accounts.Payable@mortgagebankers.org';
+
+  /* The address an invoice came from, so the answer goes back to whoever
+     actually sent it rather than to whoever happens to sign orders. */
+  function invoiceSenderEmail(C, iv) {
+    var people = (C.F.people || []);
+    var by = String(iv.submittedBy || '').toLowerCase().trim();
+    for (var i = 0; i < people.length; i++) {
+      if (String(people[i].name || '').toLowerCase().trim() === by && people[i].email) {
+        return people[i].email;
+      }
+    }
+    return ((C.F.signers || {}).order || {}).email || null;
+  }
+
   function invTotalHours(iv) {
     return (iv.lines || []).reduce(function (a, l) { return a + (Number(l.hours) || 0); }, 0);
   }
@@ -8560,12 +8647,32 @@ window.H = (function () {
             { what: 'Approved and sent to accounts payable', at: at, by: ME.name }]);
         }, 'invoice approved: ' + c.C.slug + ' ' + (c.iv.number || c.iv.id))
           .then(function () {
+            /* Two emails come out of this one action, and they are not the
+               same email. The company is told; accounts payable is SENT it. */
             return notify(c.C.slug, {
               kind: 'invoice-approved', company: c.C.F.company,
               invoice: c.iv.number || c.iv.id, period: c.iv.period,
               total: c.iv.total, who: ME.name,
-              said: 'Invoice ' + (c.iv.number || '') + ' has been approved and sent to accounts payable.',
-              raisedOn: at, forAttentionOf: null, sent: false, sentOn: null });
+              to: invoiceSenderEmail(c.C, c.iv),
+              said: 'Invoice ' + (c.iv.number || '') + ' for ' +
+                    H.periodLabel(c.iv.period) + ' has been approved by MISMO and sent to MBA ' +
+                    'accounts payable. Payment follows their own run.',
+              raisedOn: at, forAttentionOf: null, sent: false, sentOn: null })
+              .then(function () {
+                return notify(c.C.slug, {
+                  kind: 'invoice-to-payable', company: c.C.F.company,
+                  invoice: c.iv.number || c.iv.id, period: c.iv.period,
+                  total: c.iv.total, who: ME.name,
+                  to: AP_EMAIL,
+                  /* ⚠ Jonna asked to be copied on this one — it is the email
+                     that actually moves money, and she wants the record. */
+                  cc: 'jcritchley@mismo.org',
+                  file: c.iv.file || null,
+                  said: 'Please process invoice ' + (c.iv.number || '') + ' from ' +
+                        c.C.F.company + ' for ' + H.periodLabel(c.iv.period) + ', ' +
+                        money(Number(c.iv.total)) + '. Approved by ' + ME.name + ' at MISMO.',
+                  raisedOn: at, forAttentionOf: null, sent: false, sentOn: null });
+              });
           })
           .then(function () { toast('Approved and sent to accounts payable.', 'good'); redraw(); })
           .catch(function (er) {
