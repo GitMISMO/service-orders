@@ -8689,11 +8689,17 @@ function loadCompanyCore(slug) {
     return d >= rg.start && d <= rg.end;
   }
 
+  /* An order with no rate and no hours (certification work billed per
+     assessment) has nothing to burn down, so it reads like a per-review one. */
+  function hlNoAllot(o) {
+    return perReviewOrder(o) || (!Number(o.estimatedHours) && !Number(o.hourlyRate));
+  }
+
   /* Planned hours for an order over a range: the monthly plan, spread evenly
      across each month's days. An order with no monthly plan spreads its
      allotment evenly across its own weeks. */
   function hlPlanned(o, fy, s, e) {
-    if (perReviewOrder(o)) return 0;
+    if (hlNoAllot(o)) return 0;
     var rate = Number(o.hourlyRate) || 0, mon = o.monthly || null, t = 0;
     var anyPlan = mon && rate && Object.keys(mon).some(function (k) { return Number(mon[k]); });
     var d = hlDay(s);
@@ -8774,15 +8780,15 @@ function loadCompanyCore(slug) {
         if (HL.fac && w.person === HL.fac) mineTo += w.hours;
       }
     });
-    var allot = perReviewOrder(o) ? 0 : (Number(o.estimatedHours) || 0);
-    var rate = perReviewOrder(o) ? 0 : (Number(o.hourlyRate) || 0);
+    var allot = hlNoAllot(o) ? 0 : (Number(o.estimatedHours) || 0);
+    var rate = hlNoAllot(o) ? 0 : (Number(o.hourlyRate) || 0);
     var b = H.fyBounds(r.fy);
     var planTo = hlPlanned(o, r.fy, b.start, endD);
     return {
       allot: allot, rate: rate, used: used, toDate: toDate, mine: mine, mineTo: mineTo,
       left: allot - toDate, pct: allot ? toDate / allot : 0,
       planned: hlPlanned(o, r.fy, rg.start, rg.end), planTo: planTo,
-      perWeek: perReviewOrder(o) ? 0 : (H.perWeek(r.fy, o) || 0),
+      perWeek: hlNoAllot(o) ? 0 : (H.perWeek(r.fy, o) || 0),
       perMonth: hlPerMonth(o, allot, rg)
     };
   }
@@ -8943,7 +8949,7 @@ function loadCompanyCore(slug) {
       '<th class="n">Used to Date</th><th class="n">Remaining</th><th class="hl-pc">Used of Allotted</th>' +
       '</tr></thead><tbody>';
     rows.forEach(function (r, i) {
-      var f = r.fig, o = r.o, pr = perReviewOrder(o);
+      var f = r.fig, o = r.o, pr = hlNoAllot(o);
       var pct = Math.max(0, Math.min(1, f.pct)), tone = f.left < 0 ? 'bad' : f.pct >= 0.9 ? 'warn' : '';
       var tags = '';
       if (o.endedOn) tags += '<span class="chip">Ended ' + esc(o.endedOn) + '</span>';
@@ -8976,13 +8982,13 @@ function loadCompanyCore(slug) {
   }
 
   function hoursLeftSection(list) {
-    return '<div class="vhead"><div class="grow"><h1>Hours Remaining</h1>' +
+    return '<div class="vhead"><div class="grow"><h1>What Every Service Order Has Left</h1>' +
       '<p>Allotted against used for every service order. Used is submitted time, counted by week ending.</p></div></div>' +
       '<div id="hl-root">' + hlControls(list) + '<div id="hl-body">' + hlBody(list) + '</div></div>';
   }
 
   function hlPanel(r) {
-    var o = r.o, f = r.fig, fy = r.fy, b = H.fyBounds(fy), pr = perReviewOrder(o);
+    var o = r.o, f = r.fig, fy = r.fy, b = H.fyBounds(fy), pr = hlNoAllot(o);
     var fld = function (l, v) { return '<div class="f"><label>' + l + '</label><div class="v num">' + v + '</div></div>'; };
     var h = '<div class="fields">' +
       fld('Company', esc(r.C.F.company)) +
@@ -9006,12 +9012,13 @@ function loadCompanyCore(slug) {
       var plan = hlMonthPlan(o, d.getMonth());
       if (plan == null) plan = pr ? null : (f.allot / 12);
       var past = d <= today;
+      var open = past && today < new Date(d.getFullYear(), d.getMonth() + 1, 1);
       if (past) run -= used;
       rowsM.push('<tr><td>' + HL_FULL[d.getMonth()] + ' ' + d.getFullYear() + '</td>' +
         '<td class="n">' + (plan == null ? '—' : hlH(plan)) + '</td>' +
         '<td class="n">' + (past ? hlH(used) : '') + '</td>' +
         '<td class="n' + (past && plan != null && used > plan ? ' bad' : '') + '">' +
-          (past && plan != null ? hlH(used - plan) : '') + '</td>' +
+          (open ? 'In progress' : past && plan != null ? hlH(used - plan) : '') + '</td>' +
         '<td class="n">' + (past && !pr ? hlH(run) : '') + '</td></tr>');
       d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
     }
