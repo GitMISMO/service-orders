@@ -1801,6 +1801,36 @@ td.hcol .hdot{margin:0 auto}
 /* The two cards still at 12px, brought onto the 8px the rest of the page
    uses, so no two panels round differently. */
 .cvframe, .signcard, .signwrap > *{ border-radius:8px; }
+/* ── hours remaining ──────────────────────────────────────────── */
+.hl-bar{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px 18px;margin:0 0 16px}
+.hl-modes{display:flex;flex-wrap:wrap;gap:6px}
+.hl-mode{font:inherit;font-family:var(--display);font-size:12.5px;font-weight:600;color:var(--ink-2);
+ background:var(--surface);border:1px solid var(--border-strong);border-radius:6px;padding:6px 12px;
+ cursor:pointer;white-space:nowrap;min-width:max-content}
+.hl-mode:hover{background:var(--surface-2);color:var(--ink)}
+.hl-mode.on{background:var(--navy);border-color:var(--navy);color:#fff}
+:root[data-theme="dark"] .hl-mode.on{background:var(--sky);border-color:var(--sky);color:var(--navy-deep)}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .hl-mode.on{background:var(--sky);border-color:var(--sky);color:var(--navy-deep)} }
+.hl-picks{display:flex;flex-wrap:wrap;gap:10px 14px;flex:1 1 auto;justify-content:flex-end}
+.hl-picks .f{min-width:170px}
+.hl-picks .f input,.hl-picks .f select{border:1px solid var(--border);border-radius:6px;padding:6px 9px;background:var(--surface)}
+.hl-tbl{overflow-x:auto}
+.hl-tbl table{min-width:980px}
+.hl-tbl td:first-child{min-width:300px}
+.hl-row{cursor:pointer}
+.hl-row:hover td{background:var(--surface-2)}
+.hl-row:focus-visible{outline:2px solid var(--sky);outline-offset:-2px}
+.hl-subj{font-weight:600;color:var(--ink)}
+.hl-subj .chip{border-radius:4px;margin-left:4px}
+.hl-sub{font-size:12px;color:var(--ink-3);margin-top:2px}
+.hl-pc{width:150px;white-space:nowrap}
+.hl-bar-o{display:inline-block;vertical-align:middle;width:90px;height:7px;border-radius:3px;
+ background:var(--surface-3);overflow:hidden;margin-right:8px}
+.hl-bar-i{height:100%;background:var(--good);border-radius:3px}
+.hl-bar-i.warn{background:var(--warn)}
+.hl-bar-i.bad{background:var(--bad)}
+.hl-pct{font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+@media(max-width:760px){ .hl-picks{justify-content:flex-start} .hl-picks .f{min-width:140px;flex:1 1 140px} }
 </style>
 </head>
 <body>
@@ -3592,6 +3622,7 @@ window.H = (function () {
     'needs you':        '<circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16.2v.1"/>',
     'send orders':      '<path d="M4 12l16-8-6 16-2.5-6.2L4 12z"/>',
     'executed documents':'<path d="M6 3h9l5 5v13a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M14 3v6h6M9 14.5l2 2 4-4.5"/>',
+    'hours remaining':  '<circle cx="12" cy="12" r="9"/><path d="M12 3v9h9"/>',
     'help':             '<circle cx="12" cy="12" r="9"/><path d="M9.6 9.5a2.5 2.5 0 113.4 2.4c-.6.3-.9.8-.9 1.4v.5M12 17.2v.1"/>'
   };
   function railIcon(name) {
@@ -3617,7 +3648,7 @@ window.H = (function () {
     { label: 'Your Week', names: ['My Hours', 'My Submitted Time', 'When I Am Away',
         'The Company\u2019s Month', 'The Company\u2019s Weeks', 'Time Submitted'] },
     { label: 'Money', names: ['My Invoices', 'My Expenses', 'Invoices'] },
-    { label: 'Service Orders', names: ['My Service Orders', 'New Service Order',
+    { label: 'Service Orders', names: ['Hours Remaining', 'My Service Orders', 'New Service Order',
         'Revise an Order', 'End a Service Order', 'My Agreements', 'Executed Documents',
         'Already Approved', 'Already Decided'] },
     { label: 'Setup', names: ['Company Details', 'View As'] }
@@ -8585,6 +8616,482 @@ function loadCompanyCore(slug) {
     return { waiting: waiting, done: done, missing: missing };
   }
 
+
+  /* =========================================================================
+   * HOURS REMAINING — allotted against used, every service order at once
+   *
+   * Jonna, 2 November: "when my boss asks me how many hours does that service
+   * order have left, I can tell him." One page, every order, filterable by
+   * company, by facilitator and by a range (week ending, month, fiscal year
+   * to date or any two dates).
+   *
+   * ⚠ Used hours are SUBMITTED and APPROVED weeks only — the same weeks an
+   *   invoice is priced from (see expectedInvoice). A draft is not time yet,
+   *   and a week she sent back is being corrected.
+   * ⚠ A week counts in the month its week ENDING falls in, which is how the
+   *   invoice counts it too, so the month here always agrees with the invoice.
+   * ⚠ Remaining is always the WHOLE order: allotted less everything used up to
+   *   the end of the range picked. A facilitator filter narrows which orders
+   *   show and adds that person's own hours; it never shrinks an allotment.
+   * ======================================================================= */
+  var HL = { co: '', fac: '', mode: 'fy', month: '', week: '', from: '', to: '' };
+  var HL_MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+  var HL_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
+    'August', 'September', 'October', 'November', 'December'];
+
+  function hlH(v) {
+    var n = Math.round((Number(v) || 0) * 100) / 100;
+    return n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+  function hlDay(d) { return new Date(d.getFullYear(), d.getMonth(), d.getDate()); }
+  function hlPrint(d) { return H.print(d); }
+  function hlTyped(s) {
+    /* A typeable date: 9/30/26, 09/30/2026, 2026-09-30. */
+    s = String(s || '').trim();
+    var m = /^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/.exec(s);
+    if (m) {
+      var y = +m[3]; if (y < 100) y += 2000;
+      return new Date(y, +m[1] - 1, +m[2]);
+    }
+    m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+    return null;
+  }
+
+  function hlFy(list) { return (list[0] && list[0].F && list[0].F.fiscalYear) || 'FY 2027'; }
+
+  /* The range picked, as two days, plus what to call it. */
+  function hlRange(list) {
+    var fy = hlFy(list), b = H.fyBounds(fy), today = hlDay(new Date());
+    var lastEnd = today < b.end ? today : b.end;
+    if (HL.mode === 'month' && HL.month) {
+      var q = /^(\d{1,2})\/(\d{4})$/.exec(HL.month);
+      var s = new Date(+q[2], +q[1] - 1, 1), e = new Date(+q[2], +q[1], 0);
+      return { start: s, end: e, period: HL.month, label: HL_FULL[s.getMonth()] + ' ' + s.getFullYear() };
+    }
+    if (HL.mode === 'week' && HL.week) {
+      var we = H.parse(HL.week), ws = H.weekStart(fy, we) || H.addDays(we, -6);
+      return { start: ws, end: we, label: 'Week Ending ' + HL.week };
+    }
+    if (HL.mode === 'custom') {
+      var f = hlTyped(HL.from) || b.start, t = hlTyped(HL.to) || lastEnd;
+      if (t < f) { var x = f; f = t; t = x; }
+      return { start: f, end: t, label: hlPrint(f) + ' to ' + hlPrint(t) };
+    }
+    return { start: b.start, end: lastEnd, label: 'Fiscal Year to Date' };
+  }
+
+  /* Does a week belong in the range? Months go by the week ending's month. */
+  function hlIn(rg, ending) {
+    var d = H.parse(ending);
+    if (!d) return false;
+    if (rg.period) return H.periodOfWeek(ending) === rg.period;
+    return d >= rg.start && d <= rg.end;
+  }
+
+  /* Planned hours for an order over a range: the monthly plan, spread evenly
+     across each month's days. An order with no monthly plan spreads its
+     allotment evenly across its own weeks. */
+  function hlPlanned(o, fy, s, e) {
+    if (perReviewOrder(o)) return 0;
+    var rate = Number(o.hourlyRate) || 0, mon = o.monthly || null, t = 0;
+    var anyPlan = mon && rate && Object.keys(mon).some(function (k) { return Number(mon[k]); });
+    var d = hlDay(s);
+    while (d <= e) {
+      var dim = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+      if (anyPlan) t += (Number(mon[HL_MON[d.getMonth()]]) || 0) / rate / dim;
+      else t += (H.perWeek(fy, o) || 0) / 7;
+      d = H.addDays(d, 1);
+    }
+    return t;
+  }
+  function hlMonthPlan(o, m0) {
+    var rate = Number(o.hourlyRate) || 0;
+    if (!rate || !o.monthly) return null;
+    return (Number(o.monthly[HL_MON[m0]]) || 0) / rate;
+  }
+
+  /* Hours a month: the month picked, or the average of the months that have
+     a plan. An order with no monthly plan spreads its allotment over twelve. */
+  function hlPerMonth(o, allot, rg) {
+    if (rg.period) {
+      var one = hlMonthPlan(o, rg.start.getMonth());
+      return one == null ? (allot ? allot / 12 : 0) : one;
+    }
+    var vals = HL_MON.map(function (m, i) { return hlMonthPlan(o, i); })
+      .filter(function (v) { return v != null && v > 0; });
+    if (!vals.length) return allot ? allot / 12 : 0;
+    return vals.reduce(function (a, v) { return a + v; }, 0) / vals.length;
+  }
+
+  /* Every order with what has been used against it, by week and by person. */
+  function hlRows(list) {
+    var fy = hlFy(list), rows = [];
+    list.forEach(function (C) {
+      var F = C.F || {};
+      var assigned = {};
+      (F.people || []).forEach(function (p) {
+        (p.orders || []).forEach(function (id) { (assigned[id] = assigned[id] || []).push(p.name); });
+      });
+      (F.orders || []).forEach(function (o) {
+        if (o.kind && o.kind !== 'service-order') return;
+        var st = (C.st && C.st[o.id]) || statusOf(o, C.sigs || []);
+        rows.push({ C: C, o: o, st: st, fy: fy, weeks: [], assigned: (assigned[o.id] || []).slice().sort() });
+      });
+      var byId = {};
+      rows.forEach(function (r) { if (r.C === C) byId[r.o.id] = r; });
+      (C.__files || []).forEach(function (f) {
+        ((f && f.weeks) || []).forEach(function (wk) {
+          var stt = wk.state || 'submitted';
+          if (stt !== 'submitted' && stt !== 'approved') return;
+          var rs = H.rowsOf(wk);
+          Object.keys(rs).forEach(function (id) {
+            var hrsN = Number(rs[id].hours) || 0;
+            if (!hrsN || !byId[id]) return;
+            H.splitOf(rs[id], f.person).forEach(function (sp) {
+              if (!sp.hours) return;
+              byId[id].weeks.push({ ending: wk.weekEnding, person: sp.person,
+                submitter: f.person, hours: sp.hours, state: stt });
+            });
+          });
+        });
+      });
+    });
+    return rows;
+  }
+
+  function hlFigures(r, rg) {
+    var today = hlDay(new Date());
+    var o = r.o, endD = rg.end < today ? rg.end : today, used = 0, toDate = 0, mine = 0, mineTo = 0;
+    r.weeks.forEach(function (w) {
+      var d = H.parse(w.ending);
+      if (hlIn(rg, w.ending)) {
+        used += w.hours;
+        if (HL.fac && w.person === HL.fac) mine += w.hours;
+      }
+      if (d && d <= endD) {
+        toDate += w.hours;
+        if (HL.fac && w.person === HL.fac) mineTo += w.hours;
+      }
+    });
+    var allot = perReviewOrder(o) ? 0 : (Number(o.estimatedHours) || 0);
+    var rate = perReviewOrder(o) ? 0 : (Number(o.hourlyRate) || 0);
+    var b = H.fyBounds(r.fy);
+    var planTo = hlPlanned(o, r.fy, b.start, endD);
+    return {
+      allot: allot, rate: rate, used: used, toDate: toDate, mine: mine, mineTo: mineTo,
+      left: allot - toDate, pct: allot ? toDate / allot : 0,
+      planned: hlPlanned(o, r.fy, rg.start, rg.end), planTo: planTo,
+      perWeek: perReviewOrder(o) ? 0 : (H.perWeek(r.fy, o) || 0),
+      perMonth: hlPerMonth(o, allot, rg)
+    };
+  }
+
+  function hlPeople(list) {
+    var seen = {}, out = [];
+    list.forEach(function (C) {
+      (C.F.people || []).forEach(function (p) {
+        if (!(p.orders || []).length || seen[p.name]) return;
+        seen[p.name] = 1;
+        out.push({ name: p.name, sort: p.sortName || p.name, co: C.F.company });
+      });
+    });
+    out.sort(function (a, b) { return a.sort.localeCompare(b.sort, undefined, { sensitivity: 'base' }); });
+    return out;
+  }
+
+  function hlControls(list) {
+    var fy = hlFy(list), b = H.fyBounds(fy), today = hlDay(new Date());
+    var cos = list.slice().sort(function (a, b2) {
+      return String(a.F.company).localeCompare(String(b2.F.company), undefined, { sensitivity: 'base' });
+    });
+    var months = [], d = new Date(b.start.getFullYear(), b.start.getMonth(), 1);
+    while (d <= b.end && d <= today) {
+      months.push({ v: (d.getMonth() + 1) + '/' + d.getFullYear(), t: HL_FULL[d.getMonth()] + ' ' + d.getFullYear() });
+      d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+    }
+    months.reverse();
+    var weeks = H.weekEndings(fy).filter(function (w) { return w <= H.addDays(today, 6); })
+      .map(function (w) { return hlPrint(w); }).reverse();
+    /* ⚠ Nobody lands on an empty month: the month and week default to the
+       latest ones that actually have submitted time in them. */
+    var latest = null;
+    list.forEach(function (C) {
+      (C.__files || []).forEach(function (f) {
+        ((f && f.weeks) || []).forEach(function (wk) {
+          var stt = wk.state || 'submitted';
+          if ((stt !== 'submitted' && stt !== 'approved') || !H.hoursIn(wk)) return;
+          var d0 = H.parse(wk.weekEnding);
+          if (d0 && (!latest || d0 > latest)) latest = d0;
+        });
+      });
+    });
+    if (!HL.month) HL.month = latest ? H.periodOfWeek(hlPrint(latest)) : (months[0] || {}).v || '';
+    if (!HL.week) HL.week = latest ? hlPrint(latest) : (weeks[0] || '');
+    if (latest && weeks.indexOf(hlPrint(latest)) < 0) weeks.unshift(hlPrint(latest));
+
+    function opt(v, t, cur) {
+      return '<option value="' + esc(v) + '"' + (v === cur ? ' selected' : '') + '>' + esc(t) + '</option>';
+    }
+    function mbtn(k, t) {
+      return '<button type="button" class="hl-mode' + (HL.mode === k ? ' on' : '') +
+        '" data-hlmode="' + k + '">' + t + '</button>';
+    }
+    var h = '<div class="hl-bar">' +
+      '<div class="hl-modes" role="group" aria-label="Date Range">' +
+        mbtn('fy', 'Fiscal Year to Date') + mbtn('month', 'Month') +
+        mbtn('week', 'Week Ending') + mbtn('custom', 'Date Range') + '</div>' +
+      '<div class="hl-picks">';
+    if (HL.mode === 'month') {
+      h += '<div class="f"><label>Month</label><select class="hl-in" data-hlk="month">' +
+        months.map(function (m) { return opt(m.v, m.t, HL.month); }).join('') + '</select></div>';
+    } else if (HL.mode === 'week') {
+      h += '<div class="f"><label>Week Ending</label><select class="hl-in" data-hlk="week">' +
+        weeks.map(function (w) { return opt(w, w, HL.week); }).join('') + '</select></div>';
+    } else if (HL.mode === 'custom') {
+      h += '<div class="f"><label>From</label><input class="hl-in num" data-hlk="from" placeholder="MM/DD/YY" value="' +
+        esc(HL.from || hlPrint(b.start)) + '"></div>' +
+        '<div class="f"><label>To</label><input class="hl-in num" data-hlk="to" placeholder="MM/DD/YY" value="' +
+        esc(HL.to || hlPrint(today < b.end ? today : b.end)) + '"></div>';
+    }
+    h += '<div class="f"><label>Company</label><select class="hl-in" data-hlk="co">' +
+        opt('', 'All Companies', HL.co) +
+        cos.map(function (C) { return opt(C.slug, C.F.company, HL.co); }).join('') + '</select></div>' +
+      '<div class="f"><label>Facilitator</label><select class="hl-in" data-hlk="fac">' +
+        opt('', 'Everyone', HL.fac) +
+        hlPeople(HL.co ? list.filter(function (C) { return C.slug === HL.co; }) : list)
+          .map(function (p) { return opt(p.name, p.name, HL.fac); }).join('') + '</select></div>' +
+      '</div></div>';
+    return h;
+  }
+
+  function hlBody(list) {
+    if (!list.some(function (C) { return C.__files; })) {
+      return '<div class="note"><b>Time could not be read just now.</b> Nothing has been lost — ' +
+        'reload the page and the hours will be here.</div>';
+    }
+    var rg = hlRange(list);
+    var rows = hlRows(list).filter(function (r) {
+      if (HL.co && r.C.slug !== HL.co) return false;
+      if (HL.fac) {
+        var on = r.assigned.indexOf(HL.fac) >= 0 ||
+          r.weeks.some(function (w) { return w.person === HL.fac; });
+        if (!on) return false;
+      }
+      return true;
+    });
+    rows.forEach(function (r) { r.fig = hlFigures(r, rg); });
+    rows.sort(function (a, b) {
+      return String(a.C.F.company).localeCompare(String(b.C.F.company), undefined, { sensitivity: 'base' }) ||
+        String(a.o.subject).localeCompare(String(b.o.subject), undefined, { sensitivity: 'base', numeric: true });
+    });
+
+    var T = { allot: 0, used: 0, toDate: 0, left: 0, planned: 0, planTo: 0, mine: 0,
+      allotD: 0, usedD: 0, leftD: 0 };
+    var over = 0, low = 0;
+    rows.forEach(function (r) {
+      var f = r.fig;
+      T.allot += f.allot; T.used += f.used; T.toDate += f.toDate; T.left += f.left;
+      T.planned += f.planned; T.planTo += f.planTo; T.mine += f.mine;
+      T.allotD += f.allot * f.rate; T.usedD += f.used * f.rate; T.leftD += f.left * f.rate;
+      if (f.allot && f.left < 0) over++;
+      else if (f.allot && f.left <= f.allot * 0.1) low++;
+    });
+
+    var pace = T.planTo ? T.toDate / T.planTo : 0;
+    var say;
+    if (over || low) {
+      say = (over ? '<em class="hl-late">' + over + '</em> ' + (over === 1 ? 'order has' : 'orders have') +
+          ' gone past ' + (over === 1 ? 'its' : 'their') + ' allotted hours' : '') +
+        (over && low ? ' and ' : '') +
+        (low ? '<em class="hl-late">' + low + '</em> ' + (low === 1 ? 'has' : 'have') +
+          ' less than 10% left' : '') + '. Open one to see its month-by-month.';
+    } else {
+      var asOf = rg.end < hlDay(new Date()) ? rg.end : hlDay(new Date());
+      say = 'Every order is inside its allotment. Overall, time to date is <em>' +
+        Math.round(pace * 100) + '%</em> of what was planned by ' + hlPrint(asOf) + '.';
+    }
+
+    var tile = function (big, lab, small, warn) {
+      return '<div class="tile' + (warn ? ' warn' : '') + '"><b>' + big + '</b><span>' + lab +
+        '</span><small>' + small + '</small></div>';
+    };
+    var h = '<div class="headline">' +
+      '<div class="hl-date">' + esc(rg.label) +
+        (HL.co ? ' · ' + esc((list.filter(function (C) { return C.slug === HL.co; })[0] || {}).F.company) : '') +
+        (HL.fac ? ' · ' + esc(HL.fac) : '') + '</div>' +
+      '<p class="hl-say">' + say + '</p>' +
+      '<div class="tiles">' +
+        tile(hlH(T.allot), 'Total Allotted', money0(T.allotD) + ' across ' + rows.length +
+          (rows.length === 1 ? ' order' : ' orders')) +
+        tile(hlH(T.used), 'Used, ' + esc(rg.label), money0(T.usedD) + ' · ' + hlH(T.planned) + ' planned') +
+        tile(hlH(T.left), 'Total Remaining', money0(T.leftD) + ' · ' + hlH(T.toDate) + ' used to date', T.left < 0) +
+        (HL.fac
+          ? tile(hlH(T.mine), esc(HL.fac) + '’s Hours', 'in ' + esc(rg.label))
+          : tile(Math.round(pace * 100) + '%', 'Pace to Date', hlH(T.toDate) + ' used of ' +
+              hlH(T.planTo) + ' planned', pace > 1.1)) +
+      '</div></div>';
+
+    if (!rows.length) {
+      return h + '<div class="note ok"><b>No service orders match.</b> Pick another company or facilitator.</div>';
+    }
+
+    h += '<div class="tbl hl-tbl"><table><thead><tr>' +
+      '<th>Service Order</th><th class="n">Rate</th><th class="n">Allotted</th>' +
+      '<th class="n">' + (rg.period ? 'This Month' : 'Per Month') + '</th><th class="n">Per Week</th>' +
+      (HL.mode === 'fy' ? '' : '<th class="n">Used</th>') + (HL.fac ? '<th class="n">' + esc(HL.fac.split(' ')[0]) + '</th>' : '') +
+      '<th class="n">Used to Date</th><th class="n">Remaining</th><th class="hl-pc">Used of Allotted</th>' +
+      '</tr></thead><tbody>';
+    rows.forEach(function (r, i) {
+      var f = r.fig, o = r.o, pr = perReviewOrder(o);
+      var pct = Math.max(0, Math.min(1, f.pct)), tone = f.left < 0 ? 'bad' : f.pct >= 0.9 ? 'warn' : '';
+      var tags = '';
+      if (o.endedOn) tags += '<span class="chip">Ended ' + esc(o.endedOn) + '</span>';
+      else if (r.st && r.st.key !== 'executed' && r.st.key !== 'acknowledged') tags += '<span class="chip">' + esc(r.st.label) + '</span>';
+      h += '<tr class="hl-row" data-hlrow="' + i + '" tabindex="0">' +
+        '<td><div class="hl-subj">' + esc(o.subject) + ' ' + tags + '</div>' +
+          '<div class="hl-sub">' + esc(r.C.F.company) +
+          (r.assigned.length ? ' · ' + esc(r.assigned.join(', ')) : '') + '</div></td>' +
+        '<td class="n">' + (pr ? 'Per review' : money(f.rate)) + '</td>' +
+        '<td class="n">' + (pr ? '—' : hlH(f.allot)) + '</td>' +
+        '<td class="n">' + (pr || f.perMonth == null ? '—' : hlH(f.perMonth)) + '</td>' +
+        '<td class="n">' + (pr ? '—' : hlH(f.perWeek)) + '</td>' +
+        (HL.mode === 'fy' ? '' : '<td class="n">' + hlH(f.used) + '</td>') +
+        (HL.fac ? '<td class="n">' + hlH(f.mine) + '</td>' : '') +
+        '<td class="n">' + hlH(f.toDate) + '</td>' +
+        '<td class="n' + (tone === 'bad' ? ' bad' : '') + '">' + (pr ? '—' : hlH(f.left)) + '</td>' +
+        '<td class="hl-pc">' + (pr ? '<span class="hl-pct">Paid per review</span>'
+          : '<div class="hl-bar-o"><div class="hl-bar-i ' + tone + '" style="width:' +
+            Math.round(pct * 100) + '%"></div></div><span class="hl-pct">' + Math.round(f.pct * 100) + '%</span>') +
+        '</td></tr>';
+    });
+    h += '</tbody><tfoot><tr><td>Total</td><td class="n"></td><td class="n">' + hlH(T.allot) +
+      '</td><td class="n"></td><td class="n"></td>' +
+      (HL.mode === 'fy' ? '' : '<td class="n">' + hlH(T.used) + '</td>') +
+      (HL.fac ? '<td class="n">' + hlH(T.mine) + '</td>' : '') +
+      '<td class="n">' + hlH(T.toDate) + '</td><td class="n">' + hlH(T.left) + '</td><td></td></tr></tfoot></table></div>';
+    HL.__rows = rows;
+    HL.__rg = rg;
+    return h;
+  }
+
+  function hoursLeftSection(list) {
+    return '<div class="vhead"><div class="grow"><h1>Hours Remaining</h1>' +
+      '<p>Allotted against used for every service order. Used is submitted time, counted by week ending.</p></div></div>' +
+      '<div id="hl-root">' + hlControls(list) + '<div id="hl-body">' + hlBody(list) + '</div></div>';
+  }
+
+  function hlPanel(r) {
+    var o = r.o, f = r.fig, fy = r.fy, b = H.fyBounds(fy), pr = perReviewOrder(o);
+    var fld = function (l, v) { return '<div class="f"><label>' + l + '</label><div class="v num">' + v + '</div></div>'; };
+    var h = '<div class="fields">' +
+      fld('Company', esc(r.C.F.company)) +
+      fld('Rate', pr ? 'Per review' : money(f.rate) + ' an hour') +
+      fld('Allotted', pr ? '—' : hlH(f.allot) + ' hours') +
+      fld('Maximum Fee', esc(feeLabel(o))) +
+      fld('Per Week', pr ? '—' : hlH(f.perWeek) + ' hours') +
+      fld('Term', esc((o.startDate || '') + ' to ' + (o.endedOn || o.endDate || ''))) +
+      fld('Used to Date', hlH(f.toDate) + ' hours') +
+      fld('Remaining', pr ? '—' : hlH(f.left) + ' hours · ' + money(f.left * f.rate)) +
+      fld('Facilitators', esc(r.assigned.join(', ') || '—')) +
+      '</div>';
+
+    /* month by month */
+    var rowsM = [], d = new Date(b.start.getFullYear(), b.start.getMonth(), 1), run = f.allot;
+    var today = hlDay(new Date());
+    while (d <= b.end) {
+      var per = (d.getMonth() + 1) + '/' + d.getFullYear();
+      var used = r.weeks.filter(function (w) { return H.periodOfWeek(w.ending) === per; })
+        .reduce(function (a, w) { return a + w.hours; }, 0);
+      var plan = hlMonthPlan(o, d.getMonth());
+      if (plan == null) plan = pr ? null : (f.allot / 12);
+      var past = d <= today;
+      if (past) run -= used;
+      rowsM.push('<tr><td>' + HL_FULL[d.getMonth()] + ' ' + d.getFullYear() + '</td>' +
+        '<td class="n">' + (plan == null ? '—' : hlH(plan)) + '</td>' +
+        '<td class="n">' + (past ? hlH(used) : '') + '</td>' +
+        '<td class="n' + (past && plan != null && used > plan ? ' bad' : '') + '">' +
+          (past && plan != null ? hlH(used - plan) : '') + '</td>' +
+        '<td class="n">' + (past && !pr ? hlH(run) : '') + '</td></tr>');
+      d = new Date(d.getFullYear(), d.getMonth() + 1, 1);
+    }
+    h += '<h3 class="subh">Month by Month</h3><div class="tbl"><table><thead><tr><th>Month</th>' +
+      '<th class="n">Planned</th><th class="n">Used</th><th class="n">Over / Under</th>' +
+      '<th class="n">Remaining</th></tr></thead><tbody>' + rowsM.join('') + '</tbody></table></div>';
+
+    /* by facilitator */
+    var byP = {};
+    r.weeks.forEach(function (w) {
+      var x = byP[w.person] = byP[w.person] || { range: 0, all: 0 };
+      if (hlIn(HL.__rg, w.ending)) x.range += w.hours;
+      x.all += w.hours;
+    });
+    var names = Object.keys(byP).sort();
+    if (names.length) {
+      h += '<h3 class="subh">By Facilitator</h3><div class="tbl"><table><thead><tr><th>Facilitator</th>' +
+        '<th class="n">' + esc(HL.__rg.label) + '</th><th class="n">Fiscal Year</th></tr></thead><tbody>' +
+        names.map(function (n) {
+          return '<tr><td>' + esc(n) + '</td><td class="n">' + hlH(byP[n].range) + '</td><td class="n">' +
+            hlH(byP[n].all) + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    }
+
+    /* week by week */
+    var wk = r.weeks.slice().sort(function (a, b2) {
+      return (H.parse(b2.ending) - H.parse(a.ending)) || a.person.localeCompare(b2.person);
+    });
+    if (wk.length) {
+      h += '<h3 class="subh">Week by Week</h3><div class="tbl"><table><thead><tr><th>Week Ending</th>' +
+        '<th>Facilitator</th><th class="n">Hours</th></tr></thead><tbody>' +
+        wk.map(function (w) {
+          return '<tr><td>' + esc(w.ending) + '</td><td>' + esc(w.person) +
+            (w.submitter && w.submitter !== w.person ? ' <span class="hl-sub">logged by ' + esc(w.submitter) + '</span>' : '') +
+            '</td><td class="n">' + hlH(w.hours) + '</td></tr>';
+        }).join('') + '</tbody></table></div>';
+    } else {
+      h += '<div class="note ok"><b>No time submitted against this order yet.</b></div>';
+    }
+    return h;
+  }
+
+  function wireHoursLeft(list) {
+    var root = document.getElementById('hl-root');
+    if (!root) return;
+    function redraw(controlsToo) {
+      if (controlsToo) {
+        root.innerHTML = hlControls(list) + '<div id="hl-body">' + hlBody(list) + '</div>';
+      } else {
+        var bd = document.getElementById('hl-body');
+        if (bd) bd.innerHTML = hlBody(list);
+      }
+    }
+    root.addEventListener('click', function (e) {
+      var m = e.target.closest('[data-hlmode]');
+      if (m) { HL.mode = m.getAttribute('data-hlmode'); redraw(true); return; }
+      var tr = e.target.closest('[data-hlrow]');
+      if (tr && HL.__rows) {
+        var r = HL.__rows[+tr.getAttribute('data-hlrow')];
+        if (r) openPanel(r.o.subject, hlPanel(r));
+      }
+    });
+    root.addEventListener('keydown', function (e) {
+      if (e.key !== 'Enter') return;
+      var tr = e.target.closest('[data-hlrow]');
+      if (tr && HL.__rows) {
+        var r = HL.__rows[+tr.getAttribute('data-hlrow')];
+        if (r) openPanel(r.o.subject, hlPanel(r));
+      }
+    });
+    root.addEventListener('change', function (e) {
+      var el = e.target.closest('.hl-in');
+      if (!el) return;
+      var k = el.getAttribute('data-hlk');
+      HL[k] = el.value;
+      if (k === 'co') { HL.fac = ''; redraw(true); return; }
+      redraw(false);
+    });
+  }
+
   function invoicesAdminSection(list) {
     var g = mismoInvoices(list);
     if (!g.waiting.length && !g.done.length && !g.missing.length) {
@@ -10903,6 +11410,15 @@ function loadCompanyCore(slug) {
         /* ⚠ The one place an invoice is approved. It opens itself when
            something is actually waiting, because that IS a decision for her. */
         sect('Invoices', invWaiting || null, invBody, invWaiting > 0) +
+        /* Allotted against used, every order. Jonna, 2 November. */
+        sect('Hours Remaining', null, (function () {
+          /* ⚠ Never allowed to take the rest of the page down with it. */
+          try { return hoursLeftSection(list); } catch (e) {
+            if (window.console && console.warn) console.warn('hours remaining', e);
+            return '<div class="note"><b>Hours Remaining could not be drawn just now.</b> ' +
+              'Everything else on this page is unaffected.</div>';
+          }
+        })()) +
         sect('Revise an Order', reviseAny.count, reviseAny.body) +
         sect('End a Service Order', endAny.count || null, endAny.body) +
         sect('New Service Order', null, newOrderForm(list)) +
@@ -10913,6 +11429,7 @@ function loadCompanyCore(slug) {
         sect('Help', null, helpFor('admin', list[0] && list[0].F)));
       if (by) wireApprove(list, by, adminView);
       wireInvoiceDecisions(list, adminView);
+      try { wireHoursLeft(list); } catch (e) { if (window.console && console.warn) console.warn('hours remaining', e); }
       /* ⚠ The ending controls live in a side PANEL, which does not exist in
          the DOM until the row is clicked — wiring once here would find
          nothing. onPanelOpen runs it again each time a panel opens, the same
