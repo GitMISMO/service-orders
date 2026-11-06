@@ -11842,19 +11842,33 @@ function loadCompanyCore(slug) {
     });
     return best;
   }
-  /* The words every title of this kind ends with ("Workgroup Facilitation"),
-     and every description ("(Facilitator)"), so typing just the group's name
-     fills both in the house style. */
+  /* The words most titles of this kind end with ("Workgroup Facilitation",
+     "Community of Practice Facilitation"), and most descriptions
+     ("(Facilitator)", "COP"), so typing just the group's name fills both in
+     the house style. An ending counts when more than half of them share it. */
   function commonEnd(strs) {
     var ws = strs.filter(Boolean).map(function (s) { return String(s).trim().split(/\s+/); });
     if (ws.length < 2) return '';
-    var out = [];
-    for (var i = 1; ; i++) {
-      var w = ws[0][ws[0].length - i];
-      if (!w || !ws.every(function (x) { return x.length > i && x[x.length - i] === w; })) break;
-      out.unshift(w);
+    var best = '';
+    for (var k = 1; k < 8; k++) {
+      var n = {}, top = '', tn = 0;
+      ws.forEach(function (w) {
+        if (w.length <= k) return;
+        var s = w.slice(-k).join(' ');
+        if (best && s.slice(-best.length - 1) !== ' ' + best && s !== best) return;
+        n[s] = (n[s] || 0) + 1; if (n[s] > tn) { tn = n[s]; top = s; }
+      });
+      if (tn * 2 <= ws.length) break;
+      best = top;
     }
-    return out.join(' ');
+    return best;
+  }
+  /* Hours differ from group to group, so the usual (middle) figure is offered, to be changed. */
+  function middle(vals) {
+    var v = vals.map(Number).filter(function (x) { return isFinite(x) && x > 0; }).sort(function (a, b) { return a - b; });
+    if (!v.length) return null;
+    var m = v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2;
+    return Math.round(m);
   }
   function buildTemplates(list) {
     var by = {};
@@ -11874,7 +11888,7 @@ function loadCompanyCore(slug) {
         var r = mostCommon(os.filter(function (y) { return y.slug === x.slug; }).map(function (y) { return y.o.hourlyRate; }));
         if (r != null) t.rate[x.slug] = r;
       });
-      t.f.estimatedHours = mostCommon(os.map(function (x) { return x.o.estimatedHours; }));
+      t.f.estimatedHours = middle(os.map(function (x) { return x.o.estimatedHours; }));
       t.titleEnd = commonEnd(os.map(function (x) { return x.o.subject; }));
       t.descEnd = commonEnd(os.map(function (x) { return x.o.description; }));
       t.fy = mostCommon(os.map(function (x) { var m = /^FY \d{4}/.exec(String(x.o.subject || '')); return m && m[0]; })) || 'FY 2027';
@@ -11928,7 +11942,7 @@ function loadCompanyCore(slug) {
       '<option value="">A blank order</option>' + TPLS.map(function (t, i) {
         return '<option value="' + i + '">' + esc(t.label) + '</option>'; }).join('') + '</select></div>' +
       '<div class="f"><label>Workgroup or CoP Name</label><input type="text" class="no-name" id="no-name" ' +
-      'placeholder="e.g. Automated Valuation Model \u2014 fills in the title"></div>' +
+      'placeholder="e.g. Automated Valuation Model \u2014 fills in the title and description"></div>' +
       '<div class="f"><label>Who Asked for It (Reviews It First)</label><select class="nof no-rev" data-k="__rev">' +
       '<option value="">Nobody \u2014 straight to ' + esc(((list[0].F.vpProduct) || {}).name || 'the VP') + '</option>' +
       '</select></div>' +
@@ -13018,8 +13032,8 @@ function loadCompanyCore(slug) {
         function names() {
           var t = cur(), n = String((document.getElementById('no-name') || {}).value || '').trim();
           if (!t || !n) return;
-          if (t.titleEnd) setv('subject', t.fy + ' ' + n + ' ' + t.titleEnd);
-          if (t.descEnd) setv('description', n + ' ' + t.descEnd);
+          setv('subject', t.fy + ' ' + n + (t.titleEnd ? ' ' + t.titleEnd : ''));
+          setv('description', n + (t.descEnd ? ' ' + t.descEnd : ''));
         }
         function apply() {
           var t = cur(); if (!t) return;
