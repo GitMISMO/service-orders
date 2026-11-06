@@ -3258,6 +3258,11 @@ window.H = (function () {
       return { key: 'reviewback', label: 'Sent Back by ' + ((o.review.by || {}).name || 'the Requester'),
                tone: 'warn', review: o.review };
     }
+    /* Approved by the requester: back to Jonna, who sends it to the VP (6 Nov 2026). */
+    if (!vp && o.review && o.review.state === 'approved') {
+      return { key: 'reviewback', label: 'Approved by ' + ((o.review.by || {}).name || 'the Requester') + ' \u2014 Ready to Send',
+               tone: 'warn', review: o.review };
+    }
     /* The requester changed the details and sent them back (6 Nov 2026). */
     if (!vp && o.review && o.review.state === 'revised') {
       return { key: 'reviewback', label: 'Changes From ' + ((o.review.by || {}).name || 'the Requester'),
@@ -5334,13 +5339,13 @@ function loadCompanyCore(slug) {
               var o = x.o, rv = o.review, at = new Date().toISOString();
               var vp = C.F.vpProduct || {};
               return notify(slug, rv.state === 'approved'
-                ? { kind: 'order-review-approved', company: C.F.company, orderId: o.id, order: o.subject,
-                    who: rv.decidedBy || (rv.by || {}).name, to: vp.email || null,
-                    title: 'A Service Order Ready for Your Decision',
+                ? { kind: 'order-review-done', company: C.F.company, orderId: o.id, order: o.subject,
+                    who: rv.decidedBy || (rv.by || {}).name, to: 'jcritchley@mismo.org',
+                    title: 'A Service Order Was Approved by the Requester',
                     said: ((rv.by || {}).name || 'The requester') + ' reviewed and approved "' + o.subject + '" for ' +
-                          C.F.company + '. It is now waiting for your decision before it is sent.',
-                    cta: { text: 'Open the Service Orders Portal', url: 'https://resources.mismo.org/service-orders/' },
-                    raisedOn: at, forAttentionOf: vp.email ? null : 'jcritchley@mismo.org', sent: false, sentOn: null }
+                          C.F.company + ' without changes. It is in Needs You, ready for you to send to ' + (vp.name || 'the VP') + '.',
+                    cta: { text: 'Open Needs You', url: 'https://resources.mismo.org/service-orders/' },
+                    raisedOn: at, forAttentionOf: 'jcritchley@mismo.org', sent: false, sentOn: null }
                 : rv.state === 'revised'
                 ? { kind: 'order-review-changes', company: C.F.company, orderId: o.id, order: o.subject,
                     who: rv.decidedBy || (rv.by || {}).name,
@@ -5357,6 +5362,35 @@ function loadCompanyCore(slug) {
                     raisedOn: at, forAttentionOf: 'jcritchley@mismo.org', sent: false, sentOn: null });
             });
           }, Promise.resolve());
+        });
+      });
+    }, Promise.resolve());
+  }
+  /* Jonna sends reviewed orders on to the VP: one save and one email per company. */
+  function sendReviewedToVp(xs) {
+    var by = {};
+    xs.forEach(function (x) { (by[x.C.slug] = by[x.C.slug] || []).push(x); });
+    return Object.keys(by).reduce(function (prev, slug) {
+      return prev.then(function () {
+        var group = by[slug], C = group[0].C, at = new Date().toISOString(), vp = C.F.vpProduct || {};
+        var ids = group.map(function (x) { return x.o.id; });
+        return R.update(keyFor(slug), 'revisions/' + slug + '.json', function (cur) {
+          var next = JSON.parse(JSON.stringify(cur || {}));
+          (next.additions || []).forEach(function (a) {
+            if (ids.indexOf(a.id) < 0 || !a.review) return;
+            a.review = Object.assign({}, a.review, { state: 'accepted', acceptedAt: at, acceptedBy: ME.name });
+          });
+          return next;
+        }, 'reviewed orders sent to the VP', { revisions: [] }).then(function () {
+          var names = group.map(function (x) { return '"' + x.o.subject + '"'; }).join(', ');
+          return notify(slug, { kind: 'order-review-approved', company: C.F.company, orderId: ids[0], orderIds: ids,
+            order: group.length === 1 ? group[0].o.subject : group.length + ' service orders', who: ME.name, to: vp.email || null,
+            title: group.length === 1 ? 'A Service Order Ready for Your Decision' : group.length + ' Service Orders Ready for Your Decision',
+            said: ME.name + ' sent you ' + (group.length === 1 ? 'a new service order' : group.length + ' new service orders') + ' for ' +
+                  C.F.company + ', reviewed by the people who asked for them: ' + names + '. Your approval sends ' +
+                  (group.length === 1 ? 'it' : 'them') + ' to ' + C.F.company + ' to accept.',
+            cta: { text: 'Open the Service Orders Portal', url: 'https://resources.mismo.org/service-orders/' },
+            raisedOn: at, forAttentionOf: vp.email ? null : 'jcritchley@mismo.org', sent: false, sentOn: null });
         });
       });
     }, Promise.resolve());
@@ -5421,12 +5455,28 @@ function loadCompanyCore(slug) {
         ? ME.name + ' drafted a new service order for ' + C.F.company + ', "' + order.subject +
           '", and needs you to fill in the parts marked in [brackets]. It cannot go ahead until you do. ' +
           'Fill them in, change anything else that needs it, and send it back to ' + String(ME.name).split(' ')[0] +
-          '. From there it goes to ' + vpName + ' and then to ' + C.F.company + ' to accept.'
+          ', who sends it to ' + vpName + '. His approval sends it to ' + C.F.company + ' to accept.'
         : ME.name + ' drafted a new service order for ' + C.F.company + ', "' + order.subject +
           '". Please check the details: change anything that needs it and send it back, or approve it as it is. ' +
-          'Once it is right it goes to ' + vpName + ' and then to ' + C.F.company + ' to accept.',
+          'It comes back to ' + String(ME.name).split(' ')[0] + ', who sends it to ' + vpName + '. His approval sends it to ' + C.F.company + ' to accept.',
       cta: { text: 'Review the Service Order', url: REVIEW_URL + '#r=' + review.id },
       raisedOn: review.requestedAt, forAttentionOf: null, sent: false, sentOn: null });
+  }
+  function reviewNoticeMany(group) {
+    var x0 = group[0], vpName = (x0.C.F.vpProduct || {}).name || 'the VP';
+    var gaps = group.some(function (x) { return hasPlaceholders(x.order); });
+    return notify(x0.C.slug, {
+      kind: 'order-review-requested', company: group.map(function (x) { return x.C.F.company; })
+        .filter(function (c, i, a) { return a.indexOf(c) === i; }).join(', '),
+      orderId: x0.order.id, orderIds: group.map(function (x) { return x.order.id; }), order: group.length + ' service orders',
+      who: ME.name, to: x0.reviewer.email, title: group.length + ' Service Orders for You to Review',
+      said: ME.name + ' drafted ' + group.length + ' new service orders for you: ' +
+            group.map(function (x) { return '"' + x.order.subject + '" (' + x.C.F.company + ')'; }).join(', ') + '. ' +
+            (gaps ? 'Fill in the parts marked in [brackets] — they cannot go ahead until you do — and check the rest. '
+                  : 'Check the details, change anything that needs it, and approve them or send them back. ') +
+            'They come back to ' + String(ME.name).split(' ')[0] + ', who sends them to ' + vpName + '.',
+      cta: { text: 'Review the Service Orders', url: REVIEW_URL + '#' },
+      raisedOn: new Date().toISOString(), forAttentionOf: null, sent: false, sentOn: null });
   }
   /* Staff who can be asked to review: Team HQ's people. */
   var STAFF = null;
@@ -11351,9 +11401,7 @@ function loadCompanyCore(slug) {
         : 'Every nudge has gone out.') +
       '</b> ' + (gone ? gone + ' already sent. ' : '') +
       (later.length ? later.length + (later.length === 1 ? ' reminder is' : ' reminders are') + ' scheduled for later and stop by themselves when the company accepts. ' : '') +
-      'They are queued in <code>notify/&lt;company&gt;.json</code> — one line per stopped order. ' +
-      '<b>Until that file is wired to send mail, this list is the only place they appear.</b> ' +
-      'See <b>NOTIFY.md</b>.</div>';
+      'The email flow checks every hour and sends anything waiting, as the branded email with its button.</div>';
   }
 
   function fld(label, v, mono) {
@@ -12102,10 +12150,11 @@ function loadCompanyCore(slug) {
         esc(f.label) + (f.req ? ' *' : '') + '</label>' + input + '</div>';
     }).join('');
 
-    return '<p class="lede">For work that is not on the FY 2027 forecast. ' +
-      '<b>Choose who asked for it and it goes to them to review and approve first</b>; then ' +
-      esc(((list[0].F.vpProduct) || {}).name || 'the VP') + ' decides, you send it, the company accepts it from ' +
-      'the email, and ' + esc(((list[0].F.mismoSigner) || {}).name || 'the President') + ' approves it.</p>' +
+    var VPN = esc(((list[0].F.vpProduct) || {}).name || 'the VP'), PRN = esc(((list[0].F.mismoSigner) || {}).name || 'the President');
+    return '<p class="lede">For work that is not on the FY 2027 forecast. <b>It goes first to the person who asked for it</b>, ' +
+      'to fill in anything in [brackets] and check the rest. When they send it back it comes to you in <b>Needs You</b>, ' +
+      'and you send it to ' + VPN + '. His approval sends it to the contracting company with you copied, and once they accept ' +
+      'it, it goes to ' + PRN + ', with you copied. <b>Several at once?</b> Fill in one, choose Add Another, and send them all together.</p>' +
       '<div class="revgrid">' +
       '<div class="f"><label>Start From</label><select class="no-tpl" id="no-tpl">' +
       '<option value="">A blank order</option>' + tplOptions(TPLS) + '</select>' +
@@ -12133,12 +12182,14 @@ function loadCompanyCore(slug) {
       '</select></div>' + fields + '</div>' +
       '<div class="onebar"><div class="f"><label>Why This Order Exists</label>' +
       '<input type="text" class="nowhy" placeholder="Goes on the record and travels with the order"></div>' +
-      '<button class="gobtn no-go" type="button">Raise This Order</button></div>' +
+      '<button class="gobtn ghost no-add" type="button">Add Another</button>' +
+      '<button class="gobtn no-go" type="button">Send for Review</button></div>' +
+      '<div class="no-batch" id="no-batch" hidden></div>' +
       '<p class="fineprint">⚠ <b>This order names no forecast line</b>, so nothing here checks ' +
       'it against the budget. A title and a company are required; everything else can be filled in ' +
-      'later by revising it. <b>Nothing goes to the company by raising it</b> \u2014 only the person you ' +
-      'chose is emailed, with a button to check the details, change anything that needs it, and send it ' +
-      'back to you or approve it.</p>' +
+      'later by revising it. <b>Nothing goes to the company from here</b> \u2014 only the person you ' +
+      'chose is emailed, with a button to fill in the gaps, change anything that needs it, and send it ' +
+      'back to you. With nobody chosen, it goes straight to ' + VPN + '.</p>' +
       '<script type="application/json" id="no-msas">' + JSON.stringify(msas) + '<\/script>' +
       /* the templates stay in this signed-in page; they are never written anywhere */
       '<script type="application/json" id="no-tpls">' + JSON.stringify(TPLS).replace(/</g, '\\u003c') + '<\/script>';
@@ -12372,7 +12423,7 @@ function loadCompanyCore(slug) {
       var LABEL = { draft: 'Draft', vp: 'Released to Send', vphold: 'Held by the VP', sent: 'Sent',
         question: 'Question Raised', acknowledged: 'Acknowledged', changed: 'Changed Since Acknowledged',
         preshold: 'Held by the President', executed: 'Executed', ended: 'Ended',
-        review: 'With the Requester for Review', reviewback: 'Sent Back by the Requester' };
+        review: 'With the Requester for Review', reviewback: 'Back From the Requester' };
 
       /* ---- the Status Board, in the Website Migration HQ shape -------------
          ⚠ Eight equal white boxes gave every status the same weight, so the one
@@ -12494,6 +12545,12 @@ function loadCompanyCore(slug) {
         : outboxLine(outbox) +
           '<p class="lede">Every order that has stopped and is waiting on you, with what was said ' +
           'about it. None of these moves on its own \u2014 choose one to read it in full.</p>' +
+          (function () {
+            var ready = needs.filter(function (n) { return n.st.key === 'reviewback' && (n.order.review || {}).state === 'approved'; });
+            return ready.length > 1
+              ? '<div class="batchbar"><button class="gobtn" type="button" id="rvsendall">Send All ' + ready.length +
+                ' Approved Orders to ' + esc(((list[0].F.vpProduct) || {}).name || 'the VP') + '</button></div>' : '';
+          })() +
           '<div class="hqrows">' + needs.map(function (n, i) {
             n.idx = i;
             var sig = n.st.sig || {};
@@ -12502,7 +12559,8 @@ function loadCompanyCore(slug) {
               sig = { signerName: (rv.by || {}).name || '', signedOn: rv.decidedAt || '' };
             }
             var said = n.st.key === 'reviewback' ? ((n.order.review || {}).comments ||
-                ((n.order.review || {}).state === 'revised' ? 'They changed the details \u2014 see below.' : 'No comment was given.'))
+                ((n.order.review || {}).state === 'revised' ? 'They changed the details \u2014 see below.'
+                  : (n.order.review || {}).state === 'approved' ? 'Approved as it was sent.' : 'No comment was given.'))
               : n.st.key === 'question' ? (sig.question || '')
               : (n.st.key === 'vphold' || n.st.key === 'preshold') ? (sig.note || '')
                 : 'The order was edited after it was accepted, so the acceptance on record is for ' +
@@ -12518,7 +12576,11 @@ function loadCompanyCore(slug) {
               '<h4 class="subh">What They Said</h4>' +
               '<p class="saidbox">' + esc(said) + '</p>' +
               (n.st.key === 'reviewback' && (n.order.review || {}).state === 'revised' ? proposedHtml(n) : '') +
-              (n.st.key === 'reviewback'
+              (n.st.key === 'reviewback' && (n.order.review || {}).state === 'approved'
+                ? '<div class="xp-acts"><button class="gobtn" type="button" data-rvsend="' + esc(n.C.slug + '|' + n.order.id) + '">Send to ' +
+                  esc(((n.C.F.vpProduct) || {}).name || 'the VP') + '</button></div>' +
+                  '<p class="fineprint">Need to change something first? Revise it below, then send it.</p>'
+                : n.st.key === 'reviewback'
                 ? '<div class="xp-acts">' + ((n.order.review || {}).state === 'revised'
                     ? '<button class="gobtn" type="button" data-rvuse="' + esc(n.C.slug + '|' + n.order.id) + '">Use Their Changes \u2014 Send to ' +
                       esc(((n.C.F.vpProduct) || {}).name || 'the VP') + '</button>' : '') +
@@ -12873,6 +12935,17 @@ function loadCompanyCore(slug) {
               .catch(function (e) { b.disabled = false; b.textContent = 'Send It for Review Again'; failed(e); });
           });
         });
+        $$('[data-rvsend]', pb).forEach(function (b) {
+          if (b.dataset.wired) return; b.dataset.wired = '1';
+          b.addEventListener('click', function () {
+            var x = find(b.dataset.rvsend); if (!x) return;
+            if (hasPlaceholders(x.o)) { toast('Parts in [brackets] still need filling in. Revise it below first.', 'warn'); return; }
+            b.disabled = true; b.textContent = 'Sending…';
+            sendReviewedToVp([x]).then(function () {
+              closePanel(true); toast('Sent to ' + (((x.C.F.vpProduct) || {}).name || 'the VP'), 'good'); adminView();
+            }, function (e) { b.disabled = false; failed(e); });
+          });
+        });
         $$('[data-rvuse]', pb).forEach(function (b) {
           if (b.dataset.wired) return; b.dataset.wired = '1';
           b.addEventListener('click', function () {
@@ -12925,6 +12998,23 @@ function loadCompanyCore(slug) {
           });
         });
       });
+      (function () {
+        var all = document.getElementById('rvsendall');
+        if (!all || all.dataset.wired) return; all.dataset.wired = '1';
+        all.addEventListener('click', function () {
+          var xs = [];
+          list.forEach(function (C) {
+            C.F.orders.forEach(function (o) {
+              if (C.st[o.id].key === 'reviewback' && (o.review || {}).state === 'approved' && !hasPlaceholders(o)) xs.push({ C: C, o: o });
+            });
+          });
+          if (!xs.length) return;
+          all.disabled = true; all.textContent = 'Sending…';
+          sendReviewedToVp(xs).then(function () {
+            toast(xs.length + ' sent to ' + (((list[0].F.vpProduct) || {}).name || 'the VP'), 'good'); adminView();
+          }, function (e) { all.disabled = false; failed(e); });
+        });
+      })();
       onPanelOpen(function (pb) { wireContractorExpenses(list, pb); });
       onPanelOpen(wireDownloads);
       wireDownloads(document);
@@ -13294,93 +13384,159 @@ function loadCompanyCore(slug) {
         ['hourlyRate', 'estimatedHours'].forEach(function (k) { var e = el(k); if (e) e.addEventListener('input', fee); });
       })();
 
+      /* ---- New Service Order: one, or several sent together (6 Nov 2026) ----
+         "Add Another" keeps what is in the form as one of a batch and clears the
+         title, name and description for the next; the company, template and
+         reviewer stay. "Send for Review" sends the batch plus whatever is in the
+         form, and each reviewer gets ONE email for everything they are asked. */
+      var NO_BATCH = [];
+      function collectOrder(quiet) {
+        var vals = {};
+        document.querySelectorAll('.nof').forEach(function (el) {
+          vals[el.dataset.k] = String(el.value == null ? '' : el.value).trim();
+        });
+        var whyEl = document.querySelector('.nowhy');
+        var why = whyEl ? String(whyEl.value || '').trim() : '';
+        var slug = vals.__slug;
+        var say = function (m, t) { if (!quiet) toast(m, t); return null; };
+        if (!slug) return say('Choose the contracting company first');
+        if (!vals.subject) return say('Give the order a title first');
+        if (!vals.__rev && hasPlaceholders(vals)) {
+          return say('Parts in [brackets] still need filling in. Choose who asked for it so they can fill them in, or fill them in yourself.', 'warn');
+        }
+        var C = list.filter(function (x) { return x.slug === slug; })[0];
+        if (!C) return say('That company could not be found');
+        /* A readable id that cannot collide with a generated one. The
+           generated set never uses this prefix. */
+        var id = 'new-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5);
+        var order = {
+          id: id,
+          source: 'Raised in the portal',
+          feeType: vals.feeType === 'perReview' ? 'perReview' : 'hourly',
+          subject: vals.subject,
+          msaFlavour: vals.msaFlavour || ((C.F.letters || [])[0] || {}).msaFlavour || '',
+          hourlyRate: vals.hourlyRate === '' ? null : Number(vals.hourlyRate.replace(/[^0-9.\-]/g, '')),
+          estimatedHours: vals.estimatedHours === '' ? null : Number(vals.estimatedHours.replace(/[^0-9.\-]/g, '')),
+          maximumFee: vals.maximumFee === '' ? null : Number(vals.maximumFee.replace(/[^0-9.\-]/g, '')),
+          startDate: vals.startDate, endDate: vals.endDate,
+          description: vals.description,
+          /* ⚠ LISTS, not text. The generated orders hold these two as lists
+             and the document renders them as bullets. One line per bullet. */
+          services: asList(vals.services),
+          deliverables: asList(vals.deliverables),
+          deliverySchedule: vals.deliverySchedule,
+          paymentSchedule: vals.paymentSchedule,
+          tasksFromMismo: vals.tasksFromMismo, modifications: vals.modifications,
+          /* ⚠ No forecast line and no budget check — Jonna's decision,
+             1 Oct 2026, to be revisited when the financial system is up. */
+          forecastLine: null,
+          raisedBy: who().name, raisedOn: new Date().toISOString(), raisedWhy: why
+        };
+        /* what kind of order it is, carried from the template it started from */
+        (function () {
+          var ts = document.getElementById('no-tpl'), T = [];
+          try { T = JSON.parse((document.getElementById('no-tpls') || {}).textContent || '[]'); } catch (e) {}
+          var t = ts && T[Number(ts.value)];
+          if (t && ts.value !== '') TPL_CARRY.forEach(function (k) { if (t.carry[k] != null) order[k] = t.carry[k]; });
+        })();
+        ['hourlyRate', 'estimatedHours', 'maximumFee'].forEach(function (k) {
+          if (order[k] != null && !isFinite(order[k])) order[k] = null;
+        });
+        var reviewer = vals.__rev ? (STAFF || []).filter(function (s) { return s.email === vals.__rev; })[0] || null : null;
+        return { C: C, slug: slug, order: order, reviewer: reviewer };
+      }
+      function paintBatch() {
+        var box = document.getElementById('no-batch'), go = document.querySelector('.no-go');
+        if (!box) return;
+        box.hidden = !NO_BATCH.length;
+        box.innerHTML = NO_BATCH.length
+          ? '<h4 class="subh">Ready to Send Together (' + NO_BATCH.length + ')</h4><div class="tbl"><table><thead><tr><th>Service Order</th>' +
+            '<th>Company</th><th>Reviewed By</th><th class="n">Maximum Fee</th><th></th></tr></thead><tbody>' +
+            NO_BATCH.map(function (x, i) {
+              return '<tr><td>' + esc(x.order.subject) + '</td><td>' + esc(x.C.F.company) + '</td><td>' +
+                esc(x.reviewer ? x.reviewer.name : 'Nobody — straight to ' + (((x.C.F.vpProduct) || {}).name || 'the VP')) +
+                '</td><td class="n">' + feeLabel(x.order) + '</td><td><button type="button" class="linkish" data-nodrop="' + i + '">Remove</button></td></tr>';
+            }).join('') + '</tbody></table></div>'
+          : '';
+        $$('[data-nodrop]', box).forEach(function (b) {
+          b.addEventListener('click', function () { NO_BATCH.splice(Number(b.dataset.nodrop), 1); paintBatch(); });
+        });
+        if (go) {
+          var formHas = !!String((document.querySelector('.nof[data-k="subject"]') || {}).value || '').trim();
+          var n = NO_BATCH.length + (formHas ? 1 : 0);
+          var rev = String((document.querySelector('.no-rev') || {}).value || '');
+          go.textContent = n > 1 ? 'Send All ' + n + ' for Review'
+            : (rev || NO_BATCH.some(function (x) { return x.reviewer; })) ? 'Send for Review'
+            : 'Send to ' + (((list[0].F.vpProduct) || {}).name || 'the VP');
+        }
+      }
+      (root || document).querySelectorAll('.nof[data-k="subject"], .no-rev').forEach(function (e) {
+        if (e.dataset.batchwired) return; e.dataset.batchwired = '1';
+        e.addEventListener(e.tagName === 'SELECT' ? 'change' : 'input', paintBatch);
+      });
+      (root || document).querySelectorAll('.no-add').forEach(function (b) {
+        if (b.dataset.wired) return; b.dataset.wired = '1';
+        b.addEventListener('click', function () {
+          var x = collectOrder(); if (!x) return;
+          NO_BATCH.push(x);
+          ['subject', 'description'].forEach(function (k) {
+            var e = document.querySelector('.nof[data-k="' + k + '"]'); if (e) { e.value = ''; e.dataset.tpl = ''; }
+          });
+          var nm = document.getElementById('no-name'); if (nm) { nm.value = ''; nm.focus(); }
+          paintBatch();
+          toast('Added. Fill in the next one — the company, template and reviewer are kept.', 'good');
+        });
+      });
       (root || document).querySelectorAll('.no-go').forEach(function (b) {
         if (b.dataset.wired) return; b.dataset.wired = '1';
         b.addEventListener('click', function () {
-          var vals = {};
-          document.querySelectorAll('.nof').forEach(function (el) {
-            vals[el.dataset.k] = String(el.value == null ? '' : el.value).trim();
-          });
-          var whyEl = document.querySelector('.nowhy');
-          var why = whyEl ? String(whyEl.value || '').trim() : '';
-          var slug = vals.__slug;
-
-          if (!slug) { toast('Choose the contracting company first'); return; }
-          if (!vals.subject) { toast('Give the order a title first'); return; }
-          if (!vals.__rev && hasPlaceholders(vals)) {
-            toast('Parts in [brackets] still need filling in. Choose who asked for it so they can fill them in, or fill them in yourself.', 'warn');
-            return;
-          }
-
-          var C = list.filter(function (x) { return x.slug === slug; })[0];
-          if (!C) { toast('That company could not be found'); return; }
-
-          /* A readable id that cannot collide with a generated one. The
-             generated set never uses this prefix. */
-          var id = 'new-' + Date.now().toString(36);
-          var order = {
-            id: id,
-            source: 'Raised in the portal',
-            feeType: vals.feeType === 'perReview' ? 'perReview' : 'hourly',
-            subject: vals.subject,
-            msaFlavour: vals.msaFlavour || ((C.F.letters || [])[0] || {}).msaFlavour || '',
-            hourlyRate: vals.hourlyRate === '' ? null : Number(vals.hourlyRate.replace(/[^0-9.\-]/g, '')),
-            estimatedHours: vals.estimatedHours === '' ? null : Number(vals.estimatedHours.replace(/[^0-9.\-]/g, '')),
-            maximumFee: vals.maximumFee === '' ? null : Number(vals.maximumFee.replace(/[^0-9.\-]/g, '')),
-            startDate: vals.startDate, endDate: vals.endDate,
-            description: vals.description,
-            /* ⚠ LISTS, not text. The generated orders hold these two as lists
-               and the document renders them as bullets. Storing a typed block
-               of text here is what broke every view the first time. One line
-               per bullet. */
-            services: asList(vals.services),
-            deliverables: asList(vals.deliverables),
-            deliverySchedule: vals.deliverySchedule,
-            paymentSchedule: vals.paymentSchedule,
-            tasksFromMismo: vals.tasksFromMismo, modifications: vals.modifications,
-            /* ⚠ No forecast line and no budget check — Jonna's decision,
-               1 Oct 2026, to be revisited when the financial system is up. */
-            forecastLine: null,
-            raisedBy: who().name, raisedOn: new Date().toISOString(), raisedWhy: why
-          };
-          /* what kind of order it is, carried from the template it started from */
-          (function () {
-            var ts = document.getElementById('no-tpl'), T = [];
-            try { T = JSON.parse((document.getElementById('no-tpls') || {}).textContent || '[]'); } catch (e) {}
-            var t = ts && T[Number(ts.value)];
-            if (t && ts.value !== '') TPL_CARRY.forEach(function (k) { if (t.carry[k] != null) order[k] = t.carry[k]; });
-          })();
-          ['hourlyRate', 'estimatedHours', 'maximumFee'].forEach(function (k) {
-            if (order[k] != null && !isFinite(order[k])) order[k] = null;
-          });
-
-          b.disabled = true; b.textContent = 'Raising…';
-          var revSel = document.querySelector('.no-rev');
-          var revEmail = revSel ? String(revSel.value || '') : '';
-          var reviewer = revEmail ? (STAFF || []).filter(function (s) { return s.email === revEmail; })[0] : null;
-          /* The review request is filed FIRST: if Team HQ cannot be reached the
-             order is not raised half-way, with a reviewer who was never asked. */
-          (reviewer ? requestReview(C, order, reviewer) : Promise.resolve(null))
-            .then(function (review) {
-              if (review) order.review = review;
-              return R.update(keyFor(slug), 'revisions/' + slug + '.json', function (cur) {
-                var next = JSON.parse(JSON.stringify(cur || {}));
-                next.company = next.company || slug;
-                next.additions = (next.additions || []).concat([order]);
-                return next;
-              }, 'new order: ' + order.subject, { revisions: [] });
-            })
-            .then(function () { if (order.review) return reviewNotice(C, order, order.review); })
-            .then(function () {
-              toast(order.review
-                ? 'Raised \u2014 ' + order.review.by.name + ' is emailed to review and approve it'
-                : 'Raised \u2014 it is with ' + (((C.F.vpProduct) || {}).name || 'the VP') + ' for a decision', 'good');
-              adminView();
-            })
-            .catch(function (e) {
-              b.disabled = false; b.textContent = 'Raise This Order';
-              failed(e);
+          var formHas = !!String((document.querySelector('.nof[data-k="subject"]') || {}).value || '').trim();
+          var items = NO_BATCH.slice();
+          if (formHas || !items.length) { var x = collectOrder(); if (!x) return; items.push(x); }
+          var label = b.textContent;
+          b.disabled = true; b.textContent = 'Sending…';
+          /* Each review request is filed FIRST, so no order is saved with a
+             reviewer who was never asked; then one save per company. */
+          items.reduce(function (p, x) {
+            return p.then(function () {
+              if (!x.reviewer) return null;
+              return requestReview(x.C, x.order, x.reviewer).then(function (rv) { x.order.review = rv; });
             });
+          }, Promise.resolve()).then(function () {
+            var by = {};
+            items.forEach(function (x) { (by[x.slug] = by[x.slug] || []).push(x); });
+            return Object.keys(by).reduce(function (p, slug) {
+              return p.then(function () {
+                var orders = by[slug].map(function (x) { return x.order; });
+                return R.update(keyFor(slug), 'revisions/' + slug + '.json', function (cur) {
+                  var next = JSON.parse(JSON.stringify(cur || {}));
+                  next.company = next.company || slug;
+                  next.additions = (next.additions || []).concat(orders);
+                  return next;
+                }, orders.length === 1 ? 'new order: ' + orders[0].subject : orders.length + ' new orders', { revisions: [] });
+              });
+            }, Promise.resolve());
+          }).then(function () {
+            /* one email per reviewer, however many orders they are asked to look at */
+            var byRev = {};
+            items.forEach(function (x) { if (x.order.review) (byRev[x.reviewer.email] = byRev[x.reviewer.email] || []).push(x); });
+            return Object.keys(byRev).reduce(function (p, em) {
+              return p.then(function () {
+                var g = byRev[em];
+                return g.length === 1 ? reviewNotice(g[0].C, g[0].order, g[0].order.review) : reviewNoticeMany(g);
+              });
+            }, Promise.resolve());
+          }).then(function () {
+            var n = items.length, revs = items.filter(function (x) { return x.reviewer; });
+            NO_BATCH = [];
+            toast(revs.length
+              ? (n === 1 ? 'Sent to ' + revs[0].reviewer.name + ' to review' : n + ' sent for review')
+              : (n === 1 ? 'Sent to ' : n + ' sent to ') + (((items[0].C.F.vpProduct) || {}).name || 'the VP') + ' for a decision', 'good');
+            adminView();
+          }).catch(function (e) {
+            b.disabled = false; b.textContent = label;
+            failed(e);
+          });
         });
       });
 

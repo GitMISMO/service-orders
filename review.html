@@ -359,8 +359,8 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
       }).join('') + '<div class="subh" style="margin-top:18px">As It Was Sent</div>' + body;
     }
     var stepsHtml = '<ol class="steps">' + [
-        ['You review and approve it', d.state === 'approved' ? 'done' : d.state === 'pending' ? 'on' : ''],
-        [vp + ' decides', ''], ['MISMO sends it to ' + d.company, ''],
+        ['You review it and send it back', d.state === 'pending' ? 'on' : (d.state === 'approved' || d.state === 'revised') ? 'done' : ''],
+        [first(d.requestedBy) + ' sends it to ' + vp, ''], [vp + ' approves it, and it goes to ' + d.company, ''],
         [d.company + ' accepts it from the email', ''], ['The President approves it', '']
       ].map(function (s, i) { return '<li class="' + s[1] + '"><i>' + (s[1] === 'done' ? '✓' : (i + 1)) + '</i>' + esc(s[0]) + '</li>'; }).join('') + '</ol>';
     var side;
@@ -376,8 +376,8 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
         '<p class="chg-n" id="chgn"></p>' + stepsHtml + '</div>';
     } else if (mineToDo) {
       side = '<div class="card decide"><h2>Your Decision</h2><p class="say">' + esc(d.requestedBy) + ' drafted this for you. ' +
-        'If it is right, approve it and it goes on to ' + esc(vp) + '. If anything is wrong, change it on the left and send it back to ' +
-        esc(first(d.requestedBy)) + ' to put in. Nothing reaches ' + esc(d.company) + ' until it is approved.</p>' +
+        'If it is right, approve it. If anything is wrong, change it on the left and send your changes. Either way it goes back to ' +
+        esc(first(d.requestedBy)) + ', who sends it to ' + esc(vp) + '. Nothing reaches ' + esc(d.company) + ' until ' + esc(vp) + ' approves it.</p>' +
         '<button class="btn wide" type="button" id="ok">Approve This Service Order</button>' +
         '<div class="or">or</div>' +
         '<label class="l" for="why">Anything Else to Say</label>' +
@@ -388,7 +388,7 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
     } else {
       var st = stateOf(d);
       side = '<div class="card decide"><h2>' + esc(st.label) + '</h2>' +
-        (d.state === 'approved' ? '<p class="say">' + esc((d.reviewer || {}).name) + ' approved it ' + esc(when(d.decidedAt)) + '. It is with ' + esc(vp) + ' next.</p>'
+        (d.state === 'approved' ? '<p class="say">' + esc((d.reviewer || {}).name) + ' approved it ' + esc(when(d.decidedAt)) + '. It is back with ' + esc(first(d.requestedBy)) + ' to send to ' + esc(vp) + '.</p>'
           : d.state === 'changes' ? '<p class="say">' + esc((d.reviewer || {}).name) + ' sent it back ' + esc(when(d.decidedAt)) + ':</p><div class="note bad">' + esc(d.comments || '') + '</div>'
           : d.state === 'revised' ? '<p class="say">' + esc((d.reviewer || {}).name) + ' changed ' + changedCount(d) + ' and sent it back to ' +
             esc(first(d.requestedBy)) + ' ' + esc(when(d.decidedAt)) + '. Once ' + esc(first(d.requestedBy)) + ' puts the changes in, it goes to ' + esc(vp) + '.</p>' +
