@@ -1831,6 +1831,46 @@ td.hcol .hdot{margin:0 auto}
 .hl-bar-i.bad{background:var(--bad)}
 .hl-pct{font-size:12px;color:var(--ink-2);font-variant-numeric:tabular-nums}
 @media(max-width:760px){ .hl-picks{justify-content:flex-start} .hl-picks .f{min-width:140px;flex:1 1 140px} }
+/* ---- My Expenses, the Team HQ way (5 Nov 2026) ---- */
+.xp-head{margin-bottom:14px}
+.xp-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;margin:0 0 14px}
+@media(max-width:820px){.xp-top{grid-template-columns:1fr}}
+.xp-mail{padding:12px 14px;border:1px solid var(--border);border-left:3px solid var(--sky);border-radius:8px;background:var(--surface);min-width:0}
+.xp-mail-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.xp-mail-h b{font-size:14.5px;color:var(--ink)}
+.xp-mail-h span{margin-left:auto;font-size:12px;color:var(--ink-3);white-space:nowrap}
+.xp-mail-h a{color:inherit}
+.xp-mail p{margin:8px 0 0;font-size:13px;color:var(--ink-2)}
+.xp-mail ul{list-style:none;margin:8px 0 0;padding:0;display:flex;flex-direction:column;gap:5px}
+.xp-mrow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:center;width:100%;padding:6px 9px;border:0;border-radius:6px;background:var(--surface-2);font:inherit;font-size:13px;color:var(--ink);text-align:left}
+button.xp-mrow{cursor:pointer}
+button.xp-mrow:hover{background:var(--surface-3)}
+.xp-mrow .s{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink-2)}
+.xp-mrow .a{font-variant-numeric:tabular-nums;font-weight:600;white-space:nowrap}
+.xp-snap{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:16px;border:1.5px dashed var(--border-strong);border-radius:8px;background:var(--surface);cursor:pointer;min-width:0}
+.xp-snap:hover,.xp-snap.over{border-color:var(--sky);background:var(--sky-wash)}
+.xp-snap:focus-visible{outline:2px solid var(--sky);outline-offset:2px}
+.xp-snap svg{width:28px;height:28px;stroke:var(--navy-mid);fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+.xp-snap b{font-size:15px;color:var(--ink)}
+.xp-snap span{font-size:12.5px;color:var(--ink-3)}
+.xp-snap-b{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:4px}
+.xp-bar{display:flex;align-items:center;gap:12px 16px;flex-wrap:wrap;padding:12px 14px;margin:0 0 6px;border:1px solid var(--border);border-radius:8px;background:var(--surface-2)}
+.xp-bar-l{flex:1 1 320px;min-width:0;display:flex;flex-direction:column;gap:2px}
+.xp-bar-l b{font-size:14px;color:var(--ink)}
+.xp-bar-l span{font-size:12.5px;color:var(--ink-3)}
+.xp-bar-r{display:flex;gap:8px;flex-wrap:wrap}
+.xp-bar .gobtn,.xp-snap .gobtn,.xp-acts .gobtn{white-space:nowrap;min-width:max-content}
+.xp-acts{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0 0}
+.xp-cats{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--ink-2);margin:6px 0 0}
+.xp-cats b{color:var(--ink);font-variant-numeric:tabular-nums}
+.pill.bad{background:rgba(179,55,44,.12);color:var(--bad)}
+@media(max-width:560px){.xp-head .tiles{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:8px}.xp-head{padding:12px}.xp-head .tile{padding:10px 11px}.xp-head .tile b{font-size:20px}.xp-head .tile small{display:none}}
+/* in the phone app the dock at the bottom already snaps and adds */
+html.soxp .xp-snap,html.soxp #xp-new{display:none}
+html.soxp .xp-top{grid-template-columns:1fr}
+.xp-co{font-size:13px;font-weight:700;color:var(--ink);margin:16px 0 6px}
+:root[data-theme="dark"] .xp-snap{background:var(--surface-2)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .xp-snap{background:var(--surface-2)}}
 </style>
 </head>
 <body>
@@ -2351,7 +2391,31 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
      boot any more — the session either exists in this tab or it does not. */
   function boot() { return session(); }
 
+  /* GET/PUT /{project}/data/{id} — the single-file route other tools (Team HQ)
+     keep their records in. Used for the service order review requests, which
+     live in Team HQ's data because every staff member can reach Team HQ and
+     not every one of them can reach a company's service orders. */
+  function readData(project, id) {
+    return send('GET', '/' + enc(project) + '/data/' + enc(id), null)
+      .then(function (r) { return { data: (r && r.data) || null, sha: (r && r.sha) || null }; });
+  }
+  function writeData(project, id, content, sha) {
+    return send('PUT', '/' + enc(project) + '/data/' + enc(id), { content: content, sha: sha || undefined });
+  }
+  /* Read, change, save through /data/, re-reading on a 409 so nobody's save is lost. */
+  function updateData(project, id, change, tries) {
+    tries = tries == null ? 4 : tries;
+    return readData(project, id).then(function (cur) {
+      var next = change(cur.data ? JSON.parse(JSON.stringify(cur.data)) : null);
+      return writeData(project, id, next, cur.sha);
+    }).catch(function (e) {
+      if ((e.conflict || e.status === 409) && tries > 1) return updateData(project, id, change, tries - 1);
+      throw e;
+    });
+  }
+
   global.MISMO_RELAY = {
+    readData: readData, writeData: writeData, updateData: updateData,
     base: BASE,
     boot: boot, whoami: whoami, loginAny: loginAny,
     login: login, signOut: signOut, signedIn: signedIn, session: session,
@@ -3141,6 +3205,19 @@ window.H = (function () {
       if (sentOn) return { key: 'question', label: 'Question Raised', tone: 'warn', sig: held };
     }
     if (sentOn) return { key: 'sent', label: 'Sent', tone: '' };
+    /* ⚠ The requester's review comes BEFORE the VP (5 Nov 2026). An order
+       raised for somebody's review is not in the VP's queue until they have
+       approved it; sent back, it is on Jonna's desk. Once approved it falls
+       through to Draft, which is exactly the VP's queue. A VP decision already
+       on file wins, so nothing decided is ever undone by this. */
+    if (!vp && o.review && o.review.state === 'pending') {
+      return { key: 'review', label: 'With ' + String((o.review.by || {}).name || 'the Requester').split(' ')[0] + ' for Review',
+               tone: '', review: o.review };
+    }
+    if (!vp && o.review && o.review.state === 'changes') {
+      return { key: 'reviewback', label: 'Sent Back by ' + ((o.review.by || {}).name || 'the Requester'),
+               tone: 'warn', review: o.review };
+    }
     if (vp && vp.decision === 'Approved to Send') {
       return { key: 'vp', label: 'Released to Send', tone: '', sig: vp };
     }
@@ -3623,6 +3700,8 @@ window.H = (function () {
     'send orders':      '<path d="M4 12l16-8-6 16-2.5-6.2L4 12z"/>',
     'executed documents':'<path d="M6 3h9l5 5v13a1 1 0 01-1 1H6a1 1 0 01-1-1V4a1 1 0 011-1z"/><path d="M14 3v6h6M9 14.5l2 2 4-4.5"/>',
     'hours remaining':  '<circle cx="12" cy="12" r="9"/><path d="M12 3v9h9"/>',
+    'my expenses':      '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/>',
+    'contractor expenses':'<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6M9 16h3"/>',
     'help':             '<circle cx="12" cy="12" r="9"/><path d="M9.6 9.5a2.5 2.5 0 113.4 2.4c-.6.3-.9.8-.9 1.4v.5M12 17.2v.1"/>'
   };
   function railIcon(name) {
@@ -3647,7 +3726,7 @@ window.H = (function () {
        waits on her — it is where she looks at what has come in. */
     { label: 'Your Week', names: ['My Hours', 'My Submitted Time', 'When I Am Away',
         'The Company\u2019s Month', 'The Company\u2019s Weeks', 'Time Submitted'] },
-    { label: 'Money', names: ['My Invoices', 'My Expenses', 'Invoices'] },
+    { label: 'Money', names: ['My Invoices', 'My Expenses', 'Invoices', 'Contractor Expenses'] },
     { label: 'Service Orders', names: ['Hours Remaining', 'My Service Orders', 'New Service Order',
         'Revise an Order', 'End a Service Order', 'My Agreements', 'Executed Documents',
         'Already Approved', 'Already Decided'] },
@@ -4280,6 +4359,11 @@ window.H = (function () {
        not a rejection and not a credit — the invoice never reached MISMO's
        approval, so it simply stops counting and is sent again once the
        corrected week has been sent again. */
+    /* An expense invoice MISMO sent back (5 Nov 2026): the expenses went back
+       to the person to correct, and a new report gets a new invoice. */
+    returned:  { label: 'Sent Back', tone: 'bad',
+      said: 'MISMO sent this expense invoice back. The expenses went back to the person to ' +
+            'correct; once they submit them again, send a new expense invoice for the new report.' },
     takenback: { label: 'Taken Back to Correct', tone: 'bad',
       said: 'Taken back because a week behind it was corrected. Send it again once that week ' +
             'has been corrected and resubmitted.' }
@@ -4342,47 +4426,67 @@ window.H = (function () {
   }
 
   /* =========================================================================
-   * EXPENSE CLAIMS — their own invoice, on their own clock
+   * EXPENSE CLAIMS — one expense invoice per EXPENSE REPORT (5 Nov 2026)
    *
-   * ⚠ Grouped by SUMMIT, not by month. Expenses for one summit are claimed
-   * together within a week of it ending, which is why this cannot ride on the
-   * monthly hours invoice.
+   * A person submits all their expenses at once; that is a report. The
+   * company sends one expense invoice for each report, separate from the hours
+   * invoice, and it is checked against the report to the cent. (Before this,
+   * claims were grouped by summit from expenses MISMO had approved one by one —
+   * a step nobody ever had a screen for, so nothing could ever be claimed.
+   * Anything approved under those rules is still offered, grouped by summit.)
    * ======================================================================= */
   function claimsOpen(F, files, invoices) {
     var claimed = {};
     (invoices || []).forEach(function (iv) {
-      if (iv && iv.kind === 'expenses' && iv.summit) claimed[iv.summit] = 1;
+      if (!iv || iv.kind !== 'expenses') return;
+      var st = iv.state || 'submitted';
+      if (st === 'takenback' || st === 'returned') return;
+      if (iv.report) claimed[iv.report] = 1;
+      else if (iv.summit) claimed['summit:' + iv.summit] = 1;
     });
-    var by = {};
+    var by = {}, out = [];
     (files || []).forEach(function (f) {
       ((f && f.expenses) || []).forEach(function (e) {
-        if ((e.state || 'draft') !== 'approved') return;
-        /* The trip they typed is what groups it — the summit rule filled it in
-           and they could change it, and what THEY said it was for wins. */
-        var k = (e.trip || '').trim() || summitFor(e.date) || 'Not Named';
+        var st = (e && e.state) || 'draft', k, summit = '';
+        if (st === 'submitted') k = f.slug + '/' + reportKeyOf(e);
+        else if (st === 'approved' && !e.reportId && !e.invoiceId) {
+          summit = (e.trip || '').trim() || summitFor(e.date) || 'Not Named';
+          k = 'summit:' + summit;
+        } else return;
         if (claimed[k]) return;
-        if (!by[k]) by[k] = { summit: k, items: [], total: 0 };
-        by[k].items.push(Object.assign({}, e, { person: f.person, slug: f.slug }));
-        by[k].total = Math.round((by[k].total + expenseAllowed(e)) * 100) / 100;
+        if (!by[k]) {
+          by[k] = { report: k, reportId: summit ? '' : reportKeyOf(e), summit: summit,
+                    person: summit ? '' : f.person, slug: f.slug, items: [], total: 0, at: '', trips: [] };
+          out.push(by[k]);
+        }
+        var c = by[k];
+        c.items.push(Object.assign({}, e, { person: f.person, slug: f.slug }));
+        c.total = round2(c.total + expenseAllowed(e));
+        if (e.trip && c.trips.indexOf(e.trip) < 0) c.trips.push(e.trip);
+        if (String(e.submittedAt || '') > c.at) c.at = String(e.submittedAt || '');
       });
     });
-    return Object.keys(by).map(function (k) { return by[k]; })
-      .sort(function (a, b) {
-        var da = claimDue(a.summit), db = claimDue(b.summit);
-        if (da && db) return da - db;
-        if (da) return -1;
-        if (db) return 1;
-        return String(a.summit).localeCompare(String(b.summit));
-      });
+    out.forEach(function (c) {
+      if (!c.summit) c.summit = c.trips[0] || summitFor((c.items[0] || {}).date) || '';
+    });
+    return out.sort(function (a, b) {
+      var da = claimDue(a.summit), db = claimDue(b.summit);
+      if (da && db && da - db) return da - db;
+      if (da && !db) return -1;
+      if (db && !da) return 1;
+      return String(a.at).localeCompare(String(b.at));
+    });
   }
-
+  function claimTitle(c) {
+    return c.person ? c.person + ' — ' + (c.trips.length ? c.trips.join(' · ') : 'Expense Report') : c.summit;
+  }
   /* The outcome for one expense claim. Same five shapes as an invoice, so the
      two screens read alike and the button can never disagree with the
      message. */
   function claimOutcome(claim, up, invoices) {
     if (!claim || !claim.items.length) {
       return { key: 'cannot', label: 'Nothing to Claim', tone: '', can: false,
-        say: 'No approved expenses are waiting for this summit.' };
+        say: 'Nothing on this expense report is waiting to be invoiced.' };
     }
     if (up && up.tooBig) {
       return { key: 'toobig', label: 'That File Was Not Accepted', tone: 'bad', can: false,
@@ -4390,8 +4494,8 @@ window.H = (function () {
     }
     if (!up || !up.file) {
       return { key: 'needfile', label: 'Your Expense Invoice Is Needed', tone: '', can: false,
-        say: 'Attach the invoice you are sending for these expenses and it will be checked ' +
-             'against what MISMO has approved.' };
+        say: 'Attach the expense invoice you are sending for this report and it will be checked ' +
+             'against the report.' };
     }
     if (up.total == null || up.total === '') {
       return { key: 'needtotal', label: 'The Total Is Still Needed', tone: 'warn', can: false,
@@ -4401,12 +4505,12 @@ window.H = (function () {
     var diff = Math.round((Number(up.total) - claim.total) * 100) / 100;
     if (Math.abs(diff) < 0.005) {
       return { key: 'matches', label: 'It Matches', tone: 'good', can: true, diff: 0,
-        say: 'Every figure agrees with the approved expenses.' };
+        say: 'It agrees with the expense report to the cent.' };
     }
     return { key: 'note', label: 'Needs a Note', tone: 'warn',
       can: !!(up.note && String(up.note).trim()), diff: diff,
       say: 'Your invoice is ' + money(Math.abs(diff)) + (diff > 0 ? ' more' : ' less') +
-           ' than the ' + money(claim.total) + ' approved. <b>One line saying what it is</b> ' +
+           ' than the ' + money(claim.total) + ' on the expense report. <b>One line saying what it is</b> ' +
            'and it can go.' };
   }
 
@@ -5105,7 +5209,149 @@ function loadCompanyCore(slug) {
       throw e;
     });
   }
-  function loadAll(slugs) { return Promise.all(slugs.map(loadCompany)); }
+  function loadAll(slugs) { return Promise.all(slugs.map(loadCompany)).then(withReviewDecisions); }
+
+  /* =========================================================================
+   * THE REQUESTER'S REVIEW (Jonna, 5 November 2026)
+   *
+   * Jonna drafts a new service order and sends it to the staff member who asked
+   * for it. They review it on resources.mismo.org/service-orders/review.html
+   * and approve it or send it back with what needs changing. Approved, it goes
+   * the normal way: the VP decides, it is sent, the company accepts it from the
+   * branded email, the President approves it.
+   *
+   * ⚠ WHERE THE REVIEW LIVES. Not every staff member can reach a company's
+   * service orders, and the relay's folders for those are fixed. Every staff
+   * member CAN reach Team HQ, so the review request and the decision live in
+   * Team HQ's data (data/soreviews.json), and the order carries a pointer to
+   * it (o.review.id). This page reads the decision in and writes it onto the
+   * order the next time Jonna or the VP opens it.
+   * ======================================================================= */
+  var REVIEW_URL = 'https://resources.mismo.org/service-orders/review.html';
+  function withReviewDecisions(list) {
+    var any = list.some(function (C) {
+      return (C.F.orders || []).some(function (o) { return o.review && o.review.id && o.review.state === 'pending'; });
+    });
+    if (!any || !R.readData) return list;
+    return R.readData('team-hq', 'soreviews').then(function (r) {
+      var docs = (r.data && r.data.docs) || {};
+      var changed = [];
+      list.forEach(function (C) {
+        (C.F.orders || []).forEach(function (o) {
+          var d = o.review && o.review.state === 'pending' && docs[o.review.id];
+          if (!d || !d.state || d.state === 'pending' || d.state === 'withdrawn') return;
+          o.review = Object.assign({}, o.review, { state: d.state, comments: d.comments || '',
+            decidedAt: d.decidedAt || null, decidedBy: d.decidedBy || null });
+          changed.push({ C: C, o: o });
+        });
+      });
+      if (changed.length && ME && (ME.kind === 'admin' || ME.kind === 'vp-product') && !VIEWAS) {
+        persistReviews(changed).catch(function (e) { if (window.console && console.warn) console.warn('review', e); });
+      }
+      return list;
+    }, function () { return list; });
+  }
+  /* Writes the decision onto the order, once, and says so to whoever is next. */
+  function persistReviews(changed) {
+    var bySlug = {};
+    changed.forEach(function (x) { (bySlug[x.C.slug] = bySlug[x.C.slug] || []).push(x); });
+    return Object.keys(bySlug).reduce(function (prev, slug) {
+      return prev.then(function () {
+        var xs = bySlug[slug], C = xs[0].C, fresh = [];
+        return R.update(keyFor(slug), 'revisions/' + slug + '.json', function (cur) {
+          var next = JSON.parse(JSON.stringify(cur || {}));
+          fresh = [];
+          (next.additions || []).forEach(function (a) {
+            xs.forEach(function (x) {
+              if (a.id !== x.o.id || !a.review || a.review.id !== x.o.review.id || a.review.state !== 'pending') return;
+              a.review = x.o.review; fresh.push(x);
+            });
+          });
+          return next;
+        }, 'review decision', { revisions: [] }).then(function () {
+          return fresh.reduce(function (pp, x) {
+            return pp.then(function () {
+              var o = x.o, rv = o.review, at = new Date().toISOString();
+              var vp = C.F.vpProduct || {};
+              return notify(slug, rv.state === 'approved'
+                ? { kind: 'order-review-approved', company: C.F.company, orderId: o.id, order: o.subject,
+                    who: rv.decidedBy || (rv.by || {}).name, to: vp.email || null,
+                    title: 'A Service Order Ready for Your Decision',
+                    said: ((rv.by || {}).name || 'The requester') + ' reviewed and approved "' + o.subject + '" for ' +
+                          C.F.company + '. It is now waiting for your decision before it is sent.',
+                    cta: { text: 'Open the Service Orders Portal', url: 'https://resources.mismo.org/service-orders/' },
+                    raisedOn: at, forAttentionOf: vp.email ? null : 'jcritchley@mismo.org', sent: false, sentOn: null }
+                : { kind: 'order-review-changes', company: C.F.company, orderId: o.id, order: o.subject,
+                    who: rv.decidedBy || (rv.by || {}).name, said: rv.comments || '',
+                    title: 'A Service Order Was Sent Back for Changes',
+                    cta: { text: 'Open the Service Orders Portal', url: 'https://resources.mismo.org/service-orders/' },
+                    raisedOn: at, forAttentionOf: 'jcritchley@mismo.org', sent: false, sentOn: null });
+            });
+          }, Promise.resolve());
+        });
+      });
+    }, Promise.resolve());
+  }
+  /* What the reviewer reads: the order's terms, copied at the moment it was sent to them. */
+  function orderSnapshot(o) {
+    var keys = ['id', 'subject', 'feeType', 'msaFlavour', 'hourlyRate', 'estimatedHours', 'maximumFee',
+      'startDate', 'endDate', 'description', 'services', 'deliverables', 'deliverySchedule',
+      'paymentSchedule', 'tasksFromMismo', 'modifications', 'raisedWhy', 'raisedBy'];
+    var s = {};
+    keys.forEach(function (k) { if (o[k] !== undefined && o[k] !== null && o[k] !== '') s[k] = JSON.parse(JSON.stringify(o[k])); });
+    return s;
+  }
+  /* Files the review request in Team HQ's data. Resolves the review record the order carries. */
+  function requestReview(C, order, reviewer, prevId) {
+    var at = new Date().toISOString();
+    var rid = 'SR-' + Date.now().toString(36).toUpperCase() + Math.random().toString(36).slice(2, 5).toUpperCase();
+    var review = { id: rid, by: { name: reviewer.name, email: reviewer.email }, state: 'pending',
+                   requestedAt: at, requestedBy: ME.name };
+    return R.updateData('team-hq', 'soreviews', function (cur) {
+      var next = cur && cur.docs ? { docs: cur.docs } : { docs: {} };
+      next.docs[rid] = { id: rid, slug: C.slug, company: C.F.company, orderId: order.id,
+        order: orderSnapshot(order), vpName: (C.F.vpProduct || {}).name || '',
+        reviewer: review.by, requestedBy: ME.name, requestedByEmail: (ME.email || ''),
+        requestedAt: at, state: 'pending', replaces: prevId || null };
+      if (prevId && next.docs[prevId] && next.docs[prevId].state === 'pending') next.docs[prevId].state = 'withdrawn';
+      return next;
+    }).then(function () { return review; });
+  }
+  function reviewNotice(C, order, review) {
+    var vpName = (C.F.vpProduct || {}).name || 'the VP';
+    return notify(C.slug, {
+      kind: 'order-review-requested', company: C.F.company, orderId: order.id, order: order.subject,
+      who: ME.name, to: review.by.email, title: 'A Service Order for You to Review',
+      said: ME.name + ' drafted a new service order for ' + C.F.company + ', "' + order.subject +
+            '", and needs you to review and approve it. Once you approve it, it goes to ' + vpName +
+            ' and then to ' + C.F.company + ' to accept.',
+      cta: { text: 'Review the Service Order', url: REVIEW_URL + '#r=' + review.id },
+      raisedOn: review.requestedAt, forAttentionOf: null, sent: false, sentOn: null });
+  }
+  /* Staff who can be asked to review: Team HQ's people. */
+  var STAFF = null;
+  function loadStaff() {
+    if (STAFF) return Promise.resolve(STAFF);
+    return R.readData('team-hq', 'people').then(function (r) {
+      var docs = (r.data && r.data.docs) || {};
+      STAFF = Object.keys(docs).map(function (k) { return docs[k]; })
+        .filter(function (p) { return p && p.name && p.email && !p.left && !p.archived; })
+        .map(function (p) { return { name: p.name, email: String(p.email) }; })
+        .sort(function (a, b) { return a.name.localeCompare(b.name); });
+      return STAFF;
+    }, function () { STAFF = []; return STAFF; });
+  }
+  function fillReviewerPicks(root) {
+    var sels = $$('select.no-rev', root);
+    if (!sels.length) return;
+    loadStaff().then(function (staff) {
+      sels.forEach(function (sel) {
+        if (sel.dataset.filled) return; sel.dataset.filled = '1';
+        staff.forEach(function (p) { sel.appendChild(new Option(p.name, p.email)); });
+        if (!staff.length) sel.appendChild(new Option('Team HQ could not be reached \u2014 straight to the VP', ''));
+      });
+    });
+  }
 
   /* ---- writing a signature ---------------------------------------------
      One record per order.  Each carries the id AND the content it accepted, so
@@ -6310,8 +6556,8 @@ function loadCompanyCore(slug) {
   }
 
   function expState(e) {
-    return ({ draft: { label: 'Not Sent', tone: '' },
-              submitted: { label: 'Sent to MISMO', tone: 'warn' },
+    return ({ draft: { label: 'Not Submitted', tone: '' },
+              submitted: { label: 'In an Expense Report', tone: 'warn' },
               approved: { label: 'Approved', tone: 'good' },
               invoiced: { label: 'On an Invoice', tone: 'warn' },
               paid: { label: 'Paid', tone: '' },
@@ -6320,82 +6566,302 @@ function loadCompanyCore(slug) {
   }
   function expLocked(e) {
     var st = (e && e.state) || 'draft';
-    return st === 'invoiced' || st === 'paid' || st === 'approved';
+    /* ⚠ 'submitted' is locked too (5 Nov 2026): a submitted expense is on an
+       expense report the company invoices against, and changing it quietly
+       would make their invoice disagree. Take the report back to change it. */
+    return st === 'invoiced' || st === 'paid' || st === 'approved' || st === 'submitted';
+  }
+
+  /* =========================================================================
+   * MY EXPENSES, THE TEAM HQ WAY (Jonna, 5 November 2026)
+   *
+   * Built like Team HQ's Expenses: snap the receipt, or email it to
+   * expense@mismo.org, and the details fill themselves in. Expenses are no
+   * longer sent one at a time: the person SUBMITS EVERYTHING AT ONCE, and that
+   * submission is an EXPENSE REPORT. Their company then sends one expense
+   * invoice for that report, checked against it to the cent, and the report
+   * prints, receipts and all, so the company can build its invoice from it.
+   *
+   *   draft / returned -> submitted (on a report) -> invoiced (on the
+   *   company's expense invoice) -> approved (MISMO approved it and sent it to
+   *   accounts payable) -> paid
+   *
+   * Emailed receipts are matched to the person by Team HQ (the expense@
+   * mailbox is read there) and land in this same file as drafts, marked
+   * `viaEmail`. Nothing about them is saved any differently.
+   * ======================================================================= */
+  var XP_MAIL = 'expense@mismo.org';
+  function round2(v) { return Math.round((Number(v) || 0) * 100) / 100; }
+  function xpOpen(e) { var st = (e && e.state) || 'draft'; return st === 'draft' || st === 'returned'; }
+  function xpNoReceipt(e) {
+    if (!e || e.receipt) return false;
+    var amt = Number(e.amt) || 0;
+    return isMeal(e.cat) ? amt > MEAL_RECEIPT_OVER : amt > RECEIPT_OVER;
+  }
+  /* Expenses submitted before reports existed have no reportId: each day's
+     submission is treated as one report, which is what it was. */
+  function reportKeyOf(e) {
+    return (e && e.reportId) || (e && e.submittedAt ? 'r-' + String(e.submittedAt).slice(0, 10) : 'r-earlier');
+  }
+  function reportsOf(all) {
+    var by = {}, out = [];
+    (all || []).forEach(function (e) {
+      if (!e || xpOpen(e)) return;
+      var k = reportKeyOf(e);
+      if (!by[k]) { by[k] = { id: k, items: [], total: 0, at: '', trips: [] }; out.push(by[k]); }
+      var r = by[k];
+      r.items.push(e);
+      r.total = round2(r.total + expenseAllowed(e));
+      if (e.trip && r.trips.indexOf(e.trip) < 0) r.trips.push(e.trip);
+      if (String(e.submittedAt || '') > r.at) r.at = String(e.submittedAt || '');
+    });
+    return out.sort(function (a, b) { return b.at.localeCompare(a.at); });
+  }
+  function reportState(r) {
+    var s = (r.items || []).map(function (e) { return (e && e.state) || 'draft'; });
+    function every(v) { return s.every(function (x) { return v.indexOf(x) >= 0; }); }
+    if (s.length && every(['paid'])) return { key: 'paid', label: 'Paid', tone: 'good' };
+    if (s.length && every(['approved', 'paid'])) return { key: 'approved', label: 'Approved, With Accounts Payable', tone: 'good' };
+    if (s.indexOf('invoiced') >= 0) return { key: 'invoiced', label: 'On the Company’s Expense Invoice', tone: 'warn' };
+    return { key: 'submitted', label: 'Waiting on the Expense Invoice', tone: 'warn' };
+  }
+  function reportSay(st) {
+    return ({
+      submitted: 'Your company sends <b>one expense invoice</b> for this report, for exactly the total below. Print the report for them.',
+      invoiced: 'Your company has sent its expense invoice for this report. MISMO checks it against the report.',
+      approved: 'MISMO approved the expense invoice and sent it to MBA accounts payable.',
+      paid: 'MBA accounts payable has paid it.'
+    })[st.key] || '';
+  }
+  function reportTitle(r) { return r.trips.length ? r.trips.join(' · ') : 'Expense Report'; }
+  function reportDate(r) { var d = r.at ? new Date(r.at) : null; return d && !isNaN(d.getTime()) ? H.print(d) : ''; }
+  function catTotals(items) {
+    var by = {};
+    (items || []).forEach(function (e) { var c = e.cat || 'Not Chosen'; by[c] = round2((by[c] || 0) + expenseAllowed(e)); });
+    return Object.keys(by).sort().map(function (c) { return { cat: c, total: by[c] }; });
+  }
+  /* One report as a table, receipts openable. `slug` is the COMPANY's. */
+  function reportTable(items, slug, showWho) {
+    var tot = 0;
+    return '<div class="tbl"><table><thead><tr><th>Date</th>' + (showWho ? '<th>Who</th>' : '') +
+      '<th>What</th><th>Description</th><th>Receipt</th><th class="n">Amount</th></tr></thead><tbody>' +
+      (items || []).map(function (e) {
+        var allowed = expenseAllowed(e); tot = round2(tot + allowed);
+        return '<tr><td>' + esc(e.date || '') + '</td>' + (showWho ? '<td>' + esc(e.person || '') + '</td>' : '') +
+          '<td>' + esc(e.cat || '') + '</td><td>' + esc(e.desc || '') +
+          (e.trip ? ' <span class="fineprint">' + esc(e.trip) + '</span>' : '') + '</td><td>' +
+          (e.receiptFile
+            ? '<button class="lnk xpopen" type="button" data-slug="' + esc(slug) + '" data-path="' +
+              esc(e.receiptFile) + '">Open</button>'
+            : (e.receipt ? 'Yes' : 'None')) + '</td>' +
+          '<td class="n">' + money(allowed) + (allowed !== (Number(e.amt) || 0) ? ' <span class="fineprint">capped</span>' : '') +
+          '</td></tr>';
+      }).join('') +
+      '</tbody><tfoot><tr><th>Total</th>' + (showWho ? '<th></th>' : '') + '<th></th><th></th><th></th><th class="n">' +
+      money(tot) + '</th></tr></tfoot></table></div>' +
+      '<div class="xp-cats">' + catTotals(items).map(function (c) {
+        return '<span>' + esc(c.cat) + ' <b>' + money(c.total) + '</b></span>'; }).join('') + '</div>';
+  }
+  function reportPanel(r, slug, canTakeBack) {
+    var st = reportState(r);
+    return '<div class="note ' + (st.tone === 'good' ? 'ok' : '') + '"><b>' + esc(st.label) + '.</b> ' +
+      reportSay(st) + '</div>' +
+      '<div class="fields">' + fld('Submitted', reportDate(r) || '—') +
+      fld('Report', r.id) + fld('Report Total', money(r.total)) + '</div>' +
+      reportTable(r.items, slug) +
+      '<div class="xp-acts"><button class="gobtn" type="button" data-xprint="' + esc(r.id) + '">Print Expense Report</button>' +
+      (canTakeBack && st.key === 'submitted'
+        ? '<button class="gobtn ghost" type="button" data-xback="' + esc(r.id) + '">Take It Back to Change Something</button>'
+        : '') + '</div>' +
+      '<p class="fineprint">The printed report lists every expense, the totals by category and the total the ' +
+      'expense invoice should come to, with the receipt pictures after it.</p>';
+  }
+
+  /* ---- printing a report: a page of its own, then the browser's Print ---- */
+  function reportHtml(r, info, pics) {
+    var st = reportState(r);
+    var rows = r.items.map(function (e) {
+      var a = expenseAllowed(e);
+      return '<tr><td>' + esc(e.date || '') + '</td><td>' + esc(e.cat || '') + '</td><td>' + esc(e.desc || '') +
+        '</td><td>' + esc(e.trip || '') + '</td><td>' + (e.receiptFile || e.receipt ? 'Yes' : 'No') +
+        '</td><td class="n">' + money(a) + (a !== (Number(e.amt) || 0) ? '<br><small>capped from ' + money(e.amt) + '</small>' : '') + '</td></tr>';
+    }).join('');
+    var cats = catTotals(r.items).map(function (c) {
+      return '<tr><td>' + esc(c.cat) + '</td><td class="n">' + money(c.total) + '</td></tr>'; }).join('');
+    var shots = (pics || []).map(function (p) {
+      var e = p.e, cap = esc((e.date || '') + ' · ' + (e.cat || '') + ' · ' + money(expenseAllowed(e)));
+      if (p.b64 && /\.pdf$/i.test(e.receiptFile)) {
+        return '<div class="shot"><div class="cap">' + cap + '</div><p class="pdf">PDF receipt: ' +
+          esc(e.receiptName || 'receipt.pdf') + ' (open it from the portal to print it)</p></div>';
+      }
+      if (!p.b64) return '<div class="shot"><div class="cap">' + cap + '</div><p class="pdf">The receipt could not be loaded just now.</p></div>';
+      return '<div class="shot"><div class="cap">' + cap + '</div><img alt="Receipt" src="data:' + (/\.png$/i.test(e.receiptFile) ? 'image/png' : 'image/jpeg') + ';base64,' + p.b64 + '"></div>';
+    }).join('');
+    return '<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Expense Report — ' +
+      esc(info.person) + '</title><style>' +
+      '@page{margin:14mm}*{box-sizing:border-box}body{margin:0;font-family:"IBM Plex Sans",Arial,Helvetica,sans-serif;color:#0d314c;font-size:12.5px;font-variant-numeric:tabular-nums}' +
+      '.top{display:flex;justify-content:space-between;align-items:center;background:#0d314c;color:#fff;padding:12px 18px;border-radius:6px;-webkit-print-color-adjust:exact;print-color-adjust:exact}' +
+      '.top img{height:22px;background:#fff;padding:5px 9px;border-radius:4px}.top b{font-size:13px;color:#a9d8f3}' +
+      'h1{font-size:22px;margin:18px 0 4px}.sub{color:#456179;margin:0 0 14px}' +
+      '.facts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin:0 0 16px}.facts div{border:1px solid #d5e2ed;border-radius:6px;padding:8px 10px}' +
+      '.facts span{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:#7794aa}.facts b{font-size:14px}' +
+      'table{width:100%;border-collapse:collapse;margin:0 0 14px}th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:#456179;border-bottom:2px solid #0d314c;padding:6px 8px}' +
+      'td{padding:6px 8px;border-bottom:1px solid #e5eef5;vertical-align:top}td.n,th.n{text-align:right;white-space:nowrap}small{color:#7794aa}' +
+      'tfoot td{font-weight:700;border-bottom:0;border-top:2px solid #0d314c}.two{display:grid;grid-template-columns:1.2fr 1fr;gap:18px;align-items:start}' +
+      '.due{border:2px solid #0d314c;border-radius:6px;padding:12px 14px}.due span{display:block;font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;color:#456179}.due b{font-size:24px}' +
+      '.sign{margin-top:26px;display:grid;grid-template-columns:1fr 1fr;gap:30px}.sign div{border-top:1px solid #0d314c;padding-top:4px;font-size:11px;color:#456179}' +
+      '.shots{page-break-before:always}.shot{break-inside:avoid;margin:0 0 16px}.cap{font-weight:700;margin:0 0 6px}.shot img{max-width:100%;max-height:230mm;border:1px solid #d5e2ed}.pdf{color:#456179}' +
+      '.foot{margin-top:18px;font-size:10.5px;color:#7794aa}@media screen{body{padding:24px;max-width:1040px;margin:0 auto}}</style></head><body>' +
+      '<div class="top"><img src="https://resources.mismo.org/member-360/mismo-logo-email.png" alt="MISMO"><b>Expense Report</b></div>' +
+      '<h1>' + esc(info.person) + '</h1><p class="sub">' + esc(info.company) + ' · ' + esc(reportTitle(r)) + '</p>' +
+      '<div class="facts"><div><span>Submitted</span><b>' + esc(reportDate(r) || '—') + '</b></div>' +
+      '<div><span>Expenses</span><b>' + r.items.length + '</b></div><div><span>Report</span><b>' + esc(r.id) + '</b></div>' +
+      '<div><span>Where It Stands</span><b>' + esc(st.label) + '</b></div></div>' +
+      '<table><thead><tr><th>Date</th><th>What</th><th>Description</th><th>Trip or Reason</th><th>Receipt</th><th class="n">Amount</th></tr></thead><tbody>' +
+      rows + '</tbody><tfoot><tr><td colspan="5">Total</td><td class="n">' + money(r.total) + '</td></tr></tfoot></table>' +
+      '<div class="two"><table><thead><tr><th>By Category</th><th class="n">Total</th></tr></thead><tbody>' + cats + '</tbody></table>' +
+      '<div class="due"><span>The Expense Invoice for This Report Should Total</span><b>' + money(r.total) + '</b>' +
+      '<p style="margin:6px 0 0;color:#456179">Send one expense invoice to MISMO for this report, separate from the hours invoice. ' +
+      'It is checked against this total to the cent; quote report ' + esc(r.id) + ' on it.</p></div></div>' +
+      '<div class="sign"><div>Submitted by ' + esc(info.person) + '</div><div>Reviewed for ' + esc(info.company) + '</div></div>' +
+      '<p class="foot">Reimbursed under the MBA travel and expense policy: receipts over ' + money(RECEIPT_OVER) +
+      ', and over ' + money(MEAL_RECEIPT_OVER) + ' on a meal (a meal over that without one is repaid at ' + money(MEAL_RECEIPT_OVER) +
+      '). Printed ' + esc(stamp(new Date().toISOString())) + ' from the MISMO Service Orders portal.</p>' +
+      (shots ? '<div class="shots"><h1>Receipts</h1>' + shots + '</div>' : '') +
+      '</body></html>';
+  }
+  function printReport(r, info) {
+    /* Opened in the same click, so the browser does not treat it as a pop-up. */
+    var w = window.open('', '_blank');
+    if (!w) { toast('Your browser blocked the report from opening. Allow pop-ups for this site and try again.', 'warn'); return; }
+    w.document.write('<p style="font:14px Arial,sans-serif;padding:24px;color:#0d314c">Preparing the expense report…</p>');
+    var reads = r.items.filter(function (e) { return e.receiptFile; }).map(function (e) {
+      return R.readRaw(keyFor(info.slug), e.receiptFile)
+        .then(function (x) { return { e: e, b64: x.base64 }; }, function () { return { e: e }; });
+    });
+    Promise.all(reads).then(function (pics) {
+      w.document.open(); w.document.write(reportHtml(r, info, pics)); w.document.close();
+      var go = function () { try { w.focus(); w.print(); } catch (e) {} };
+      var imgs = w.document.images, left = imgs.length;
+      if (!left) { setTimeout(go, 300); return; }
+      Array.prototype.forEach.call(imgs, function (im) {
+        if (im.complete) { if (--left === 0) setTimeout(go, 200); return; }
+        im.onload = im.onerror = function () { if (--left === 0) setTimeout(go, 200); };
+      });
+    });
+  }
+  /* A receipt opens itself in a new tab (Jonna: documents open the file, never a folder). */
+  function wireReceiptOpen(root) {
+    $$('.xpopen', root || document).forEach(function (b) {
+      if (b.dataset.wired) return; b.dataset.wired = '1';
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        var w = window.open('', '_blank');
+        R.readRaw(keyFor(b.dataset.slug), b.dataset.path).then(function (r) {
+          var bin = atob(r.base64), bytes = new Uint8Array(bin.length);
+          for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+          var type = /\.pdf$/i.test(b.dataset.path) ? 'application/pdf' : /\.png$/i.test(b.dataset.path) ? 'image/png' : 'image/jpeg';
+          var url = URL.createObjectURL(new Blob([bytes], { type: type }));
+          if (w) w.location = url; else window.open(url, '_blank');
+          setTimeout(function () { URL.revokeObjectURL(url); }, 120000);
+        }).catch(function (e) { if (w) w.close(); failed(e); });
+      });
+    });
   }
 
   function expensesSection(C, person, mine) {
     var all = ((mine && mine.expenses) || []).slice();
-    EXPS.file = mine;
+    EXPS.file = mine; EXPS.person = person; EXPS.C = C;
     /* Newest first, because the one being worked on is almost always today's. */
     all.sort(function (a, b) {
       var da = H.parse(a.date), db = H.parse(b.date);
       return (db ? db.getTime() : 0) - (da ? da.getTime() : 0);
     });
+    var open = all.filter(xpOpen);
+    var openTot = round2(open.reduce(function (a, e) { return a + expenseAllowed(e); }, 0));
+    var needs = open.filter(function (e) { return expenseWorst(e, all) === 'bad'; }).length;
+    var noRcpt = open.filter(xpNoReceipt).length;
+    var reps = reportsOf(all);
+    var yearTot = round2(reps.reduce(function (a, r) { return a + r.total; }, 0));
+    function tile(big, label, small, warn) {
+      return '<div class="tile' + (warn ? ' warn' : '') + '"><b>' + big + '</b><span>' + esc(label) +
+        '</span><small>' + esc(small) + '</small></div>';
+    }
+    var tiles = '<div class="headline xp-head"><div class="tiles">' +
+      tile(money(openTot), 'Not Yet Submitted', open.length + (open.length === 1 ? ' expense' : ' expenses') + ' to submit') +
+      tile(String(needs), 'Need Details', needs ? 'open one to finish it' : 'nothing is missing', needs) +
+      tile(String(noRcpt), 'Missing a Receipt', 'over ' + money(RECEIPT_OVER) + ', or a meal over ' + money(MEAL_RECEIPT_OVER), noRcpt) +
+      tile(money(yearTot), 'Submitted This Year', reps.length + (reps.length === 1 ? ' expense report' : ' expense reports')) +
+      '</div></div>';
 
-    /* Grouped by the month they fall in, because that is the invoice they
-       will land on and it is the only grouping that decides anything. */
-    var periods = [], seen = {};
-    all.forEach(function (e) {
-      var pd = H.periodOfWeek(e.date);
-      if (!pd || seen[pd]) return;
-      seen[pd] = 1; periods.push(pd);
-    });
+    /* ---- what came in by email ---- */
+    var cut = Date.now() - 21 * 864e5;
+    var mailed = all.filter(function (e) {
+      if (!e.viaEmail) return false;
+      return xpOpen(e) || (Date.parse(e.viaEmail.at || '') || 0) >= cut;
+    }).sort(function (a, b) { return String((b.viaEmail || {}).at || '').localeCompare(String((a.viaEmail || {}).at || '')); });
+    var mail = '<div class="xp-mail"><div class="xp-mail-h"><b>Your Emailed Receipts</b>' +
+      '<span>Send to <a href="mailto:' + XP_MAIL + '">' + XP_MAIL + '</a></span></div>' +
+      (mailed.length
+        ? '<ul>' + mailed.slice(0, 6).map(function (e) {
+            var bad = expenseWorst(e, all) === 'bad';
+            var st = xpOpen(e) ? (bad ? { label: 'Needs Details', tone: 'bad' } : { label: 'Ready', tone: 'good' }) : expState(e);
+            var inner = '<span class="s">' + esc((e.viaEmail.subject || e.desc || 'Emailed receipt')) + '</span>' +
+              '<span class="a">' + (Number(e.amt) ? money(expenseAllowed(e)) : '—') + '</span>' +
+              '<span class="pill ' + st.tone + '">' + esc(st.label) + '</span>';
+            return '<li>' + (xpOpen(e)
+              ? '<button type="button" class="xp-mrow" data-panel="xp-' + esc(e.id) + '">' + inner + '</button>'
+              : '<div class="xp-mrow">' + inner + '</div>') + '</li>';
+          }).join('') + '</ul>' +
+          (mailed.length > 6 ? '<p class="fineprint">+' + (mailed.length - 6) + ' more below</p>'
+            : mailed.length < 4 ? '<p>Forward a receipt to <b>' + XP_MAIL + '</b> from ' + esc(person.email || 'your work email') +
+              ' and it shows up here, read and filled in.</p>' : '')
+        : '<p>Forward or email a receipt to <b>' + XP_MAIL + '</b> from ' +
+          esc(person.email || 'your work email') + ' and it lands here with the details filled in. ' +
+          'Check it, then submit it with the rest.</p>') + '</div>';
 
-    var unsent = all.filter(function (e) { return ((e.state || 'draft') === 'draft'); });
-    var unsentTot = unsent.reduce(function (a, e) { return a + expenseAllowed(e); }, 0);
+    var snap = '<div class="xp-snap" id="xp-snap" tabindex="0" role="button" ' +
+      'aria-label="Snap a receipt: take a photo, or drop a receipt picture or PDF here">' +
+      '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>' +
+      '<b>Snap a Receipt</b><span>Take a photo, or drop a receipt here. The details fill themselves in.</span>' +
+      '<div class="xp-snap-b"><button class="gobtn" type="button" id="xp-cam">Take a Picture</button>' +
+      '<button class="gobtn ghost" type="button" id="xp-pick">Choose a File</button></div></div>';
 
-    var head =
-      '<p class="lede">What you have spent and are owed. <b>Add each one as it happens</b> \u2014 ' +
-      'they go on the invoice for the month they fall in, not the month you enter them.</p>' +
-      '<div class="wkband">' +
-        '<div class="wkband-l">' +
-          '<span class="wkband-k">Not Sent Yet</span>' +
-          /* ⚠ To the cent, not rounded. The month totals below are exact, and a
-             headline reading $34 above a line reading $33.50 makes somebody
-             check which is wrong. */
-          '<span class="wkband-d">' + money(unsentTot) + '</span>' +
-          '<span class="wkband-s">' + unsent.length +
-            (unsent.length === 1 ? ' expense' : ' expenses') + ' waiting to be sent</span>' +
-        '</div>' +
-        '<div class="wkband-r">' +
-          '<span class="wkband-h">' + all.length + '</span>' +
-          '<span class="wkband-u">in all this year</span>' +
-        '</div>' +
-      '</div>' +
-      '<div class="onebar"><button class="gobtn" type="button" id="xp-new">Add an Expense</button>' +
-      (unsent.length
-        /* ⚠ The ghost variant: adding is the everyday action and sending is the
-           occasional one, so they must not read as two equal choices. */
-        ? '<button class="gobtn ghost" type="button" id="xp-send">Send ' + unsent.length +
-          ' to MISMO</button>'
-        : '') + '</div>' +
+    var bar = '<div class="xp-bar"><div class="xp-bar-l"><b>' +
+      (open.length ? open.length + (open.length === 1 ? ' expense' : ' expenses') + ' ready to submit · ' + money(openTot)
+                   : 'Nothing waiting to be submitted') + '</b>' +
+      '<span>Submit everything at once when the trip is done. That becomes the expense report your company invoices.</span></div>' +
+      '<div class="xp-bar-r"><button class="gobtn ghost" type="button" id="xp-new">Add by Hand</button>' +
+      (open.length ? '<button class="gobtn" type="button" id="xp-send">Submit All ' + open.length + '</button>' : '') +
+      '</div></div>';
+
+    var openHtml = open.length ? '<h4 class="subh">Not Yet Submitted</h4><div class="hqrows">' + open.map(function (e) {
+      var bad = expenseWorst(e, all);
+      var allowed = expenseAllowed(e);
+      var capped = allowed !== (Number(e.amt) || 0);
+      return panelRow('xp-' + e.id, e.cat || (e.viaEmail ? 'Emailed Receipt' : 'No Category Yet'),
+        [e.date || 'no date', e.desc, e.trip].filter(Boolean).join(' · '),
+        money(allowed) + (capped ? ' <span class="fineprint">capped</span>' : ''),
+        expensePanel(e, all),
+        (e.state === 'returned' ? '<span class="pill bad">Sent Back to You</span>' : '') +
+        (bad === 'bad' ? '<span class="pill bad">Needs Details</span>'
+          : bad === 'warn' ? '<span class="pill warn">Check It</span>' : '') +
+        (e.viaEmail ? '<span class="pill quiet">Emailed</span>' : ''));
+    }).join('') + '</div>' : '';
+
+    var repHtml = reps.length ? '<h4 class="subh">Expense Reports</h4><div class="hqrows">' + reps.map(function (r) {
+      var st = reportState(r);
+      return panelRow('xr-' + r.id, reportTitle(r),
+        'Submitted ' + (reportDate(r) || '—') + ' · ' + r.items.length + (r.items.length === 1 ? ' expense' : ' expenses'),
+        money(r.total), reportPanel(r, C.slug, true),
+        '<span class="pill ' + st.tone + '">' + esc(st.label) + '</span>');
+    }).join('') + '</div>' : '';
+
+    return tiles + '<div class="xp-top">' + snap + mail + '</div>' + bar + openHtml + repHtml +
       '<p class="fineprint">MISMO reimburses under the <b>MBA travel and expense policy</b>. ' +
       'Receipts are needed over ' + money(RECEIPT_OVER) + ', and over ' + money(MEAL_RECEIPT_OVER) +
-      ' on a meal \u2014 a meal over that without one is repaid at ' + money(MEAL_RECEIPT_OVER) +
+      ' on a meal — a meal over that without one is repaid at ' + money(MEAL_RECEIPT_OVER) +
       ' rather than refused.</p>';
-
-    if (!all.length) {
-      return head + '<p class="empty"><b>Nothing yet.</b> Add the first one with the button above.</p>';
-    }
-
-    return head + periods.map(function (pd) {
-      var inP = all.filter(function (e) { return H.periodOfWeek(e.date) === pd; });
-      var tot = inP.reduce(function (a, e) { return a + expenseAllowed(e); }, 0);
-      return '<h4 class="subh">' + esc(H.periodLabel(pd)) + ' \u00b7 ' + money(tot) + '</h4>' +
-        '<div class="hqrows">' + inP.map(function (e) {
-          var st = expState(e);
-          var bad = expenseWorst(e, all);
-          var allowed = expenseAllowed(e);
-          var capped = allowed !== (Number(e.amt) || 0);
-          return panelRow('xp-' + e.id, e.cat || 'No category yet',
-            (e.date || 'no date') + (e.desc ? ' \u00b7 ' + e.desc : ''),
-            money(allowed) + (capped ? ' <span class="fineprint">capped</span>' : ''),
-            expensePanel(e, all),
-            (bad === 'bad' ? '<span class="pill bad">Needs Something</span>'
-              : bad === 'warn' ? '<span class="pill warn">Check It</span>' : '') +
-            '<span class="pill ' + st.tone + '">' + esc(st.label) + '</span>');
-        }).join('') + '</div>';
-    }).join('');
   }
 
   function expensePanel(e, all, fresh) {
@@ -6407,9 +6873,19 @@ function loadCompanyCore(slug) {
     var problems = fresh ? [] : checkExpense(e, all);
     var allowed = expenseAllowed(e);
     var capped = allowed !== (Number(e.amt) || 0);
-    return (locked
+    return (e.state === 'returned'
+      ? '<div class="note bad"><b>MISMO sent this back to you.</b> ' + esc(e.returnWhy || '') +
+        ' Fix it, then submit it again with the rest.</div>'
+      : '') +
+      (e.viaEmail && !locked
+      ? '<div class="note ok"><b>Emailed in' + (e.viaEmail.subject ? ': ' + esc(e.viaEmail.subject) : '') +
+        '.</b> The details were filled in from the receipt — check them before you submit.</div>'
+      : '') +
+      (locked
       ? '<div class="note"><b>' + esc(expState(e).label) + '.</b> This one is no longer editable ' +
-        'here \u2014 if something is wrong with it, tell Jonna.</div>'
+        'here \u2014 ' + (e.state === 'submitted'
+          ? 'take its expense report back to change it.'
+          : 'if something is wrong with it, tell Jonna.') + '</div>'
       : '') +
       (problems.length
         ? '<div class="note ' + (problems.some(function (x) { return x.lvl === 'bad'; }) ? 'bad' : 'warn') +
@@ -6579,6 +7055,31 @@ function loadCompanyCore(slug) {
     }, 'expenses: ' + person.name, null);
   }
 
+  /* Move a set of expenses (each carrying the PERSON's slug) to a new state,
+     in each person's own hours file. Read-change-save with the usual retry, so
+     a person editing at the same moment is never overwritten. */
+  function setExpenseStates(C, items, state, extra) {
+    var bySlug = {};
+    (items || []).forEach(function (it) {
+      if (!it || !it.slug || !it.id) return;
+      (bySlug[it.slug] = bySlug[it.slug] || {})[it.id] = 1;
+    });
+    var fy = (C.F && C.F.fiscalYear) || 'FY 2027';
+    return Object.keys(bySlug).reduce(function (prev, slug) {
+      return prev.then(function () {
+        return R.update(keyFor(C.slug), hoursPath({ slug: slug }, fy), function (cur) {
+          if (!cur) throw new Error('The expenses for ' + slug + ' could not be found.');
+          var next = JSON.parse(JSON.stringify(cur));
+          next.expenses = (next.expenses || []).map(function (e) {
+            if (!e || !bySlug[slug][e.id]) return e;
+            return Object.assign({}, e, { state: state }, extra || {});
+          });
+          return next;
+        }, 'expenses ' + state + ': ' + slug, null);
+      });
+    }, Promise.resolve());
+  }
+
   function wireExpenses(C, person, fy) {
     function refresh() { HRS.files = null; hoursHome(); }
 
@@ -6593,10 +7094,85 @@ function loadCompanyCore(slug) {
       wireExpensePanel(C, person, fy, e, true);
     });
 
+    /* ---- Snap a Receipt: opens Add an Expense with the camera or the file
+       chooser already up, or with the dropped file already attached. ---- */
+    function snap(file, how) {
+      if (!add) return;
+      add.click();
+      if (how === 'cam') { var c = document.getElementById('rcpt-cam'); if (c) c.click(); return; }
+      var inp = document.getElementById('rcpt-file');
+      if (!inp) return;
+      if (!file) { inp.click(); return; }
+      try {
+        var dt = new DataTransfer(); dt.items.add(file); inp.files = dt.files;
+        inp.dispatchEvent(new Event('change', { bubbles: true }));
+      } catch (e) { inp.click(); }
+    }
+    var zone = document.getElementById('xp-snap');
+    if (zone) {
+      zone.addEventListener('click', function (ev) {
+        if (ev.target.closest('button')) return;
+        snap(null, 'pick');
+      });
+      zone.addEventListener('keydown', function (ev) {
+        if ((ev.key === 'Enter' || ev.key === ' ') && ev.target === zone) { ev.preventDefault(); snap(null, 'pick'); }
+      });
+      ['dragenter', 'dragover'].forEach(function (k) {
+        zone.addEventListener(k, function (ev) { ev.preventDefault(); zone.classList.add('over'); });
+      });
+      zone.addEventListener('dragleave', function () { zone.classList.remove('over'); });
+      zone.addEventListener('drop', function (ev) {
+        ev.preventDefault(); zone.classList.remove('over');
+        var f = ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files[0];
+        if (f) snap(f);
+        if (ev.dataTransfer && ev.dataTransfer.files && ev.dataTransfer.files.length > 1)
+          toast('One receipt at a time \u2014 the first one is open. Add the others the same way.', 'warn');
+      });
+    }
+    var cam = document.getElementById('xp-cam');
+    if (cam) cam.addEventListener('click', function (ev) { ev.stopPropagation(); snap(null, 'cam'); });
+    var pickB = document.getElementById('xp-pick');
+    if (pickB) pickB.addEventListener('click', function (ev) { ev.stopPropagation(); snap(null, 'pick'); });
+
+    /* ---- inside an expense report's panel: print it, or take it back ---- */
+    onPanelOpen(function (root) {
+      wireReceiptOpen(root);
+      $$('[data-xprint]', root).forEach(function (b) {
+        if (b.dataset.wired) return; b.dataset.wired = '1';
+        b.addEventListener('click', function () {
+          var r = reportsOf((EXPS.file && EXPS.file.expenses) || []).filter(function (x) { return x.id === b.dataset.xprint; })[0];
+          if (r) printReport(r, { person: person.name, company: C.F.company, slug: C.slug });
+        });
+      });
+      $$('[data-xback]', root).forEach(function (b) {
+        if (b.dataset.wired) return; b.dataset.wired = '1';
+        b.addEventListener('click', function () {
+          var id = b.dataset.xback;
+          b.disabled = true; b.textContent = 'Taking It Back\u2026';
+          var refused = false;
+          saveExpenses(C, person, fy, function (cur) {
+            return cur.map(function (e) {
+              if (!e || reportKeyOf(e) !== id || e.state === 'draft' || e.state === 'returned') return e;
+              /* ⚠ Only while it is still just submitted. Once the company has
+                 invoiced it, the report is theirs too and cannot be pulled. */
+              if (e.state !== 'submitted') { refused = true; return e; }
+              var n = Object.assign({}, e); n.state = 'draft';
+              delete n.reportId; delete n.submittedAt;
+              return n;
+            });
+          }).then(function () {
+            closePanel(true);
+            toast(refused ? 'Part of that report is already on your company\u2019s invoice, so it stayed where it was.'
+                          : 'Taken back. Change what you need to, then submit them all again.', refused ? 'warn' : 'good');
+            refresh();
+          }).catch(function (err) { b.disabled = false; b.textContent = 'Take It Back to Change Something'; failed(err); });
+        });
+      });
+    });
+
     var send = document.getElementById('xp-send');
     if (send) send.addEventListener('click', function () {
-      var list = ((EXPS.file && EXPS.file.expenses) || [])
-        .filter(function (e) { return (e.state || 'draft') === 'draft'; });
+      var list = ((EXPS.file && EXPS.file.expenses) || []).filter(xpOpen);
       /* ⚠ Refused before anything is written, not after. An expense missing a
          receipt it needs would otherwise reach MISMO and bounce back. */
       var bad = list.filter(function (e) {
@@ -6604,25 +7180,48 @@ function loadCompanyCore(slug) {
       });
       if (bad.length) {
         toast(bad.length + (bad.length === 1 ? ' expense needs' : ' expenses need') +
-          ' something before they can go \u2014 open the ones marked Needs Something.', 'warn');
+          ' something before they can go \u2014 open the ones marked Needs Details.', 'warn');
         return;
       }
-      if (!list.length) { toast('Nothing waiting to be sent'); return; }
-      send.disabled = true; send.textContent = 'Sending\u2026';
+      if (!list.length) { toast('Nothing waiting to be submitted'); return; }
+      send.disabled = true; send.textContent = 'Submitting\u2026';
       var at = new Date().toISOString();
+      /* ⚠ ONE report for everything submitted together. The id is made here,
+         once, so a 409 retry re-applies the same report rather than a new one. */
+      var rid = 'XR-' + at.slice(2, 10).replace(/-/g, '') + '-' + Math.random().toString(36).slice(2, 6).toUpperCase();
+      var ids = {}; list.forEach(function (e) { ids[e.id] = 1; });
+      var total = round2(list.reduce(function (a, e) { return a + expenseAllowed(e); }, 0));
       saveExpenses(C, person, fy, function (cur) {
         return cur.map(function (e) {
-          if ((e.state || 'draft') !== 'draft') return e;
+          if (!e || !ids[e.id] || !xpOpen(e)) return e;
           var n = Object.assign({}, e);
-          n.state = 'submitted'; n.submittedAt = at;
+          n.state = 'submitted'; n.submittedAt = at; n.reportId = rid;
           return n;
         });
       }).then(function () {
-        toast(list.length + (list.length === 1 ? ' expense sent' : ' expenses sent') +
-          ' to MISMO.', 'good');
+        /* The company is told there is a report to invoice. Emailed by the
+           hourly Power Automate run, like every other notice here. */
+        var to = (C.F.people || []).filter(function (pr) { return pr.canInvoice && pr.email && pr.slug !== person.slug; })
+          .map(function (pr) { return pr.email; });
+        var trips = [];
+        list.forEach(function (e) { if (e.trip && trips.indexOf(e.trip) < 0) trips.push(e.trip); });
+        return notify(C.slug, {
+          kind: 'expenses-submitted', company: C.F.company, who: person.name, report: rid,
+          total: total, count: list.length, trips: trips,
+          to: to.length ? to.join(';') : null,
+          title: person.name + ' Submitted an Expense Report',
+          said: person.name + ' submitted ' + list.length + (list.length === 1 ? ' expense' : ' expenses') +
+                ' (' + money(total) + ')' + (trips.length ? ' for ' + trips.join(', ') : '') +
+                '. Please send MISMO one expense invoice for report ' + rid + ', for ' + money(total) +
+                '. The report, with the receipts, prints from the portal.',
+          cta: { text: 'Open the Expense Report', url: 'https://resources.mismo.org/service-orders/' },
+          raisedOn: at, forAttentionOf: to.length ? null : 'jcritchley@mismo.org', sent: false, sentOn: null });
+      }).then(function () {
+        toast('Submitted ' + list.length + (list.length === 1 ? ' expense' : ' expenses') +
+          ' as one expense report. Print it for your company from Expense Reports.', 'good');
         refresh();
       }).catch(function (err) {
-        send.disabled = false; send.textContent = 'Send to MISMO';
+        send.disabled = false; send.textContent = 'Submit All ' + list.length;
         failed(err);
       });
     });
@@ -7010,13 +7609,13 @@ function loadCompanyCore(slug) {
 
   function claimsBlock(C, files, invoices) {
     var claims = claimsOpen(C.F, files, invoices);
-    var head = '<h4 class="subh">Expenses to Claim</h4>' +
-      '<p class="fineprint"><b>Expenses are claimed per summit, not per month</b> \u2014 ' +
-      'usually within a week of the summit ending, which is why they go separately from the ' +
-      'hours invoice above.</p>';
+    var head = '<h4 class="subh">Expense Reports to Invoice</h4>' +
+      '<p class="fineprint"><b>One expense invoice for each expense report</b>, separate from the ' +
+      'hours invoice above. Each person submits their expenses together as one report; the ' +
+      'invoice is checked against it to the cent. Print the report from its panel.</p>';
     if (!claims.length) {
-      return head + '<p class="empty">No approved expenses are waiting. Anything still being ' +
-        'checked by MISMO appears here once it is approved.</p>';
+      return head + '<p class="empty">No expense reports are waiting. When one of your people ' +
+        'submits their expenses, the report appears here for your expense invoice.</p>';
     }
     INV.claims = claims;
     return head + '<div class="hqrows">' + claims.map(function (c, i) {
@@ -7026,8 +7625,9 @@ function loadCompanyCore(slug) {
         : due.key === 'late' ? 'Overdue by ' + due.days + (due.days === 1 ? ' day' : ' days')
         : due.key === 'today' ? 'Due today'
         : 'Due ' + due.due;
-      return panelRow('clm-' + i, c.summit,
-        sub + ' \u00b7 ' + c.items.length + (c.items.length === 1 ? ' expense' : ' expenses'),
+      return panelRow('clm-' + i, claimTitle(c),
+        sub + ' \u00b7 ' + c.items.length + (c.items.length === 1 ? ' expense' : ' expenses') +
+        (c.reportId ? ' \u00b7 report ' + c.reportId : ''),
         money(c.total), claimPanel(C, c, i),
         due.key === 'late' ? '<span class="pill bad">Overdue</span>'
           : due.key === 'unset' ? '<span class="pill">No Deadline Set</span>' : '');
@@ -7043,6 +7643,10 @@ function loadCompanyCore(slug) {
         'the dates it has been given, and it will not invent one \u2014 ask Jonna when this ' +
         'claim is due.</div>'
       : '') +
+      (c.reportId
+        ? '<div class="xp-acts" style="margin:0 0 4px"><button class="gobtn ghost" type="button" data-cprint="' + i +
+          '">Print Expense Report</button></div>'
+        : '') +
       '<div class="tbl"><table><thead><tr><th>Date</th><th>What</th><th>Who</th>' +
       '<th class="n">Amount</th></tr></thead><tbody>' +
       c.items.map(function (e) {
@@ -7085,7 +7689,7 @@ function loadCompanyCore(slug) {
       '<div class="note ' + (out.tone || '') + '" id="clm-outcome"><b>' + esc(out.label) +
         '.</b> ' + out.say + '</div>' +
       '<div class="onebar"><button class="gobtn" type="button" data-clm-go="' + i + '"' +
-      (out.can ? '' : ' disabled') + '>Submit This Expense Claim</button></div>';
+      (out.can ? '' : ' disabled') + '>Submit This Expense Invoice</button></div>';
   }
 
   function sentInvoices(C, invoices) {
@@ -7097,8 +7701,9 @@ function loadCompanyCore(slug) {
       '<p class="fineprint">Where each one has got to. <b>Nobody has to email and ask.</b></p>' +
       '<div class="hqrows">' + list.map(function (iv) {
         var st = invState(iv);
-        return panelRow('inv-' + iv.id, 'Invoice ' + (iv.number || '\u2014'),
-          H.periodLabel(iv.period) + ' \u00b7 sent ' + stamp(iv.submittedAt),
+        var isX = iv.kind === 'expenses';
+        return panelRow('inv-' + iv.id, (isX ? 'Expense Invoice ' : 'Invoice ') + (iv.number || '\u2014'),
+          (isX ? (iv.person || iv.summit || 'Expenses') : H.periodLabel(iv.period)) + ' \u00b7 sent ' + stamp(iv.submittedAt),
           money(iv.total),
           invoicePanel(C, iv),
           '<span class="pill ' + st.tone + '">' + esc(st.label) + '</span>');
@@ -7108,12 +7713,15 @@ function loadCompanyCore(slug) {
   function invoicePanel(C, iv) {
     var st = invState(iv);
     return '<div class="note ' + (st.tone || '') + '"><b>' + esc(st.label) + '.</b> ' + st.said +
-      (iv.question ? '<br><br><b>Their question:</b> ' + esc(iv.question) : '') + '</div>' +
+      (iv.question ? '<br><br><b>Their question:</b> ' + esc(iv.question) : '') +
+      (iv.questionWhy ? '<br><br><b>MISMO asked:</b> ' + esc(iv.questionWhy) : '') + '</div>' +
       '<div class="fields">' +
       fld('Invoice Number', iv.number || '\u2014') +
-      fld('Period', H.periodLabel(iv.period)) +
+      (iv.kind === 'expenses'
+        ? fld('Expense Report', (iv.person ? iv.person + ' \u00b7 ' : '') + (iv.reportId || iv.summit || '\u2014'))
+        : fld('Period', H.periodLabel(iv.period))) +
       fld('Your Total', money(iv.total)) +
-      fld('What MISMO Had Approved', money(iv.approvedTotal)) +
+      fld(iv.kind === 'expenses' ? 'The Expense Report Came To' : 'What MISMO Had Approved', money(iv.approvedTotal)) +
       fld('Difference', iv.diff ? money(iv.diff) : 'None') +
       '</div>' +
       (iv.note ? '<p class="fineprint"><b>What you said the difference was:</b> ' +
@@ -7312,7 +7920,7 @@ function loadCompanyCore(slug) {
             ? '<span class="' + (bad ? 'rcpt-bad' : 'rcpt-ok') + '">' + esc(m) + '</span>' : '';
         }
         function reopen() {
-          openPanel(claim.summit, claimPanel(C, claim, i));
+          openPanel(claimTitle(claim), claimPanel(C, claim, i));
           wireClaim(document.getElementById('panel-body'));
         }
         function ctake(file) {
@@ -7341,6 +7949,17 @@ function loadCompanyCore(slug) {
             ctake(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]); });
         }
       });
+
+      (root || document).querySelectorAll('[data-cprint]').forEach(function (b) {
+        if (b.dataset.wired) return; b.dataset.wired = '1';
+        b.addEventListener('click', function () {
+          var claim = (INV.claims || [])[Number(b.dataset.cprint)];
+          if (!claim) return;
+          printReport({ id: claim.reportId, items: claim.items, total: claim.total, at: claim.at, trips: claim.trips },
+            { person: claim.person, company: C.F.company, slug: C.slug });
+        });
+      });
+      wireReceiptOpen(root || document);
 
       ['num','total','note'].forEach(function (k) {
         (root || document).querySelectorAll('[data-clm-' + k + ']').forEach(function (el) {
@@ -7378,7 +7997,7 @@ function loadCompanyCore(slug) {
           var i = Number(b.dataset.clmAgain);
           if (INV.claimUp && INV.claimUp.i === i) { INV.claimUp.file = null; INV.claimUp.name = null; }
           var claim = (INV.claims || [])[i];
-          openPanel(claim.summit, claimPanel(C, claim, i));
+          openPanel(claimTitle(claim), claimPanel(C, claim, i));
           wireClaim(document.getElementById('panel-body'));
         });
       });
@@ -7405,6 +8024,10 @@ function loadCompanyCore(slug) {
                 var next = JSON.parse(JSON.stringify(cur || { invoices: [] }));
                 next.invoices = (next.invoices || []).concat([{
                   id: id, kind: 'expenses', summit: claim.summit,
+                  /* which expense report this invoices (5 Nov 2026) */
+                  report: claim.report, reportId: claim.reportId || '',
+                  person: claim.person || '', personSlug: claim.person ? claim.slug : '',
+                  trips: claim.trips || [],
                   number: up.number || '', date: H.print(new Date()),
                   period: H.periodOfWeek(claim.items[0] && claim.items[0].date) || '',
                   total: Number(up.total), approvedTotal: claim.total,
@@ -7421,21 +8044,28 @@ function loadCompanyCore(slug) {
               }, 'expense claim ' + claim.summit, { invoices: [] });
             })
             .then(function () {
+              /* The person's expenses move on to "on the company's invoice", so
+                 they can see it — their sign-in cannot read invoices/. */
+              return setExpenseStates(C, claim.items, 'invoiced', { invoiceId: id, invoicedAt: at });
+            })
+            .then(function () {
               return notify(C.slug, {
                 kind: 'claim-submitted', company: C.F.company,
                 invoice: up.number || '', summit: claim.summit, total: Number(up.total),
                 who: who().name,
-                said: C.F.company + ' has submitted an expense claim for ' + claim.summit + '.',
+                said: C.F.company + ' has submitted an expense invoice for ' + claimTitle(claim) +
+                      (claim.reportId ? ' (report ' + claim.reportId + ')' : '') + '.',
+                report: claim.reportId || '', person: claim.person || '',
                 raisedOn: at, forAttentionOf: 'jcritchley@mismo.org', sent: false, sentOn: null });
             })
             .then(function () {
               INV.claimUp = null;
               closePanel(true);
-              toast('Expense claim for ' + claim.summit + ' has been submitted.', 'good');
+              toast('Expense invoice for ' + claimTitle(claim) + ' has been submitted.', 'good');
               refresh();
             })
             .catch(function (e) {
-              b.disabled = false; b.textContent = 'Submit This Expense Claim';
+              b.disabled = false; b.textContent = 'Submit This Expense Invoice';
               failed(e);
             });
         });
@@ -8672,7 +9302,15 @@ function loadCompanyCore(slug) {
   function loadAllHours(list) {
     return Promise.all(list.map(function (C) {
       var fy = C.F.fiscalYear || 'FY 2027';
-      return loadHours(C.slug, C.F, fy).then(function (files) { return { slug: C.slug, files: files }; });
+      /* People who claim expenses but log no time have a file too (5 Nov 2026).
+         Kept apart in C.__xfiles so nothing that counts hours ever sees them. */
+      var xp = (C.F.people || []).filter(function (p) { return p.expenses && !logsTime(C.F, p); });
+      var xr = Promise.all(xp.map(function (p) {
+        return R.readOr(keyFor(C.slug), hoursPath(p, fy), null)
+          .then(function (r) { return r.data || null; }, function () { return null; });
+      })).then(function (fs) { C.__xfiles = fs.filter(Boolean); });
+      return Promise.all([loadHours(C.slug, C.F, fy), xr])
+        .then(function (r) { return { slug: C.slug, files: r[0] }; });
     })).then(function (rs) {
       var by = {};
       rs.forEach(function (r) { by[r.slug] = r.files; });
@@ -9238,7 +9876,7 @@ function loadCompanyCore(slug) {
         'appear here the moment one is submitted — you approve it here and nowhere else.</p>';
     }
     var mismatch = g.waiting.filter(function (r) {
-      return Math.abs(Number(heldFor(r.C, r.iv.period, r.iv).total) - Number(r.iv.total || 0)) > 0.005;
+      return Math.abs(invHeldTotal(r) - Number(r.iv.total || 0)) > 0.005;
     }).length;
     var payable = g.done.filter(function (r) { return r.st === 'sent'; }).length;
 
@@ -9299,7 +9937,177 @@ function loadCompanyCore(slug) {
     return head + body;
   }
 
+  /* Everybody's expenses MISMO can see for one company. */
+  function expenseFilesOf(C) {
+    return (C.__files || []).concat(C.__xfiles || []).filter(function (f) { return f && (f.expenses || []).length; });
+  }
+  /* The expense report behind an expense invoice, as it stands today. */
+  function reportFor(C, iv) {
+    var ids = {};
+    (iv.items || []).forEach(function (it) { ids[it.id] = 1; });
+    var items = [];
+    expenseFilesOf(C).forEach(function (f) {
+      (f.expenses || []).forEach(function (e) {
+        if (e && ids[e.id]) items.push(Object.assign({}, e, { person: f.person, slug: f.slug }));
+      });
+    });
+    var found = items.length === (iv.items || []).length;
+    if (!found) items = (iv.items || []).map(function (it) {
+      return { id: it.id, slug: it.slug, person: it.person, date: it.date, cat: it.cat, amt: it.amount, receipt: true };
+    });
+    var total = round2(items.reduce(function (a, e) { return a + expenseAllowed(e); }, 0));
+    return { items: items, total: found ? total : Number(iv.approvedTotal || total), live: found };
+  }
+  function invHeldTotal(r) {
+    return r.iv.kind === 'expenses' ? reportFor(r.C, r.iv).total : Number(heldFor(r.C, r.iv.period, r.iv).total);
+  }
+  function expInvRow(r) {
+    var C = r.C, iv = r.iv, st = r.st;
+    var s = invState(iv);
+    var rep = reportFor(C, iv);
+    var theirs = Number(iv.total || 0);
+    var diff = round2(theirs - rep.total);
+    var tag = C.slug + '|' + iv.id;
+    var open = st === 'submitted' || st === 'question';
+    var who = iv.person || (rep.items[0] || {}).person || '';
+    return '<div class="row"><div class="row-h">' +
+      '<svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>' +
+      '<span class="rt">' + esc(C.F.company) + ' \u00b7 Expense Invoice ' + esc(iv.number || 'no number') +
+      (who ? ' \u00b7 ' + esc(who) : '') + '</span>' +
+      (diff ? '<span class="pill bad">Does Not Match</span>'
+            : '<span class="pill ' + s.tone + '">' + esc(s.label) + '</span>') +
+      '<span class="rs num">' + money(theirs) + '</span>' +
+      '</div><div class="row-b">' +
+      '<div class="fields">' +
+      fld('Company', C.F.company, 1) +
+      fld('Invoice Number', iv.number || '\u2014', 1) +
+      fld('Expenses Of', who || '\u2014', 1) +
+      fld('Expense Report', iv.reportId || iv.summit || '\u2014', 1) +
+      fld('Their Invoice', money(theirs), 1) +
+      fld('The Report Comes To', money(rep.total), 1) +
+      fld('Difference', diff ? money(diff) : 'None', 1) +
+      fld('Submitted', (iv.submittedBy ? iv.submittedBy + ' \u00b7 ' : '') + stamp(iv.submittedAt), 1) +
+      '</div>' +
+      (diff
+        ? '<div class="note"><b>This expense invoice is ' + money(Math.abs(diff)) +
+          (diff > 0 ? ' more' : ' less') + ' than the expense report.</b> ' +
+          (iv.note ? 'They said: ' + esc(iv.note)
+                   : '<b>They gave no reason.</b> That is worth asking about before approving.') + '</div>'
+        : '<div class="note ok"><b>It matches the expense report, to the cent.</b>' +
+          (iv.note ? ' They added: ' + esc(iv.note) : '') + '</div>') +
+      '<h4 class="subh">The Expense Report</h4>' +
+      reportTable(rep.items, C.slug, !iv.person) +
+      '<div class="issacts">' +
+      (iv.file
+        ? '<button class="tbtn ghost dlfile" type="button" data-slug="' + esc(C.slug) + '" data-path="' +
+          esc(iv.file) + '" data-name="' + esc((iv.number || 'expense-invoice') + '.pdf') + '">Open Their Invoice PDF</button>'
+        : '') +
+      (iv.reportId ? '<button class="tbtn ghost" type="button" data-xrprint="' + esc(tag) + '">Print the Expense Report</button>' : '') +
+      '</div>' +
+      (iv.questionWhy
+        ? '<div class="note"><b>You sent this back.</b> ' + esc(iv.questionWhy) +
+          '<br><span class="fineprint">' + esc(stamp(iv.questionAt)) + '.</span></div>'
+        : '') +
+      (open
+        ? '<div class="fields"><div class="f wide">' +
+          '<label>What Needs Fixing, if You Are Sending It Back</label>' +
+          '<input type="text" data-ivwhy="' + esc(tag) + '" placeholder="One line \u2014 the person and the company both read it">' +
+          '</div></div>' +
+          '<div class="issacts">' +
+          '<button class="tbtn" type="button" data-ivok="' + esc(tag) + '">Approve and Send to Accounts Payable</button>' +
+          '<button class="tbtn ghost" type="button" data-ivno="' + esc(tag) + '">Send It Back</button>' +
+          '</div>' +
+          '<p class="fineprint"><b>Approving sends their expense invoice to MBA accounts payable</b> and ' +
+          'marks every expense on the report approved. Sending it back returns the expenses to the person ' +
+          'to fix and resubmit; their company then sends a new expense invoice.</p>'
+        : st === 'sent'
+          ? '<div class="issacts"><button class="tbtn" type="button" data-ivpaid="' + esc(tag) +
+            '">Mark as Paid</button></div>'
+          : '') +
+      ((iv.trail || []).length
+        ? '<h4 class="subh">What Has Happened to It</h4><div class="tbl"><table><thead><tr>' +
+          '<th>What</th><th>When</th><th>Who</th></tr></thead><tbody>' +
+          iv.trail.map(function (t) {
+            return '<tr><td>' + esc(t.what) + '</td><td>' + esc(stamp(t.at)) + '</td><td>' +
+              esc(t.by || '\u2014') + '</td></tr>'; }).join('') + '</tbody></table></div>'
+        : '') +
+      '</div></div>';
+  }
+
+  /* ---- CONTRACTOR EXPENSES (5 Nov 2026) ------------------------------------
+     What Vanessa sees in Team HQ for staff, for the contractors: everything
+     entered, grouped by company, then person and trip. Nothing is decided
+     here — an expense is approved by approving the company's expense invoice
+     under Invoices. This is where to look, and to print a report from. */
+  function contractorExpensesSection(list) {
+    var notYet = 0, notYetN = 0, waitInv = 0, waitInvN = 0, toApprove = 0, done = 0;
+    var blocks = list.map(function (C) {
+      var rows = [];
+      expenseFilesOf(C).forEach(function (f) {
+        var all = f.expenses || [];
+        var open = all.filter(xpOpen);
+        if (open.length) {
+          var t = round2(open.reduce(function (a, e) { return a + expenseAllowed(e); }, 0));
+          notYet = round2(notYet + t); notYetN += open.length;
+          rows.push(panelRow('cx-' + C.slug + '-' + f.slug + '-open', f.person + ' — Not Yet Submitted',
+            open.length + (open.length === 1 ? ' expense' : ' expenses') + ' still with them',
+            money(t), '<div class="note"><b>Still with ' + esc(f.person) + '.</b> These are not on an expense ' +
+              'report yet; they can change any of them until they submit.</div>' + reportTable(open, C.slug),
+            '<span class="pill quiet">With Them</span>'));
+        }
+        reportsOf(all).forEach(function (r) {
+          var st = reportState(r);
+          if (st.key === 'submitted') { waitInv = round2(waitInv + r.total); waitInvN++; }
+          else if (st.key === 'invoiced') toApprove++;
+          else done = round2(done + r.total);
+          rows.push(panelRow('cx-' + C.slug + '-' + f.slug + '-' + r.id, f.person + ' — ' + reportTitle(r),
+            'Submitted ' + (reportDate(r) || '—') + ' · ' + r.items.length +
+              (r.items.length === 1 ? ' expense' : ' expenses') + ' · report ' + r.id,
+            money(r.total),
+            '<div class="note ' + (st.tone === 'good' ? 'ok' : '') + '"><b>' + esc(st.label) + '.</b> ' +
+              (st.key === 'submitted' ? 'Waiting on ' + esc(C.F.company) + '’s expense invoice for it.'
+               : st.key === 'invoiced' ? 'Their expense invoice is under Invoices, waiting for you to approve it.'
+               : st.key === 'approved' ? 'Approved and sent to MBA accounts payable.' : 'Paid.') + '</div>' +
+              reportTable(r.items, C.slug) +
+              '<div class="xp-acts"><button class="gobtn ghost" type="button" data-cxprint="' +
+              esc(C.slug + '|' + f.slug + '|' + r.id) + '">Print Expense Report</button></div>',
+            '<span class="pill ' + st.tone + '">' + esc(st.label) + '</span>'));
+        });
+      });
+      if (!rows.length) return '';
+      return '<div class="xp-co">' + esc(C.F.company) + '</div><div class="hqrows">' + rows.join('') + '</div>';
+    }).join('');
+    function tile(big, label, small, warn) {
+      return '<div class="tile' + (warn ? ' warn' : '') + '"><b>' + big + '</b><span>' + esc(label) +
+        '</span><small>' + esc(small) + '</small></div>';
+    }
+    var tiles = '<div class="headline xp-head"><div class="tiles">' +
+      tile(money(notYet), 'Not Yet Submitted', notYetN + (notYetN === 1 ? ' expense' : ' expenses') + ' still with people') +
+      tile(money(waitInv), 'Waiting on an Expense Invoice', waitInvN + (waitInvN === 1 ? ' report' : ' reports') + ' submitted') +
+      tile(String(toApprove), 'Expense Invoices to Approve', toApprove ? 'under Invoices' : 'nothing waiting on you', toApprove) +
+      tile(money(done), 'Approved This Year', 'sent to accounts payable') + '</div></div>';
+    if (!blocks) {
+      return tiles + '<p class="empty">No contractor has entered an expense yet. Receipts emailed to ' +
+        XP_MAIL + ' from a contractor land in their own My Expenses, and show here.</p>';
+    }
+    return tiles + blocks;
+  }
+  function wireContractorExpenses(list, root) {
+    $$('[data-cxprint]', root).forEach(function (b) {
+      if (b.dataset.wired) return; b.dataset.wired = '1';
+      b.addEventListener('click', function () {
+        var k = b.dataset.cxprint.split('|');
+        var C = list.filter(function (x) { return x.slug === k[0]; })[0]; if (!C) return;
+        var f = expenseFilesOf(C).filter(function (x) { return x.slug === k[1]; })[0]; if (!f) return;
+        var r = reportsOf(f.expenses || []).filter(function (x) { return x.id === k[2]; })[0]; if (!r) return;
+        printReport(r, { person: f.person, company: C.F.company, slug: C.slug });
+      });
+    });
+    wireReceiptOpen(root);
+  }
+
   function invRow(r) {
+    if (r.iv && r.iv.kind === 'expenses') return expInvRow(r);
     var C = r.C, iv = r.iv, st = r.st;
     var s = invState(iv);
     var held = heldFor(C, iv.period, iv);
@@ -9392,6 +10200,36 @@ function loadCompanyCore(slug) {
               esc(t.by || '—') + '</td></tr>'; }).join('') + '</tbody></table></div>'
         : '') +
       '</div></div>';
+  }
+
+  /* Who hears about an expense invoice: whoever sent it, and the person whose
+     expenses they are. */
+  function expenseNoticeTo(c) {
+    var to = [];
+    var a = invoiceSenderEmail(c.C, c.iv); if (a) to.push(a);
+    (c.C.F.people || []).forEach(function (p) {
+      if (p.email && (p.slug === c.iv.personSlug || p.name === c.iv.person) && to.indexOf(p.email) < 0) to.push(p.email);
+    });
+    return to.join(';') || null;
+  }
+  function expenseApprovedNotices(c, at) {
+    var what = 'Expense invoice ' + (c.iv.number || '') + (c.iv.person ? ' for ' + c.iv.person + '\u2019s expenses' : '');
+    return notify(c.C.slug, {
+      kind: 'invoice-approved', company: c.C.F.company, invoice: c.iv.number || c.iv.id,
+      period: c.iv.period, total: c.iv.total, who: ME.name, report: c.iv.reportId || '',
+      to: expenseNoticeTo(c), title: 'Expense Invoice Approved',
+      said: what + ' has been approved by MISMO and sent to MBA accounts payable. Payment follows their own run.',
+      raisedOn: at, forAttentionOf: null, sent: false, sentOn: null })
+      .then(function () {
+        return notify(c.C.slug, {
+          kind: 'invoice-to-payable', company: c.C.F.company, invoice: c.iv.number || c.iv.id,
+          period: c.iv.period, total: c.iv.total, who: ME.name, to: AP_EMAIL,
+          cc: 'jcritchley@mismo.org', file: c.iv.file || null,
+          said: 'Please process expense invoice ' + (c.iv.number || '') + ' from ' + c.C.F.company +
+                (c.iv.person ? ' (expenses of ' + c.iv.person + ')' : '') + ', ' + money(Number(c.iv.total)) +
+                '. Approved by ' + ME.name + ' at MISMO.',
+          raisedOn: at, forAttentionOf: null, sent: false, sentOn: null });
+      });
   }
 
   /* ---- the three decisions ------------------------------------------------
@@ -9509,6 +10347,11 @@ function loadCompanyCore(slug) {
             { what: 'Approved and sent to accounts payable', at: at, by: ME.name }]);
         }, 'invoice approved: ' + c.C.slug + ' ' + (c.iv.number || c.iv.id))
           .then(function () {
+            /* An expense invoice also moves the person's expenses on. */
+            if (c.iv.kind === 'expenses') return setExpenseStates(c.C, c.iv.items, 'approved', { approvedAt: at });
+          })
+          .then(function () {
+            if (c.iv.kind === 'expenses') return expenseApprovedNotices(c, at).then(function () { return 'x'; });
             /* Two emails come out of this one action, and they are not the
                same email. The company is told; accounts payable is SENT it. */
             return notify(c.C.slug, {
@@ -9555,6 +10398,34 @@ function loadCompanyCore(slug) {
         }
         b.disabled = true;
         var at = new Date().toISOString();
+        /* ⚠ An expense invoice sent back goes back to the PERSON: their
+           expenses are theirs to fix and resubmit as a new report, and the
+           invoice is closed rather than left waiting (5 Nov 2026). */
+        if (c.iv.kind === 'expenses') {
+          setInvoice(c.C, c.iv.id, function (iv) {
+            iv.state = 'returned';
+            iv.questionWhy = why; iv.questionAt = at; iv.questionBy = ME.name;
+            iv.trail = (iv.trail || []).concat([{ what: 'Sent back: ' + why, at: at, by: ME.name }]);
+          }, 'expense invoice sent back: ' + c.C.slug + ' ' + (c.iv.number || c.iv.id))
+            .then(function () {
+              return setExpenseStates(c.C, c.iv.items, 'returned', { returnWhy: why, returnedAt: at });
+            })
+            .then(function () {
+              return notify(c.C.slug, {
+                kind: 'expense-invoice-returned', company: c.C.F.company,
+                invoice: c.iv.number || c.iv.id, report: c.iv.reportId || '', person: c.iv.person || '',
+                who: ME.name, to: expenseNoticeTo(c), title: 'Expense Invoice Sent Back',
+                said: 'MISMO sent back expense invoice ' + (c.iv.number || '') +
+                      (c.iv.person ? ' for ' + c.iv.person + '\u2019s expenses' : '') + ': ' + why +
+                      ' The expenses are back with ' + (c.iv.person || 'the person') +
+                      ' to fix and submit again; then send a new expense invoice for the new report.',
+                cta: { text: 'Open the Portal', url: 'https://resources.mismo.org/service-orders/' },
+                raisedOn: at, forAttentionOf: null, sent: false, sentOn: null });
+            })
+            .then(function () { toast('Sent back. The expenses are with the person again.', 'ok'); redraw(); })
+            .catch(function (er) { b.disabled = false; failed(er); });
+          return;
+        }
         setInvoice(c.C, c.iv.id, function (iv) {
           iv.state = 'question';
           iv.questionWhy = why; iv.questionAt = at; iv.questionBy = ME.name;
@@ -9573,6 +10444,17 @@ function loadCompanyCore(slug) {
       });
     });
 
+    $$('#view [data-xrprint]').forEach(function (b) {
+      b.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var c = ctx(b.dataset.xrprint); if (!c) return;
+        var rep = reportFor(c.C, c.iv);
+        printReport({ id: c.iv.reportId, items: rep.items, total: rep.total, at: c.iv.submittedAt, trips: c.iv.trips || [] },
+          { person: c.iv.person || '', company: c.C.F.company, slug: c.C.slug });
+      });
+    });
+    wireReceiptOpen(document.getElementById('view'));
+
     $$('#view [data-ivpaid]').forEach(function (b) {
       b.addEventListener('click', function (e) {
         e.stopPropagation();
@@ -9583,6 +10465,9 @@ function loadCompanyCore(slug) {
           iv.state = 'paid'; iv.paidAt = at; iv.paidBy = ME.name;
           iv.trail = (iv.trail || []).concat([{ what: 'Paid', at: at, by: ME.name }]);
         }, 'invoice paid: ' + c.C.slug + ' ' + (c.iv.number || c.iv.id))
+          .then(function () {
+            if (c.iv.kind === 'expenses') return setExpenseStates(c.C, c.iv.items, 'paid', { paidAt: at });
+          })
           .then(function () {
             return notify(c.C.slug, {
               kind: 'invoice-paid', company: c.C.F.company,
@@ -10883,11 +11768,13 @@ function loadCompanyCore(slug) {
     }).join('');
 
     return '<p class="lede">For work that is not on the FY 2027 forecast. ' +
-      '<b>It starts as a Draft, which means it goes to ' +
-      esc(((list[0].F.vpProduct) || {}).name || 'the VP') + ' for a decision first</b>, ' +
-      'exactly like the generated ones — then you send it, they accept it, ' +
-      esc(((list[0].F.mismoSigner) || {}).name || 'the President') + ' approves it.</p>' +
+      '<b>Choose who asked for it and it goes to them to review and approve first</b>; then ' +
+      esc(((list[0].F.vpProduct) || {}).name || 'the VP') + ' decides, you send it, the company accepts it from ' +
+      'the email, and ' + esc(((list[0].F.mismoSigner) || {}).name || 'the President') + ' approves it.</p>' +
       '<div class="revgrid">' +
+      '<div class="f"><label>Who Asked for It (Reviews It First)</label><select class="nof no-rev" data-k="__rev">' +
+      '<option value="">Nobody \u2014 straight to ' + esc(((list[0].F.vpProduct) || {}).name || 'the VP') + '</option>' +
+      '</select></div>' +
       '<div class="f"><label>Contracting Company *</label><select class="nof" data-k="__slug">' +
       '<option value="">Choose one…</option>' + companies + '</select></div>' +
       '<div class="f"><label>Written Under Which Agreement</label>' +
@@ -10906,7 +11793,8 @@ function loadCompanyCore(slug) {
       '<button class="gobtn no-go" type="button">Raise This Order</button></div>' +
       '<p class="fineprint">⚠ <b>This order names no forecast line</b>, so nothing here checks ' +
       'it against the budget. A title and a company are required; everything else can be filled in ' +
-      'later by revising it. <b>Nothing is sent to anybody by raising it.</b></p>' +
+      'later by revising it. <b>Nothing goes to the company by raising it</b> \u2014 only the reviewer you ' +
+      'chose is emailed, with a button to review it.</p>' +
       '<script type="application/json" id="no-msas">' + JSON.stringify(msas) + '<\/script>';
   }
 
@@ -11128,7 +12016,7 @@ function loadCompanyCore(slug) {
       var list = both[0];
       var outbox = [].concat.apply([], both[1]);
       var tally = { draft: 0, vp: 0, vphold: 0, sent: 0, question: 0, acknowledged: 0, changed: 0,
-        preshold: 0, executed: 0 };
+        preshold: 0, executed: 0, review: 0, reviewback: 0 };
       list.forEach(function (C) {
         C.st = {};
         C.F.orders.forEach(function (o) {
@@ -11137,7 +12025,8 @@ function loadCompanyCore(slug) {
       });
       var LABEL = { draft: 'Draft', vp: 'Released to Send', vphold: 'Held by the VP', sent: 'Sent',
         question: 'Question Raised', acknowledged: 'Acknowledged', changed: 'Changed Since Acknowledged',
-        preshold: 'Held by the President', executed: 'Executed', ended: 'Ended' };
+        preshold: 'Held by the President', executed: 'Executed', ended: 'Ended',
+        review: 'With the Requester for Review', reviewback: 'Sent Back by the Requester' };
 
       /* ---- the Status Board, in the Website Migration HQ shape -------------
          ⚠ Eight equal white boxes gave every status the same weight, so the one
@@ -11203,7 +12092,7 @@ function loadCompanyCore(slug) {
           var c = function (k) {
             return C.F.orders.filter(function (o) { return C.st[o.id].key === k; }).length;
           };
-          var mine = c('question') + c('changed') + c('vphold') + c('preshold');
+          var mine = c('question') + c('changed') + c('vphold') + c('preshold') + c('reviewback');
           var n = C.F.orders.length;
           var done = c('executed');
           /* What this company is actually waiting on, said as a sentence rather
@@ -11220,9 +12109,12 @@ function loadCompanyCore(slug) {
               esc((C.F.mismoSigner || {}).name || 'the President') + '.';
           } else if (done === n && n) {
             next = '<b>All executed.</b> Nothing outstanding.';
+          } else if (c('review') && !c('draft')) {
+            next = '<b>' + c('review') + ' with the requester</b> for review.';
           } else {
             next = '<b>' + c('draft') + ' still in draft</b>, with ' +
-              esc(((C.F.vpProduct) || {}).name || 'the VP') + '.';
+              esc(((C.F.vpProduct) || {}).name || 'the VP') + '.' +
+              (c('review') ? ' ' + c('review') + ' with the requester for review.' : '');
           }
           return '<div class="hqcard flat"><h3>' + esc(C.F.company) + '</h3>' +
             '<p>' + esc(C.F.signers.order.name) + ' · ' + esc(C.F.signers.order.title) + '</p>' +
@@ -11232,7 +12124,7 @@ function loadCompanyCore(slug) {
                whatever is already there. */
             '<div class="cfoot">' +
               '<div class="stepline">' +
-                stepChip('Draft', c('draft')) + stepChip('Ready', c('vp')) +
+                stepChip('Draft', c('draft') + c('review') + c('reviewback')) + stepChip('Ready', c('vp')) +
                 stepChip('Sent', c('sent')) + stepChip('Accepted', c('acknowledged')) +
                 stepChip('Executed', done) +
               '</div>' +
@@ -11246,7 +12138,7 @@ function loadCompanyCore(slug) {
       list.forEach(function (C) {
         C.F.orders.forEach(function (o) {
           var s = C.st[o.id];
-          if (['question', 'vphold', 'preshold', 'changed'].indexOf(s.key) < 0) return;
+          if (['question', 'vphold', 'preshold', 'changed', 'reviewback'].indexOf(s.key) < 0) return;
           needs.push({ company: C.F.company, order: o, st: s, C: C });
         });
       });
@@ -11259,7 +12151,12 @@ function loadCompanyCore(slug) {
           '<div class="hqrows">' + needs.map(function (n, i) {
             n.idx = i;
             var sig = n.st.sig || {};
-            var said = n.st.key === 'question' ? (sig.question || '')
+            if (n.st.key === 'reviewback') {
+              var rv = n.order.review || {};
+              sig = { signerName: (rv.by || {}).name || '', signedOn: rv.decidedAt || '' };
+            }
+            var said = n.st.key === 'reviewback' ? ((n.order.review || {}).comments || 'No comment was given.')
+              : n.st.key === 'question' ? (sig.question || '')
               : (n.st.key === 'vphold' || n.st.key === 'preshold') ? (sig.note || '')
                 : 'The order was edited after it was accepted, so the acceptance on record is for ' +
                   'the earlier wording. Send it again, or raise a Modification.';
@@ -11273,6 +12170,14 @@ function loadCompanyCore(slug) {
               '</div>' +
               '<h4 class="subh">What They Said</h4>' +
               '<p class="saidbox">' + esc(said) + '</p>' +
+              (n.st.key === 'reviewback'
+                ? '<div class="xp-acts"><button class="gobtn" type="button" data-rvagain="' + esc(n.C.slug + '|' + n.order.id) +
+                  '">Send It for Review Again</button><button class="gobtn ghost" type="button" data-rvskip="' +
+                  esc(n.C.slug + '|' + n.order.id) + '">Skip the Review \u2014 Straight to ' +
+                  esc(((n.C.F.vpProduct) || {}).name || 'the VP') + '</button></div>' +
+                  '<p class="fineprint">Make the changes below first, then send it again: the reviewer gets a fresh ' +
+                  'email with the order as it now reads.</p>'
+                : '') +
               reviseBlock(n) +
               '<div class="dochost">' + P.orderDoc(n.C.F, n.order) + '</div>';
             return panelRow('needs-' + i, n.order.subject, n.company + ' \u00b7 ' + (sig.signerName || ''),
@@ -11551,6 +12456,14 @@ function loadCompanyCore(slug) {
         /* ⚠ The one place an invoice is approved. It opens itself when
            something is actually waiting, because that IS a decision for her. */
         sect('Invoices', invWaiting || null, invBody, invWaiting > 0) +
+        /* Every contractor's expenses, by company, person and trip. 5 Nov 2026. */
+        sect('Contractor Expenses', null, (function () {
+          try { return contractorExpensesSection(list); } catch (e) {
+            if (window.console && console.warn) console.warn('contractor expenses', e);
+            return '<div class="note"><b>Contractor expenses could not be drawn just now.</b> ' +
+              'Everything else on this page is unaffected.</div>';
+          }
+        })()) +
         /* Allotted against used, every order. Jonna, 2 November. */
         sect('Hours Remaining', null, (function () {
           /* ⚠ Never allowed to take the rest of the page down with it. */
@@ -11580,6 +12493,48 @@ function loadCompanyCore(slug) {
 
       onPanelOpen(wireAdminControls);
       wireAdminControls(document);
+      fillReviewerPicks(document);
+      onPanelOpen(function (pb) {
+        function find(v) {
+          var k = String(v || '').split('|');
+          var C = list.filter(function (x) { return x.slug === k[0]; })[0];
+          var o = C && C.F.orders.filter(function (x) { return x.id === k[1]; })[0];
+          return C && o ? { C: C, o: o } : null;
+        }
+        function setReview(C, o, review, msg) {
+          return R.update(keyFor(C.slug), 'revisions/' + C.slug + '.json', function (cur) {
+            var next = JSON.parse(JSON.stringify(cur || {}));
+            (next.additions || []).forEach(function (a) { if (a.id === o.id) a.review = review; });
+            return next;
+          }, msg, { revisions: [] });
+        }
+        $$('[data-rvagain]', pb).forEach(function (b) {
+          if (b.dataset.wired) return; b.dataset.wired = '1';
+          b.addEventListener('click', function () {
+            var x = find(b.dataset.rvagain); if (!x) return;
+            var by = (x.o.review || {}).by;
+            if (!by || !by.email) { toast('The reviewer is not on record for this order.', 'warn'); return; }
+            b.disabled = true; b.textContent = 'Sending\u2026';
+            requestReview(x.C, x.o, by, (x.o.review || {}).id)
+              .then(function (rv) { x.o.review = rv; return setReview(x.C, x.o, rv, 'review again: ' + x.o.subject); })
+              .then(function () { return reviewNotice(x.C, x.o, x.o.review); })
+              .then(function () { closePanel(true); toast('Sent to ' + by.name + ' to review again', 'good'); adminView(); })
+              .catch(function (e) { b.disabled = false; b.textContent = 'Send It for Review Again'; failed(e); });
+          });
+        });
+        $$('[data-rvskip]', pb).forEach(function (b) {
+          if (b.dataset.wired) return; b.dataset.wired = '1';
+          b.addEventListener('click', function () {
+            var x = find(b.dataset.rvskip); if (!x) return;
+            b.disabled = true;
+            var rv = Object.assign({}, x.o.review || {}, { state: 'skipped', skippedAt: new Date().toISOString(), skippedBy: ME.name });
+            setReview(x.C, x.o, rv, 'review skipped: ' + x.o.subject)
+              .then(function () { closePanel(true); toast('It is with ' + (((x.C.F.vpProduct) || {}).name || 'the VP') + ' for a decision', 'good'); adminView(); })
+              .catch(function (e) { b.disabled = false; failed(e); });
+          });
+        });
+      });
+      onPanelOpen(function (pb) { wireContractorExpenses(list, pb); });
       onPanelOpen(wireDownloads);
       wireDownloads(document);
       function wireAdminControls(root) {
@@ -11883,15 +12838,26 @@ function loadCompanyCore(slug) {
           });
 
           b.disabled = true; b.textContent = 'Raising…';
-          R.update(keyFor(slug), 'revisions/' + slug + '.json', function (cur) {
-            var next = JSON.parse(JSON.stringify(cur || {}));
-            next.company = next.company || slug;
-            next.additions = (next.additions || []).concat([order]);
-            return next;
-          }, 'new order: ' + order.subject, { revisions: [] })
+          var revSel = document.querySelector('.no-rev');
+          var revEmail = revSel ? String(revSel.value || '') : '';
+          var reviewer = revEmail ? (STAFF || []).filter(function (s) { return s.email === revEmail; })[0] : null;
+          /* The review request is filed FIRST: if Team HQ cannot be reached the
+             order is not raised half-way, with a reviewer who was never asked. */
+          (reviewer ? requestReview(C, order, reviewer) : Promise.resolve(null))
+            .then(function (review) {
+              if (review) order.review = review;
+              return R.update(keyFor(slug), 'revisions/' + slug + '.json', function (cur) {
+                var next = JSON.parse(JSON.stringify(cur || {}));
+                next.company = next.company || slug;
+                next.additions = (next.additions || []).concat([order]);
+                return next;
+              }, 'new order: ' + order.subject, { revisions: [] });
+            })
+            .then(function () { if (order.review) return reviewNotice(C, order, order.review); })
             .then(function () {
-              toast('Raised — it is with ' +
-                (((C.F.vpProduct) || {}).name || 'the VP') + ' for a decision', 'good');
+              toast(order.review
+                ? 'Raised \u2014 ' + order.review.by.name + ' is emailed to review and approve it'
+                : 'Raised \u2014 it is with ' + (((C.F.vpProduct) || {}).name || 'the VP') + ' for a decision', 'good');
               adminView();
             })
             .catch(function (e) {
@@ -12140,24 +13106,23 @@ function loadCompanyCore(slug) {
   }
 
   function helpExpenses() {
-    return blk('Claiming an Expense', steps([
-      'Open <b>My Expenses</b>. Press <b>Add an Expense</b>.',
-      '<b>Drag the receipt in, or take a photo of it</b> — the portal reads what it can and fills the fields in for you.',
+    return blk('Adding an Expense', steps([
+      '<b>Email it:</b> forward or email the receipt to <b>expense@mismo.org</b> from your work email. It lands in <b>My Expenses</b> with the details filled in from the receipt, marked <b>Emailed</b>.',
+      '<b>Snap it:</b> in <b>My Expenses</b>, press <b>Take a Picture</b> or drop the receipt on <b>Snap a Receipt</b>. The portal reads it and fills the fields in.',
+      '<b>Add by Hand</b> when there is no receipt to read.',
       'Check what it filled. It only ever fills a field you have left empty; anything you typed is left alone.',
-      'Set the <b>Date</b>, the <b>Category</b> and the <b>Amount</b>.',
-      '<b>Trip or Reason</b> fills itself from the date — January is the Winter Summit, June is Spring, September is Fall, and the month before a summit counts as that summit. Change it if it is wrong.',
-      'Save it. It stays a draft until you send it.']))
+      '<b>Trip or Reason</b> fills itself from the date — January is the Winter Summit, June is Spring, September is Fall, and the month before a summit counts as that summit. Change it if it is wrong.']))
     + blk('The Receipt Rules', steps([
       'A receipt is required for anything over <b>$25</b>, and for any meal over <b>$15</b>.',
       'Meals are capped at <b>$115</b> a day across breakfast, lunch and dinner together.',
       'These are <b>MBA’s travel and expense policy</b>, not the portal’s — they are the same rules MISMO staff follow.',
-      'The portal tells you when something is over a cap <b>before</b> you send it, not after.']))
-    + blk('Sending a Claim', steps([
-      'Expenses are claimed <b>per summit</b>, not per month.',
-      'Everything for one summit is claimed together, usually <b>within a week of the summit ending</b>.',
-      '<b>An expense claim is its own invoice, sent separately from your hours invoice.</b> It is not added to the monthly one and never appears on it.',
-      'That is deliberate: a summit rarely ends when a month does, so the two are on different clocks.',
-      'Open <b>My Invoices</b>, find <b>Expenses to Claim</b>, attach your expense invoice and send it.']))
+      'The portal tells you when something is over a cap <b>before</b> you submit, not after.']))
+    + blk('Submitting, and the Expense Invoice', steps([
+      'When the trip is done, press <b>Submit All</b>. <b>Everything is submitted at once</b> and becomes one <b>expense report</b>.',
+      'Open the report under <b>Expense Reports</b> and press <b>Print Expense Report</b>. Give it to your company: it lists every expense, the totals by category and the total their invoice should come to, with the receipts after it.',
+      '<b>Your company sends one expense invoice for that report</b>, separate from the hours invoice. It is checked against the report to the cent.',
+      'Need to change something before your company invoices it? Open the report and press <b>Take It Back to Change Something</b>.',
+      'If MISMO sends the expense invoice back, the expenses come back to you marked <b>Sent Back to You</b> with the reason. Fix them and submit again.']))
     + blk('Why Money Appears Here and Nowhere Else', '<p>If you are on an hours-only account, ' +
       'this is the <b>only</b> screen in the portal that shows a dollar figure. It has to — it is ' +
       'your money. <b>No hourly rate, no maximum fee and no invoice total appears anywhere on your ' +
@@ -12267,10 +13232,10 @@ function loadCompanyCore(slug) {
           'If MISMO has a question, the invoice comes back with it and the hours are yours again.',
           'Once approved it goes to <b>MBA accounts payable</b>, and the weeks behind it lock.',
           'Once <b>paid</b>, those weeks close for good — a correction after that goes on the next period.']))
-        + (o.expenses ? helpExpenses() : blk('Expense Claims', steps([
-          'Expenses are claimed <b>per summit</b>, not per month, usually within a week of the summit ending.',
-          '<b>An expense claim is its own invoice, sent separately</b> from your monthly hours invoice.',
-          'Open <b>My Invoices</b> and look for <b>Expenses to Claim</b>.',
+        + (o.expenses ? helpExpenses() : blk('Expense Invoices', steps([
+          'Each of your people submits their expenses <b>all at once</b>, as one <b>expense report</b>.',
+          '<b>Send one expense invoice for each report</b>, separately from your monthly hours invoice. It is checked against the report to the cent.',
+          'Open <b>My Invoices</b> and look for <b>Expense Reports to Invoice</b>. Each one prints, receipts and all, to build your invoice from.',
           'Only people MISMO has turned expenses on for see the expense screens.'])))
         + blk('If the Page Says Your Link Is Not Active', '<p>The link has been withdrawn or ' +
           'replaced. <b>Email Jonna Critchley</b> at <a href="mailto:jcritchley@mismo.org">' +
@@ -12313,6 +13278,14 @@ function loadCompanyCore(slug) {
       '<b>Brian signs</b>, and the order is executed. The company is emailed and can download it.',
       'People enter their time each week. <b>You do not approve it.</b>',
       'The company sends its invoice. <b>You approve that</b>, and it goes to accounts payable.']))
+      + blk('A New Order the Requester Reviews First', steps([
+        'In <b>New Service Order</b>, choose <b>Who Asked for It</b>. They are emailed a button to review it on the review page.',
+        'They approve it, or send it back with what needs changing. <b>Approved, it goes to the VP</b> exactly like any other draft, then you send it and the company accepts it from the email.',
+        'Sent back, it appears in <b>Needs You</b> with their comments. Revise it there, then press <b>Send It for Review Again</b> \u2014 or <b>Skip the Review</b> to send it straight to the VP.']))
+      + blk('Contractor Expenses', steps([
+        'Contractors snap receipts in <b>My Expenses</b>, or email them to <b>expense@mismo.org</b>: Team HQ files each one in that person\u2019s own expenses here.',
+        'They submit everything at once as an <b>expense report</b>, and their company sends <b>one expense invoice</b> for it, checked against the report to the cent.',
+        'Approve the expense invoice under <b>Invoices</b>; that sends it to accounts payable and marks the expenses approved. <b>Contractor Expenses</b> shows everything, by company, person and trip.']))
       + blk('Time Submitted — What It Is and Is Not', steps([
         '<b>Nothing in this section is waiting on you.</b> Time is billable the moment it is submitted.',
         'It is grouped <b>by company</b>: the total first, then the weeks underneath, newest first.',
