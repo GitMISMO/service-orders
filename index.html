@@ -152,6 +152,14 @@ h1,h2,h3,h4{letter-spacing:-.012em;margin:0}
 :root[data-theme="dark"] .linkish{color:var(--sky)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .linkish{color:var(--sky)}}
 .no-tplsave{display:flex;gap:8px;margin-top:8px;align-items:center}
+.no-tplsave[hidden],.no-draftnote[hidden],.no-batch[hidden]{display:none}
+.no-drafts .gaps{display:inline-block;margin-left:6px;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:4px;background:rgba(162,112,26,.16);color:var(--warn);white-space:nowrap}
+.no-drafts{margin:6px 0 16px}
+.no-drafts td.ck,.no-drafts th.ck{width:34px}
+.no-drafts td.acts{white-space:nowrap;text-align:right}
+.no-drafts td.acts .linkish + .linkish{margin-left:14px}
+.no-drafts .batchbar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:10px}
+.no-draftnote{margin:0 0 12px;padding:9px 14px;border-left:3px solid var(--sky);background:var(--surface-2);border-radius:0 6px 6px 0;font-size:13px}
 .no-tplsave input{flex:1 1 auto;min-width:0}
 .revgrid textarea{font:inherit;font-size:13.5px;font-family:var(--display);line-height:1.5;
  color:var(--ink);background:var(--surface);border:1px solid var(--border);border-radius:6px;
@@ -5271,9 +5279,17 @@ function loadCompanyCore(slug) {
       SAVED_TPLS = Object.keys(docs).map(function (k) { return docs[k]; })
         .filter(function (t) { return t && t.id && t.label && !t.removed; })
         .sort(function (a, b) { return String(a.label).localeCompare(String(b.label)); });
+      return R.readData('team-hq', 'sodrafts');
+    }).then(function (r) {
+      var docs = (r && r.data && r.data.docs) || {};
+      SAVED_DRAFTS = Object.keys(docs).map(function (k) { return docs[k]; })
+        .filter(function (d) { return d && d.id && d.vals; })
+        .sort(function (a, b) { return String(b.savedAt).localeCompare(String(a.savedAt)); });
       return list;
     }, function () { return list; });
   }
+  /* Orders Jonna is still working on (6 Nov 2026): saved, opened again, sent when she chooses. */
+  var SAVED_DRAFTS = [];
 
   /* =========================================================================
    * THE REQUESTER'S REVIEW (Jonna, 5 November 2026)
@@ -12107,6 +12123,28 @@ function loadCompanyCore(slug) {
     });
     return saved.concat(out);
   }
+  function draftsHtml(list) {
+    if (!SAVED_DRAFTS.length) return '';
+    var co = function (slug) { var C = list.filter(function (x) { return x.slug === slug; })[0]; return C ? C.F.company : '—'; };
+    var rv = function (em) {
+      var s = em && (STAFF || []).filter(function (x) { return x.email === em; })[0];
+      return s ? s.name : em ? em : 'Nobody chosen yet';
+    };
+    return '<div class="no-drafts"><h4 class="subh">Your Drafts (' + SAVED_DRAFTS.length + ')</h4>' +
+      '<div class="tbl"><table><thead><tr><th class="ck"><input type="checkbox" id="nod-all" aria-label="Choose all drafts"></th>' +
+      '<th>Service Order</th><th>Company</th><th>Reviewed By</th><th>Saved</th><th></th></tr></thead><tbody>' +
+      SAVED_DRAFTS.map(function (d) {
+        var v = d.vals || {};
+        return '<tr><td class="ck"><input type="checkbox" class="nod-pick" value="' + esc(d.id) + '" aria-label="Choose this draft"></td>' +
+          '<td><b>' + esc(v.subject || 'Untitled draft') + '</b>' + (hasPlaceholders(v) ? '<span class="gaps" title="Has parts in [brackets] for the reviewer to fill in">Has Gaps</span>' : '') + '</td>' +
+          '<td>' + esc(co(v.__slug)) + '</td><td>' + esc(rv(v.__rev)) + '</td><td>' + esc(stamp(d.savedAt)) + '</td>' +
+          '<td class="acts"><button type="button" class="linkish" data-nodopen="' + esc(d.id) + '">Open</button>' +
+          '<button type="button" class="linkish" data-noddel="' + esc(d.id) + '">Delete</button></td></tr>';
+      }).join('') + '</tbody></table></div>' +
+      '<div class="batchbar"><button class="gobtn" type="button" id="nod-send" disabled>Send the Chosen Drafts</button>' +
+      '<span class="fineprint" style="margin:0">Each goes to the person chosen on it to review, or straight to ' +
+      esc(((list[0].F.vpProduct) || {}).name || 'the VP') + ' if nobody is.</span></div></div>';
+  }
   function tplOptions(TPLS) {
     var opt = function (t, i) { return '<option value="' + i + '">' + esc(t.label) + '</option>'; };
     var mine = TPLS.map(function (t, i) { return t.saved ? opt(t, i) : ''; }).join('');
@@ -12154,7 +12192,10 @@ function loadCompanyCore(slug) {
     return '<p class="lede">For work that is not on the FY 2027 forecast. <b>It goes first to the person who asked for it</b>, ' +
       'to fill in anything in [brackets] and check the rest. When they send it back it comes to you in <b>Needs You</b>, ' +
       'and you send it to ' + VPN + '. His approval sends it to the contracting company with you copied, and once they accept ' +
-      'it, it goes to ' + PRN + ', with you copied. <b>Several at once?</b> Fill in one, choose Add Another, and send them all together.</p>' +
+      'it, it goes to ' + PRN + ', with you copied. <b>Several at once?</b> Fill in one, choose Add Another, and send them all together. ' +
+      '<b>Not ready?</b> Save as Draft keeps it here under Your Drafts until you send it.</p>' +
+      '<div id="no-drafts">' + draftsHtml(list) + '</div>' +
+      '<p class="no-draftnote" id="no-draftnote" hidden></p>' +
       '<div class="revgrid">' +
       '<div class="f"><label>Start From</label><select class="no-tpl" id="no-tpl">' +
       '<option value="">A blank order</option>' + tplOptions(TPLS) + '</select>' +
@@ -12182,6 +12223,7 @@ function loadCompanyCore(slug) {
       '</select></div>' + fields + '</div>' +
       '<div class="onebar"><div class="f"><label>Why This Order Exists</label>' +
       '<input type="text" class="nowhy" placeholder="Goes on the record and travels with the order"></div>' +
+      '<button class="gobtn ghost no-save" type="button">Save as Draft</button>' +
       '<button class="gobtn ghost no-add" type="button">Add Another</button>' +
       '<button class="gobtn no-go" type="button">Send for Review</button></div>' +
       '<div class="no-batch" id="no-batch" hidden></div>' +
@@ -12888,7 +12930,7 @@ function loadCompanyCore(slug) {
         })()) +
         sect('Revise an Order', reviseAny.count, reviseAny.body) +
         sect('End a Service Order', endAny.count || null, endAny.body) +
-        sect('New Service Order', null, newOrderForm(list)) +
+        sect('New Service Order', SAVED_DRAFTS.length || null, newOrderForm(list)) +
         sect('Company Details', list.length, companyDetails(list)) +
         sect('Send Orders', tally.vp || 0, sendBody) +
         sect('Executed Documents', null, archive) +
@@ -13390,15 +13432,25 @@ function loadCompanyCore(slug) {
          reviewer stay. "Send for Review" sends the batch plus whatever is in the
          form, and each reviewer gets ONE email for everything they are asked. */
       var NO_BATCH = [];
-      function collectOrder(quiet) {
+      function readForm() {
         var vals = {};
         document.querySelectorAll('.nof').forEach(function (el) {
           vals[el.dataset.k] = String(el.value == null ? '' : el.value).trim();
         });
-        var whyEl = document.querySelector('.nowhy');
-        var why = whyEl ? String(whyEl.value || '').trim() : '';
+        var whyEl = document.querySelector('.nowhy'), ts = document.getElementById('no-tpl'), T = [];
+        try { T = JSON.parse((document.getElementById('no-tpls') || {}).textContent || '[]'); } catch (e) {}
+        var t = ts && ts.value !== '' ? T[Number(ts.value)] : null;
+        return { vals: vals, why: whyEl ? String(whyEl.value || '').trim() : '', tplKey: t ? t.key : '',
+                 name: String((document.getElementById('no-name') || {}).value || '').trim() };
+      }
+      function collectOrder(quiet, src) {
+        src = src || readForm();
+        var vals = src.vals, why = src.why || '';
         var slug = vals.__slug;
-        var say = function (m, t) { if (!quiet) toast(m, t); return null; };
+        var say = function (m, t) {
+          if (!quiet) toast((src.draftId ? '"' + (vals.subject || 'Untitled draft') + '": ' : '') + m, t);
+          return null;
+        };
         if (!slug) return say('Choose the contracting company first');
         if (!vals.subject) return say('Give the order a title first');
         if (!vals.__rev && hasPlaceholders(vals)) {
@@ -13434,16 +13486,17 @@ function loadCompanyCore(slug) {
         };
         /* what kind of order it is, carried from the template it started from */
         (function () {
-          var ts = document.getElementById('no-tpl'), T = [];
+          var T = [];
           try { T = JSON.parse((document.getElementById('no-tpls') || {}).textContent || '[]'); } catch (e) {}
-          var t = ts && T[Number(ts.value)];
-          if (t && ts.value !== '') TPL_CARRY.forEach(function (k) { if (t.carry[k] != null) order[k] = t.carry[k]; });
+          var t = src.tplKey ? T.filter(function (x) { return x.key === src.tplKey; })[0] : null;
+          if (t) TPL_CARRY.forEach(function (k) { if (t.carry[k] != null) order[k] = t.carry[k]; });
         })();
         ['hourlyRate', 'estimatedHours', 'maximumFee'].forEach(function (k) {
           if (order[k] != null && !isFinite(order[k])) order[k] = null;
         });
         var reviewer = vals.__rev ? (STAFF || []).filter(function (s) { return s.email === vals.__rev; })[0] || null : null;
-        return { C: C, slug: slug, order: order, reviewer: reviewer };
+        if (vals.__rev && !reviewer) return say('The reviewer chosen on it is not on the staff list any more. Open it and choose again.', 'warn');
+        return { C: C, slug: slug, order: order, reviewer: reviewer, src: src };
       }
       function paintBatch() {
         var box = document.getElementById('no-batch'), go = document.querySelector('.no-go');
@@ -13495,50 +13548,190 @@ function loadCompanyCore(slug) {
           if (formHas || !items.length) { var x = collectOrder(); if (!x) return; items.push(x); }
           var label = b.textContent;
           b.disabled = true; b.textContent = 'Sending…';
-          /* Each review request is filed FIRST, so no order is saved with a
-             reviewer who was never asked; then one save per company. */
-          items.reduce(function (p, x) {
-            return p.then(function () {
-              if (!x.reviewer) return null;
-              return requestReview(x.C, x.order, x.reviewer).then(function (rv) { x.order.review = rv; });
-            });
-          }, Promise.resolve()).then(function () {
-            var by = {};
-            items.forEach(function (x) { (by[x.slug] = by[x.slug] || []).push(x); });
-            return Object.keys(by).reduce(function (p, slug) {
-              return p.then(function () {
-                var orders = by[slug].map(function (x) { return x.order; });
-                return R.update(keyFor(slug), 'revisions/' + slug + '.json', function (cur) {
-                  var next = JSON.parse(JSON.stringify(cur || {}));
-                  next.company = next.company || slug;
-                  next.additions = (next.additions || []).concat(orders);
-                  return next;
-                }, orders.length === 1 ? 'new order: ' + orders[0].subject : orders.length + ' new orders', { revisions: [] });
-              });
-            }, Promise.resolve());
-          }).then(function () {
-            /* one email per reviewer, however many orders they are asked to look at */
-            var byRev = {};
-            items.forEach(function (x) { if (x.order.review) (byRev[x.reviewer.email] = byRev[x.reviewer.email] || []).push(x); });
-            return Object.keys(byRev).reduce(function (p, em) {
-              return p.then(function () {
-                var g = byRev[em];
-                return g.length === 1 ? reviewNotice(g[0].C, g[0].order, g[0].order.review) : reviewNoticeMany(g);
-              });
-            }, Promise.resolve());
-          }).then(function () {
-            var n = items.length, revs = items.filter(function (x) { return x.reviewer; });
-            NO_BATCH = [];
-            toast(revs.length
-              ? (n === 1 ? 'Sent to ' + revs[0].reviewer.name + ' to review' : n + ' sent for review')
-              : (n === 1 ? 'Sent to ' : n + ' sent to ') + (((items[0].C.F.vpProduct) || {}).name || 'the VP') + ' for a decision', 'good');
-            adminView();
-          }).catch(function (e) {
-            b.disabled = false; b.textContent = label;
-            failed(e);
-          });
+          var drafts = items.map(function (x) { return x.src && x.src.draftId; }).concat([CURRENT_DRAFT]).filter(Boolean);
+          sendItems(items, drafts).catch(function (e) { b.disabled = false; b.textContent = label; failed(e); });
         });
       });
+
+      /* ---- drafts (6 Nov 2026) ------------------------------------------- */
+      var CURRENT_DRAFT = null;
+      function draftNote(d) {
+        var n = document.getElementById('no-draftnote'); if (!n) return;
+        n.hidden = !d;
+        n.innerHTML = d ? 'Working on your draft <b>' + esc((d.vals || {}).subject || 'Untitled draft') + '</b>. ' +
+          'Save as Draft updates it; sending it takes it off Your Drafts.' : '';
+      }
+      function saveDrafts(srcs) {
+        var at = new Date().toISOString();
+        var docs = srcs.map(function (s, i) {
+          return { id: s.draftId || ('D-' + Date.now().toString(36) + i + Math.random().toString(36).slice(2, 5)),
+                   vals: s.vals, why: s.why || '', tplKey: s.tplKey || '', name: s.name || '', savedAt: at, savedBy: ME.name };
+        });
+        return R.updateData('team-hq', 'sodrafts', function (cur) {
+          var next = cur || {}; next.docs = next.docs || {};
+          docs.forEach(function (d) { next.docs[d.id] = d; });
+          return next;
+        }).then(function () {
+          docs.forEach(function (d) {
+            SAVED_DRAFTS = SAVED_DRAFTS.filter(function (x) { return x.id !== d.id; });
+            SAVED_DRAFTS.unshift(d);
+          });
+          return docs;
+        });
+      }
+      function dropDrafts(ids) {
+        if (!ids.length) return Promise.resolve();
+        return R.updateData('team-hq', 'sodrafts', function (cur) {
+          var next = cur || {}; next.docs = next.docs || {};
+          ids.forEach(function (id) { delete next.docs[id]; });
+          return next;
+        }).then(function () {
+          SAVED_DRAFTS = SAVED_DRAFTS.filter(function (x) { return ids.indexOf(x.id) < 0; });
+        });
+      }
+      function paintDrafts() {
+        var host = document.getElementById('no-drafts');
+        if (host) { host.innerHTML = draftsHtml(list); host.dataset.wired = ''; host.dataset.named = '1'; wireDrafts(); }
+      }
+      function openDraft(d) {
+        var v = d.vals || {}, el = function (k) { return document.querySelector('.nof[data-k="' + k + '"]'); };
+        var T = [], ts = document.getElementById('no-tpl');
+        try { T = JSON.parse((document.getElementById('no-tpls') || {}).textContent || '[]'); } catch (e) {}
+        var ti = -1; T.forEach(function (t, i) { if (t.key === d.tplKey) ti = i; });
+        if (ts) ts.value = ti >= 0 ? String(ti) : '';
+        var co = el('__slug');
+        if (co) { co.value = v.__slug || ''; co.dispatchEvent(new Event('change')); }
+        setTimeout(function () {
+          document.querySelectorAll('.nof').forEach(function (e) {
+            if (e.dataset.k === '__slug') return;
+            if (v[e.dataset.k] !== undefined) e.value = v[e.dataset.k];
+            e.dataset.tpl = '';
+            if (e.tagName === 'SELECT') e.dataset.picked = '1';
+          });
+          var nm = document.getElementById('no-name'); if (nm) nm.value = d.name || '';
+          var why = document.querySelector('.nowhy'); if (why) why.value = d.why || '';
+          var del = document.getElementById('no-tpldel');
+          if (del) { var t = ti >= 0 ? T[ti] : null; del.hidden = !(t && t.saved); }
+          CURRENT_DRAFT = d.id; draftNote(d); paintBatch();
+          var top = document.querySelector('.no-tpl');
+          if (top && top.scrollIntoView) top.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 30);
+      }
+      function wireDrafts() {
+        /* this whole block is wired once per drawing of the list, never again on a panel opening */
+        var host = document.getElementById('no-drafts');
+        if (!host || host.dataset.wired === '1') return; host.dataset.wired = '1';
+        var all = document.getElementById('nod-all'), send = document.getElementById('nod-send');
+        var picks = function () { return $$('.nod-pick').filter(function (c) { return c.checked; }).map(function (c) { return c.value; }); };
+        var paint = function () {
+          if (!send) return;
+          var n = picks().length;
+          send.disabled = !n;
+          send.textContent = n > 1 ? 'Send the ' + n + ' Chosen Drafts' : n === 1 ? 'Send the Chosen Draft' : 'Send the Chosen Drafts';
+        };
+        $$('.nod-pick').forEach(function (c) { c.addEventListener('change', paint); });
+        if (all) all.addEventListener('change', function () { $$('.nod-pick').forEach(function (c) { c.checked = all.checked; }); paint(); });
+        $$('[data-nodopen]').forEach(function (b) {
+          b.addEventListener('click', function () {
+            var d = SAVED_DRAFTS.filter(function (x) { return x.id === b.dataset.nodopen; })[0];
+            if (d) openDraft(d);
+          });
+        });
+        $$('[data-noddel]').forEach(function (b) {
+          b.addEventListener('click', function () {
+            var d = SAVED_DRAFTS.filter(function (x) { return x.id === b.dataset.noddel; })[0]; if (!d) return;
+            if (!confirm('Delete the draft "' + ((d.vals || {}).subject || 'Untitled draft') + '"? This cannot be undone.')) return;
+            b.disabled = true;
+            dropDrafts([d.id]).then(function () {
+              if (CURRENT_DRAFT === d.id) { CURRENT_DRAFT = null; draftNote(null); }
+              paintDrafts(); toast('Draft deleted', 'good');
+            }, function (e) { b.disabled = false; failed(e); });
+          });
+        });
+        if (send) send.addEventListener('click', function () {
+          var ids = picks(), items = [];
+          for (var i = 0; i < ids.length; i++) {
+            var d = SAVED_DRAFTS.filter(function (x) { return x.id === ids[i]; })[0];
+            var x = d && collectOrder(false, { vals: d.vals, why: d.why, tplKey: d.tplKey, name: d.name, draftId: d.id });
+            if (!x) return;   // the reason is already on screen
+            items.push(x);
+          }
+          if (!items.length) return;
+          send.disabled = true; send.textContent = 'Sending…';
+          sendItems(items, ids).catch(function (e) { send.disabled = false; paint(); failed(e); });
+        });
+      }
+      wireDrafts();
+      /* the reviewer's name, once the staff list has loaded */
+      var dh = document.getElementById('no-drafts');
+      if (dh && !dh.dataset.named && SAVED_DRAFTS.length) {
+        dh.dataset.named = '1';
+        loadStaff().then(function () { var h = document.getElementById('no-drafts'); if (h && h.dataset.named) paintDrafts(); }, function () {});
+      }
+      (root || document).querySelectorAll('.no-save').forEach(function (b) {
+        if (b.dataset.wired) return; b.dataset.wired = '1';
+        b.addEventListener('click', function () {
+          var f = readForm();
+          if (!f.vals.subject && !f.vals.__slug && !f.name) { toast('Fill in at least a title or a company first'); return; }
+          var srcs = NO_BATCH.map(function (x) { return x.src; }).filter(Boolean);
+          f.draftId = CURRENT_DRAFT || null;
+          srcs.push(f);
+          b.disabled = true; b.textContent = 'Saving…';
+          saveDrafts(srcs).then(function (docs) {
+            NO_BATCH = []; paintBatch();
+            var mine = docs[docs.length - 1];
+            CURRENT_DRAFT = mine.id; draftNote(mine); paintDrafts();
+            b.disabled = false; b.textContent = 'Save as Draft';
+            toast(docs.length === 1 ? 'Saved. It is under Your Drafts — send it whenever you are ready.'
+              : docs.length + ' saved under Your Drafts', 'good');
+          }, function (e) { b.disabled = false; b.textContent = 'Save as Draft'; failed(e); });
+        });
+      });
+
+      /* Each review request is filed FIRST, so no order is saved with a
+         reviewer who was never asked; then one save per company; then one
+         email per reviewer; then the drafts they came from are taken off. */
+      function sendItems(items, draftIds) {
+        return items.reduce(function (p, x) {
+          return p.then(function () {
+            if (!x.reviewer) return null;
+            return requestReview(x.C, x.order, x.reviewer).then(function (rv) { x.order.review = rv; });
+          });
+        }, Promise.resolve()).then(function () {
+          var by = {};
+          items.forEach(function (x) { (by[x.slug] = by[x.slug] || []).push(x); });
+          return Object.keys(by).reduce(function (p, slug) {
+            return p.then(function () {
+              var orders = by[slug].map(function (x) { return x.order; });
+              return R.update(keyFor(slug), 'revisions/' + slug + '.json', function (cur) {
+                var next = JSON.parse(JSON.stringify(cur || {}));
+                next.company = next.company || slug;
+                next.additions = (next.additions || []).concat(orders);
+                return next;
+              }, orders.length === 1 ? 'new order: ' + orders[0].subject : orders.length + ' new orders', { revisions: [] });
+            });
+          }, Promise.resolve());
+        }).then(function () {
+          /* one email per reviewer, however many orders they are asked to look at */
+          var byRev = {};
+          items.forEach(function (x) { if (x.order.review) (byRev[x.reviewer.email] = byRev[x.reviewer.email] || []).push(x); });
+          return Object.keys(byRev).reduce(function (p, em) {
+            return p.then(function () {
+              var g = byRev[em];
+              return g.length === 1 ? reviewNotice(g[0].C, g[0].order, g[0].order.review) : reviewNoticeMany(g);
+            });
+          }, Promise.resolve());
+        }).then(function () {
+          return dropDrafts(draftIds || []).catch(function () { /* sent; a stale draft is harmless */ });
+        }).then(function () {
+          var n = items.length, revs = items.filter(function (x) { return x.reviewer; });
+          NO_BATCH = []; CURRENT_DRAFT = null;
+          toast(revs.length
+            ? (n === 1 ? 'Sent to ' + revs[0].reviewer.name + ' to review' : n + ' sent for review')
+            : (n === 1 ? 'Sent to ' : n + ' sent to ') + (((items[0].C.F.vpProduct) || {}).name || 'the VP') + ' for a decision', 'good');
+          adminView();
+        });
+      }
 
       /* ---- saving a revision ------------------------------------------- */
       (root || document).querySelectorAll('.rev-go').forEach(function (b) {
