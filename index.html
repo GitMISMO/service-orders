@@ -3250,6 +3250,11 @@ window.H = (function () {
       return { key: 'reviewback', label: 'Sent Back by ' + ((o.review.by || {}).name || 'the Requester'),
                tone: 'warn', review: o.review };
     }
+    /* The requester changed the details and sent them back (6 Nov 2026). */
+    if (!vp && o.review && o.review.state === 'revised') {
+      return { key: 'reviewback', label: 'Changes From ' + ((o.review.by || {}).name || 'the Requester'),
+               tone: 'warn', review: o.review };
+    }
     if (vp && vp.decision === 'Approved to Send') {
       return { key: 'vp', label: 'Released to Send', tone: '', sig: vp };
     }
@@ -5274,6 +5279,7 @@ function loadCompanyCore(slug) {
           if (!d || !d.state || d.state === 'pending' || d.state === 'withdrawn') return;
           o.review = Object.assign({}, o.review, { state: d.state, comments: d.comments || '',
             decidedAt: d.decidedAt || null, decidedBy: d.decidedBy || null });
+          if (d.state === 'revised') o.review.proposed = d.proposed || {};
           changed.push({ C: C, o: o });
         });
       });
@@ -5313,6 +5319,15 @@ function loadCompanyCore(slug) {
                           C.F.company + '. It is now waiting for your decision before it is sent.',
                     cta: { text: 'Open the Service Orders Portal', url: 'https://resources.mismo.org/service-orders/' },
                     raisedOn: at, forAttentionOf: vp.email ? null : 'jcritchley@mismo.org', sent: false, sentOn: null }
+                : rv.state === 'revised'
+                ? { kind: 'order-review-changes', company: C.F.company, orderId: o.id, order: o.subject,
+                    who: rv.decidedBy || (rv.by || {}).name,
+                    said: ((rv.by || {}).name || 'The requester') + ' changed the details of "' + o.subject + '" for ' +
+                          C.F.company + ' and sent it back to you.' + (rv.comments ? ' They said: ' + rv.comments : '') +
+                          ' Open Needs You to see what changed and use their changes.',
+                    title: 'Changes to a New Service Order',
+                    cta: { text: 'Open the Service Orders Portal', url: 'https://resources.mismo.org/service-orders/' },
+                    raisedOn: at, forAttentionOf: 'jcritchley@mismo.org', sent: false, sentOn: null }
                 : { kind: 'order-review-changes', company: C.F.company, orderId: o.id, order: o.subject,
                     who: rv.decidedBy || (rv.by || {}).name, said: rv.comments || '',
                     title: 'A Service Order Was Sent Back for Changes',
@@ -5324,9 +5339,35 @@ function loadCompanyCore(slug) {
       });
     }, Promise.resolve());
   }
+  /* What the requester changed, field by field, beside what the order says now. */
+  var PROPOSE_FIELDS = [['subject', 'Title'], ['hourlyRate', 'Hourly Rate'], ['estimatedHours', 'Estimated Hours'],
+    ['maximumFee', 'Maximum Fee'], ['startDate', 'Start Date'], ['endDate', 'End Date'], ['description', 'Description'],
+    ['services', 'Services'], ['deliverables', 'Deliverables'], ['deliverySchedule', 'Delivery Schedule'],
+    ['paymentSchedule', 'Payment Schedule'], ['tasksFromMismo', 'What MISMO Provides'], ['modifications', 'Agreed Modifications']];
+  function showVal(v) {
+    if (Array.isArray(v)) return v.length ? '<ul class="plain">' + v.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>' : '\u2014';
+    return v == null || v === '' ? '\u2014' : esc(String(v));
+  }
+  function proposedChanges(o) {
+    var pr = (o.review && o.review.proposed) || {};
+    return PROPOSE_FIELDS.filter(function (f) {
+      return pr[f[0]] !== undefined && JSON.stringify(pr[f[0]]) !== JSON.stringify(o[f[0]] == null ? (Array.isArray(pr[f[0]]) ? [] : '') : o[f[0]]);
+    });
+  }
+  function proposedHtml(n) {
+    var ch = proposedChanges(n.order), pr = n.order.review.proposed || {};
+    return '<h4 class="subh">What They Changed</h4>' + (ch.length
+      ? '<div class="tbl"><table><thead><tr><th>Field</th><th>The Order Now</th><th>Their Version</th></tr></thead><tbody>' +
+        ch.map(function (f) {
+          var cash = f[0] === 'hourlyRate' || f[0] === 'maximumFee';
+          var sv = function (v) { return cash && v != null && v !== '' && isFinite(Number(v)) ? esc(money(Number(v))) : showVal(v); };
+          return '<tr><td><b>' + esc(f[1]) + '</b></td><td>' + sv(n.order[f[0]]) + '</td><td>' + sv(pr[f[0]]) + '</td></tr>'; }).join('') +
+        '</tbody></table></div>'
+      : '<p class="fineprint">They sent it back without changing any of the details.</p>');
+  }
   /* What the reviewer reads: the order's terms, copied at the moment it was sent to them. */
   function orderSnapshot(o) {
-    var keys = ['id', 'subject', 'feeType', 'msaFlavour', 'hourlyRate', 'estimatedHours', 'maximumFee',
+    var keys = ['id', 'subject', 'feeType', 'msaFlavour', 'hourlyRate', 'estimatedHours', 'maximumFee', 'category',
       'startDate', 'endDate', 'description', 'services', 'deliverables', 'deliverySchedule',
       'paymentSchedule', 'tasksFromMismo', 'modifications', 'raisedWhy', 'raisedBy'];
     var s = {};
@@ -5355,8 +5396,8 @@ function loadCompanyCore(slug) {
       kind: 'order-review-requested', company: C.F.company, orderId: order.id, order: order.subject,
       who: ME.name, to: review.by.email, title: 'A Service Order for You to Review',
       said: ME.name + ' drafted a new service order for ' + C.F.company + ', "' + order.subject +
-            '", and needs you to review and approve it. Once you approve it, it goes to ' + vpName +
-            ' and then to ' + C.F.company + ' to accept.',
+            '". Please check the details: change anything that needs it and send it back, or approve it as it is. ' +
+            'Once it is right it goes to ' + vpName + ' and then to ' + C.F.company + ' to accept.',
       cta: { text: 'Review the Service Order', url: REVIEW_URL + '#r=' + review.id },
       raisedOn: review.requestedAt, forAttentionOf: null, sent: false, sentOn: null });
   }
@@ -11773,7 +11814,79 @@ function loadCompanyCore(slug) {
    * It enters the flow at the beginning, like any other order: Draft, which IS
    * the VP's queue. Nothing is routed — the status is derived.
    */
+  /* =========================================================================
+   * TEMPLATES FOR A NEW ORDER (Jonna, 6 November 2026)
+   *
+   * Every kind of order already on the system is a template: a Development
+   * Workgroup (DWG), a Community of Practice (CoP), Admin Time, Certification
+   * and the rest. They are worked out HERE, from the generated orders this
+   * page has just read, never typed into the page: this file is public and the
+   * wording of MISMO's orders is not. For each kind the most common value of
+   * every field wins, the hourly rate is the one the chosen company is paid
+   * for that kind of work, and the hours are the usual hours for it.
+   * ======================================================================= */
+  var TPL_FIELDS = ['services', 'deliverables', 'deliverySchedule', 'paymentSchedule', 'tasksFromMismo',
+    'modifications', 'startDate', 'endDate', 'msaFlavour'];
+  var TPL_CARRY = ['category', 'template', 'plAccount', 'rateType'];
+  function tplLabel(cat) {
+    if (/DWG/.test(cat)) return 'Development Workgroup (DWG) Facilitation';
+    if (/CoP/.test(cat)) return 'Community of Practice (CoP) Facilitation';
+    return cat;
+  }
+  function mostCommon(vals) {
+    var n = {}, best = null, bn = 0;
+    vals.forEach(function (v) {
+      if (v == null || v === '' || (Array.isArray(v) && !v.length)) return;
+      var k = JSON.stringify(v); n[k] = (n[k] || 0) + 1;
+      if (n[k] > bn) { bn = n[k]; best = v; }
+    });
+    return best;
+  }
+  /* The words every title of this kind ends with ("Workgroup Facilitation"),
+     and every description ("(Facilitator)"), so typing just the group's name
+     fills both in the house style. */
+  function commonEnd(strs) {
+    var ws = strs.filter(Boolean).map(function (s) { return String(s).trim().split(/\s+/); });
+    if (ws.length < 2) return '';
+    var out = [];
+    for (var i = 1; ; i++) {
+      var w = ws[0][ws[0].length - i];
+      if (!w || !ws.every(function (x) { return x.length > i && x[x.length - i] === w; })) break;
+      out.unshift(w);
+    }
+    return out.join(' ');
+  }
+  function buildTemplates(list) {
+    var by = {};
+    list.forEach(function (C) {
+      (C.F.orders || []).forEach(function (o) {
+        if (!o || !o.category || o.source === 'Raised in the portal') return;
+        (by[o.category] = by[o.category] || []).push({ o: o, slug: C.slug });
+      });
+    });
+    var out = Object.keys(by).map(function (cat) {
+      var os = by[cat], t = { key: cat, label: tplLabel(cat), count: os.length, f: {}, carry: {}, rate: {} };
+      TPL_FIELDS.forEach(function (k) { t.f[k] = mostCommon(os.map(function (x) { return x.o[k]; })); });
+      TPL_CARRY.forEach(function (k) { t.carry[k] = mostCommon(os.map(function (x) { return x.o[k]; })); });
+      t.perReview = os.filter(function (x) { return isPerReviewOrder(x.o); }).length > os.length / 2;
+      t.f.hourlyRate = mostCommon(os.map(function (x) { return x.o.hourlyRate; }));
+      os.forEach(function (x) {
+        var r = mostCommon(os.filter(function (y) { return y.slug === x.slug; }).map(function (y) { return y.o.hourlyRate; }));
+        if (r != null) t.rate[x.slug] = r;
+      });
+      t.f.estimatedHours = mostCommon(os.map(function (x) { return x.o.estimatedHours; }));
+      t.titleEnd = commonEnd(os.map(function (x) { return x.o.subject; }));
+      t.descEnd = commonEnd(os.map(function (x) { return x.o.description; }));
+      t.fy = mostCommon(os.map(function (x) { var m = /^FY \d{4}/.exec(String(x.o.subject || '')); return m && m[0]; })) || 'FY 2027';
+      return t;
+    });
+    var rank = function (t) { return /DWG/.test(t.key) ? 0 : /CoP/.test(t.key) ? 1 : 2; };
+    return out.sort(function (a, b) { return (rank(a) - rank(b)) || a.label.localeCompare(b.label); });
+  }
+  function isPerReviewOrder(o) { return !!(o && (o.source === 'certification' || o.feeType === 'perReview')); }
+
   function newOrderForm(list) {
+    var TPLS = buildTemplates(list);
     var companies = list.map(function (C) {
       return '<option value="' + esc(C.slug) + '">' + esc(C.F.company) + '</option>';
     }).join('');
@@ -11811,6 +11924,11 @@ function loadCompanyCore(slug) {
       esc(((list[0].F.vpProduct) || {}).name || 'the VP') + ' decides, you send it, the company accepts it from ' +
       'the email, and ' + esc(((list[0].F.mismoSigner) || {}).name || 'the President') + ' approves it.</p>' +
       '<div class="revgrid">' +
+      '<div class="f"><label>Start From</label><select class="no-tpl" id="no-tpl">' +
+      '<option value="">A blank order</option>' + TPLS.map(function (t, i) {
+        return '<option value="' + i + '">' + esc(t.label) + '</option>'; }).join('') + '</select></div>' +
+      '<div class="f"><label>Workgroup or CoP Name</label><input type="text" class="no-name" id="no-name" ' +
+      'placeholder="e.g. Automated Valuation Model \u2014 fills in the title"></div>' +
       '<div class="f"><label>Who Asked for It (Reviews It First)</label><select class="nof no-rev" data-k="__rev">' +
       '<option value="">Nobody \u2014 straight to ' + esc(((list[0].F.vpProduct) || {}).name || 'the VP') + '</option>' +
       '</select></div>' +
@@ -11832,9 +11950,12 @@ function loadCompanyCore(slug) {
       '<button class="gobtn no-go" type="button">Raise This Order</button></div>' +
       '<p class="fineprint">⚠ <b>This order names no forecast line</b>, so nothing here checks ' +
       'it against the budget. A title and a company are required; everything else can be filled in ' +
-      'later by revising it. <b>Nothing goes to the company by raising it</b> \u2014 only the reviewer you ' +
-      'chose is emailed, with a button to review it.</p>' +
-      '<script type="application/json" id="no-msas">' + JSON.stringify(msas) + '<\/script>';
+      'later by revising it. <b>Nothing goes to the company by raising it</b> \u2014 only the person you ' +
+      'chose is emailed, with a button to check the details, change anything that needs it, and send it ' +
+      'back to you or approve it.</p>' +
+      '<script type="application/json" id="no-msas">' + JSON.stringify(msas) + '<\/script>' +
+      /* the templates stay in this signed-in page; they are never written anywhere */
+      '<script type="application/json" id="no-tpls">' + JSON.stringify(TPLS).replace(/</g, '\\u003c') + '<\/script>';
   }
 
   /* =========================================================================
@@ -12194,7 +12315,8 @@ function loadCompanyCore(slug) {
               var rv = n.order.review || {};
               sig = { signerName: (rv.by || {}).name || '', signedOn: rv.decidedAt || '' };
             }
-            var said = n.st.key === 'reviewback' ? ((n.order.review || {}).comments || 'No comment was given.')
+            var said = n.st.key === 'reviewback' ? ((n.order.review || {}).comments ||
+                ((n.order.review || {}).state === 'revised' ? 'They changed the details \u2014 see below.' : 'No comment was given.'))
               : n.st.key === 'question' ? (sig.question || '')
               : (n.st.key === 'vphold' || n.st.key === 'preshold') ? (sig.note || '')
                 : 'The order was edited after it was accepted, so the acceptance on record is for ' +
@@ -12209,8 +12331,12 @@ function loadCompanyCore(slug) {
               '</div>' +
               '<h4 class="subh">What They Said</h4>' +
               '<p class="saidbox">' + esc(said) + '</p>' +
+              (n.st.key === 'reviewback' && (n.order.review || {}).state === 'revised' ? proposedHtml(n) : '') +
               (n.st.key === 'reviewback'
-                ? '<div class="xp-acts"><button class="gobtn" type="button" data-rvagain="' + esc(n.C.slug + '|' + n.order.id) +
+                ? '<div class="xp-acts">' + ((n.order.review || {}).state === 'revised'
+                    ? '<button class="gobtn" type="button" data-rvuse="' + esc(n.C.slug + '|' + n.order.id) + '">Use Their Changes \u2014 Send to ' +
+                      esc(((n.C.F.vpProduct) || {}).name || 'the VP') + '</button>' : '') +
+                  '<button class="gobtn' + ((n.order.review || {}).state === 'revised' ? ' ghost' : '') + '" type="button" data-rvagain="' + esc(n.C.slug + '|' + n.order.id) +
                   '">Send It for Review Again</button><button class="gobtn ghost" type="button" data-rvskip="' +
                   esc(n.C.slug + '|' + n.order.id) + '">Skip the Review \u2014 Straight to ' +
                   esc(((n.C.F.vpProduct) || {}).name || 'the VP') + '</button></div>' +
@@ -12561,6 +12687,44 @@ function loadCompanyCore(slug) {
               .catch(function (e) { b.disabled = false; b.textContent = 'Send It for Review Again'; failed(e); });
           });
         });
+        $$('[data-rvuse]', pb).forEach(function (b) {
+          if (b.dataset.wired) return; b.dataset.wired = '1';
+          b.addEventListener('click', function () {
+            var x = find(b.dataset.rvuse); if (!x) return;
+            var pr = (x.o.review && x.o.review.proposed) || {};
+            b.disabled = true; b.textContent = 'Saving…';
+            var at = new Date().toISOString();
+            var rv = Object.assign({}, x.o.review || {}, { state: 'accepted', acceptedAt: at, acceptedBy: ME.name });
+            R.update(keyFor(x.C.slug), 'revisions/' + x.C.slug + '.json', function (cur) {
+              var next = JSON.parse(JSON.stringify(cur || {}));
+              (next.additions || []).forEach(function (a) {
+                if (a.id !== x.o.id) return;
+                PROPOSE_FIELDS.forEach(function (f) {
+                  if (pr[f[0]] === undefined) return;
+                  var v = pr[f[0]];
+                  if (f[0] === 'services' || f[0] === 'deliverables') v = asList(v);
+                  else if (['hourlyRate', 'estimatedHours', 'maximumFee'].indexOf(f[0]) >= 0)
+                    v = v === '' || v == null ? null : (isFinite(Number(v)) ? Number(v) : a[f[0]]);
+                  a[f[0]] = v;
+                });
+                a.review = rv;
+              });
+              return next;
+            }, 'requester changes used: ' + x.o.subject, { revisions: [] })
+              .then(function () {
+                var vp = x.C.F.vpProduct || {};
+                return notify(x.C.slug, { kind: 'order-review-approved', company: x.C.F.company, orderId: x.o.id,
+                  order: pr.subject || x.o.subject, who: ME.name, to: vp.email || null,
+                  title: 'A Service Order Ready for Your Decision',
+                  said: '"' + (pr.subject || x.o.subject) + '" for ' + x.C.F.company + ' has been reviewed by ' +
+                        ((x.o.review.by || {}).name || 'the requester') + ' and is now waiting for your decision before it is sent.',
+                  cta: { text: 'Open the Service Orders Portal', url: 'https://resources.mismo.org/service-orders/' },
+                  raisedOn: at, forAttentionOf: vp.email ? null : 'jcritchley@mismo.org', sent: false, sentOn: null });
+              })
+              .then(function () { closePanel(true); toast('Their changes are in. It is with ' + (((x.C.F.vpProduct) || {}).name || 'the VP') + ' for a decision', 'good'); adminView(); })
+              .catch(function (e) { b.disabled = false; b.textContent = 'Use Their Changes'; failed(e); });
+          });
+        });
         $$('[data-rvskip]', pb).forEach(function (b) {
           if (b.dataset.wired) return; b.dataset.wired = '1';
           b.addEventListener('click', function () {
@@ -12827,6 +12991,61 @@ function loadCompanyCore(slug) {
         });
       });
 
+      /* ---- Start From: fill the form from a template --------------------
+         A field is filled when it is empty or still holds what a template put
+         there; anything typed by hand is left alone. */
+      (function () {
+        var tplSel = (root || document).querySelector('#no-tpl');
+        if (!tplSel || tplSel.dataset.wired) return; tplSel.dataset.wired = '1';
+        var TPLS = []; try { TPLS = JSON.parse((document.getElementById('no-tpls') || {}).textContent || '[]'); } catch (e) {}
+        function el(k) { return document.querySelector('.nof[data-k="' + k + '"]'); }
+        function setv(k, v) {
+          var e = el(k); if (!e || v == null) return;
+          var cur = String(e.value || '').trim();
+          var untouched = e.tagName === 'SELECT' && e.selectedIndex <= 0 && !e.dataset.picked;
+          if (cur && e.dataset.tpl !== cur && !untouched) return;   // chosen or typed by hand: theirs
+          var s = Array.isArray(v) ? v.join('\n') : String(v);
+          if (e.tagName === 'SELECT' && !Array.prototype.some.call(e.options, function (o) { return o.value === s; })) return;
+          e.value = s; e.dataset.tpl = s;
+        }
+        function cur() { return TPLS[Number(tplSel.value)] || null; }
+        function slug() { var s = el('__slug'); return s ? s.value : ''; }
+        function fee() {
+          var r = Number(String((el('hourlyRate') || {}).value || '').replace(/[^0-9.]/g, ''));
+          var h = Number(String((el('estimatedHours') || {}).value || '').replace(/[^0-9.]/g, ''));
+          if (r > 0 && h > 0) setv('maximumFee', String(Math.round(r * h * 100) / 100));
+        }
+        function names() {
+          var t = cur(), n = String((document.getElementById('no-name') || {}).value || '').trim();
+          if (!t || !n) return;
+          if (t.titleEnd) setv('subject', t.fy + ' ' + n + ' ' + t.titleEnd);
+          if (t.descEnd) setv('description', n + ' ' + t.descEnd);
+        }
+        function apply() {
+          var t = cur(); if (!t) return;
+          setv('feeType', t.perReview ? 'perReview' : 'hourly');
+          Object.keys(t.f).forEach(function (k) { if (k !== 'hourlyRate') setv(k, t.f[k]); });
+          setv('hourlyRate', t.rate[slug()] != null ? t.rate[slug()] : t.f.hourlyRate);
+          names(); fee();
+          toast('Filled in from ' + t.label + ' — change anything you need to', 'good');
+        }
+        tplSel.addEventListener('change', apply);
+        ['feeType', 'msaFlavour'].forEach(function (k) { var e = el(k); if (e) e.addEventListener('change', function () { e.dataset.picked = '1'; }); });
+        var nm = document.getElementById('no-name');
+        if (nm) nm.addEventListener('input', names);
+        var co = el('__slug');
+        if (co) co.addEventListener('change', function () {
+          var t = cur(); if (!t) return;
+          /* the agreement list is rebuilt for the company first, then the template's choice is picked in it */
+          setTimeout(function () {
+            var m = el('msaFlavour'); if (m) m.dataset.tpl = String(m.value || '');
+            setv('msaFlavour', t.f.msaFlavour);
+            setv('hourlyRate', t.rate[slug()] != null ? t.rate[slug()] : t.f.hourlyRate); fee();
+          }, 0);
+        });
+        ['hourlyRate', 'estimatedHours'].forEach(function (k) { var e = el(k); if (e) e.addEventListener('input', fee); });
+      })();
+
       (root || document).querySelectorAll('.no-go').forEach(function (b) {
         if (b.dataset.wired) return; b.dataset.wired = '1';
         b.addEventListener('click', function () {
@@ -12872,6 +13091,13 @@ function loadCompanyCore(slug) {
             forecastLine: null,
             raisedBy: who().name, raisedOn: new Date().toISOString(), raisedWhy: why
           };
+          /* what kind of order it is, carried from the template it started from */
+          (function () {
+            var ts = document.getElementById('no-tpl'), T = [];
+            try { T = JSON.parse((document.getElementById('no-tpls') || {}).textContent || '[]'); } catch (e) {}
+            var t = ts && T[Number(ts.value)];
+            if (t && ts.value !== '') TPL_CARRY.forEach(function (k) { if (t.carry[k] != null) order[k] = t.carry[k]; });
+          })();
           ['hourlyRate', 'estimatedHours', 'maximumFee'].forEach(function (k) {
             if (order[k] != null && !isFinite(order[k])) order[k] = null;
           });

@@ -84,6 +84,15 @@ label.l{display:block;font-size:11px;font-weight:700;letter-spacing:.1em;text-tr
 textarea,input[type=text]{width:100%;font:inherit;font-size:14px;color:var(--ink);background:var(--surface);border:1px solid var(--border-strong);border-radius:6px;padding:9px 11px}
 textarea{min-height:84px;resize:vertical}
 textarea:focus,input:focus{outline:2px solid var(--sky);outline-offset:1px}
+.ed{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 14px}
+@media(max-width:640px){.ed{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.ed .w{grid-column:1/-1}
+.ed label.l{margin-top:12px}
+.ed > div:first-child label.l{margin-top:0}
+.ed .hint{font-size:12px;color:var(--ink-3);margin:3px 0 0}
+.ed textarea.chg,.ed input.chg{border-color:var(--warn);background:rgba(162,112,26,.06)}
+.lead{margin:0 0 14px;color:var(--ink-2)}
+.chg-n{font-size:12.5px;color:var(--warn);font-weight:600;margin:10px 0 0;min-height:1em}
 .or{display:flex;align-items:center;gap:10px;color:var(--ink-3);font-size:12px;margin:14px 0 0}
 .or:before,.or:after{content:"";flex:1;height:1px;background:var(--rule)}
 .note{border-left:3px solid var(--warn);background:rgba(162,112,26,.08);padding:10px 14px;border-radius:0 6px 6px 0;margin:0 0 12px}
@@ -238,6 +247,7 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
     return ({ pending: { label: 'Waiting for ' + first((d.reviewer || {}).name), tone: 'warn' },
               approved: { label: 'Approved', tone: 'good' },
               changes: { label: 'Sent Back for Changes', tone: 'bad' },
+              revised: { label: 'Changes Sent to ' + first(d.requestedBy), tone: 'warn' },
               withdrawn: { label: 'Replaced by a Newer Version', tone: '' } })[d.state] || { label: d.state, tone: '' };
   }
   function home() {
@@ -256,11 +266,58 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
       html += '<p class="empty" style="margin-top:18px">When somebody drafts a service order you asked for, you get an email with a button that opens it here.</p>';
     main.innerHTML = html;
   }
+  function changedCount(d) {
+    var n = Object.keys(d.proposed || {}).length;
+    return n === 1 ? 'one detail' : n + ' details';
+  }
   function sec(title, v) {
     if (v == null || v === '' || (Array.isArray(v) && !v.length)) return '';
     return '<div class="sec"><h3>' + esc(title) + '</h3>' + (Array.isArray(v)
       ? '<ul>' + v.map(function (x) { return '<li>' + esc(x) + '</li>'; }).join('') + '</ul>'
       : '<p>' + esc(v) + '</p>') + '</div>';
+  }
+  /* What the requester may change, in the order it reads on the printed order. */
+  var EDIT = [
+    { k: 'subject', label: 'Service Order Title', w: 1 },
+    { k: 'hourlyRate', label: 'Hourly Rate', num: 1, hourly: 1 },
+    { k: 'estimatedHours', label: 'Estimated Hours', perLabel: 'Estimated Reviews', num: 1 },
+    { k: 'maximumFee', label: 'Maximum Fee', num: 1 },
+    { k: 'startDate', label: 'Start Date' },
+    { k: 'endDate', label: 'End Date' },
+    { k: 'description', label: 'Description', area: 1 },
+    { k: 'services', label: 'Services', area: 1, list: 1 },
+    { k: 'deliverables', label: 'Deliverables', area: 1, list: 1 },
+    { k: 'deliverySchedule', label: 'Delivery Schedule', area: 1 },
+    { k: 'paymentSchedule', label: 'Payment Schedule', area: 1 },
+    { k: 'tasksFromMismo', label: 'What MISMO Provides', area: 1 },
+    { k: 'modifications', label: 'Agreed Modifications', area: 1 }
+  ];
+  function asText(v) { return Array.isArray(v) ? v.join('\n') : (v == null ? '' : String(v)); }
+  function asList(s) { return String(s || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean); }
+  function editForm(o, hourly) {
+    return '<div class="ed">' + EDIT.filter(function (f) { return hourly || !f.hourly; }).map(function (f) {
+      var lab = (!hourly && f.perLabel) || f.label, v = asText(o[f.k]), id = 'e-' + f.k;
+      var input = f.area
+        ? '<textarea id="' + id + '" data-k="' + f.k + '" rows="' + (f.list ? 4 : 3) + '">' + esc(v) + '</textarea>'
+        : '<input type="text" id="' + id + '" data-k="' + f.k + '" value="' + esc(v) + '"' + (f.num ? ' inputmode="decimal"' : '') + '>';
+      return '<div class="' + (f.area || f.w ? 'w' : '') + '"><label class="l" for="' + id + '">' + esc(lab) + '</label>' + input +
+        (f.list ? '<p class="hint">One per line.</p>' : '') + '</div>';
+    }).join('') + '</div>';
+  }
+  /* Only the fields that are different from what was sent, in the shape the portal keeps them. */
+  function changesIn(o) {
+    var out = {};
+    EDIT.forEach(function (f) {
+      var e = document.getElementById('e-' + f.k); if (!e) return;
+      var now = String(e.value || '').replace(/\r/g, ''), was = asText(o[f.k]);
+      var same = f.list ? JSON.stringify(asList(now)) === JSON.stringify(asList(was)) : now.trim() === was.trim();
+      e.classList.toggle('chg', !same);
+      if (same) return;
+      if (f.list) out[f.k] = asList(now);
+      else if (f.num) { var n = now.replace(/[$,\s]/g, ''); out[f.k] = n === '' ? null : (isFinite(Number(n)) ? Number(n) : now.trim()); }
+      else out[f.k] = now.trim();
+    });
+    return out;
   }
   function show(id) {
     var d = DOCS[id];
@@ -287,6 +344,15 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
       sec('What MISMO Provides', o.tasksFromMismo) + sec('Agreed Modifications', o.modifications) +
       sec('Why This Order Exists', o.raisedWhy) + sec('Written Under', o.msaFlavour ? o.msaFlavour + ' Master Services Agreement' : '');
     if (!body) body = '<p style="margin:0;color:var(--ink-2)">Only the title and the figures above have been filled in so far.</p>';
+    if (mineToDo) body = '<p class="lead">Change anything that is not right \u2014 what you change is marked. ' +
+      'Leave the rest as it is.</p>' + editForm(o, hourly) +
+      (o.raisedWhy ? '<div class="sec" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--rule)"><h3>Why This Order Exists</h3><p>' + esc(o.raisedWhy) + '</p></div>' : '');
+    else if (d.state === 'revised') {
+      var P = d.proposed || {};
+      body = '<div class="sec"><h3>What You Changed</h3></div>' + EDIT.filter(function (f) { return P[f.k] !== undefined; }).map(function (f) {
+        return sec(f.label + ' \u2014 Now', P[f.k] == null ? '(left empty)' : P[f.k]);
+      }).join('') + '<div class="subh" style="margin-top:18px">As It Was Sent</div>' + body;
+    }
     var stepsHtml = '<ol class="steps">' + [
         ['You review and approve it', d.state === 'approved' ? 'done' : d.state === 'pending' ? 'on' : ''],
         [vp + ' decides', ''], ['MISMO sends it to ' + d.company, ''],
@@ -295,18 +361,23 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
     var side;
     if (mineToDo) {
       side = '<div class="card decide"><h2>Your Decision</h2><p class="say">' + esc(d.requestedBy) + ' drafted this for you. ' +
-        'Approve it and it goes on to ' + esc(vp) + '. Nothing reaches ' + esc(d.company) + ' until then.</p>' +
+        'If it is right, approve it and it goes on to ' + esc(vp) + '. If anything is wrong, change it on the left and send it back to ' +
+        esc(first(d.requestedBy)) + ' to put in. Nothing reaches ' + esc(d.company) + ' until it is approved.</p>' +
         '<button class="btn wide" type="button" id="ok">Approve This Service Order</button>' +
         '<div class="or">or</div>' +
-        '<label class="l" for="why">What Needs Changing</label>' +
-        '<textarea id="why" placeholder="Say what is wrong or missing. ' + esc(first(d.requestedBy)) + ' reads exactly this."></textarea>' +
-        '<div style="margin-top:10px"><button class="btn ghost wide" type="button" id="no">Send It Back for Changes</button></div>' +
+        '<label class="l" for="why">Anything Else to Say</label>' +
+        '<textarea id="why" placeholder="Optional when you changed the details. ' + esc(first(d.requestedBy)) + ' reads exactly this."></textarea>' +
+        '<div style="margin-top:10px"><button class="btn ghost wide" type="button" id="no">Send My Changes to ' + esc(first(d.requestedBy)) + '</button></div>' +
+        '<p class="chg-n" id="chgn"></p>' +
         stepsHtml + '</div>';
     } else {
       var st = stateOf(d);
       side = '<div class="card decide"><h2>' + esc(st.label) + '</h2>' +
         (d.state === 'approved' ? '<p class="say">' + esc((d.reviewer || {}).name) + ' approved it ' + esc(when(d.decidedAt)) + '. It is with ' + esc(vp) + ' next.</p>'
           : d.state === 'changes' ? '<p class="say">' + esc((d.reviewer || {}).name) + ' sent it back ' + esc(when(d.decidedAt)) + ':</p><div class="note bad">' + esc(d.comments || '') + '</div>'
+          : d.state === 'revised' ? '<p class="say">' + esc((d.reviewer || {}).name) + ' changed ' + changedCount(d) + ' and sent it back to ' +
+            esc(first(d.requestedBy)) + ' ' + esc(when(d.decidedAt)) + '. Once ' + esc(first(d.requestedBy)) + ' puts the changes in, it goes to ' + esc(vp) + '.</p>' +
+            (d.comments ? '<div class="note">' + esc(d.comments) + '</div>' : '')
           : d.state === 'withdrawn' ? '<p class="say">A newer version of this order was sent for review. Open the latest email to review that one.</p>'
           : '<p class="say">Waiting for ' + esc((d.reviewer || {}).name) + ' to review it.' +
             (same(d.requestedByEmail, ME.email) ? '' : ' Only they can approve it.') + '</p>') +
@@ -323,17 +394,29 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
       if (e && e.already) { DOCS[id] = e.already; show(id); return; }
       busy(false); alert('That did not save: ' + ((e && e.message) || 'please try again') + '.');
     }
+    var chgn = document.getElementById('chgn');
+    function refresh() {
+      var n = Object.keys(changesIn(o)).length;
+      ok.disabled = n > 0;
+      ok.textContent = n > 0 ? 'Approve As It Was Sent' : 'Approve This Service Order';
+      chgn.textContent = n ? 'You changed ' + (n === 1 ? 'one detail' : n + ' details') + '. Send them to ' + first(d.requestedBy) +
+        ' to put in, or put them back to approve it as it was sent.' : '';
+    }
+    main.querySelectorAll('.ed input, .ed textarea').forEach(function (e) { e.addEventListener('input', refresh); });
     ok.addEventListener('click', function () {
+      if (Object.keys(changesIn(o)).length) return;
       busy(true); ok.textContent = 'Approving…';
       decide(id, function (x) { x.state = 'approved'; x.decidedAt = new Date().toISOString(); x.decidedBy = ME.name || ME.email; x.comments = ''; })
         .then(function () { return load(); }).then(function () { show(id); }, done);
     });
     no.addEventListener('click', function () {
-      var t = String(why.value || '').trim();
-      if (!t) { why.focus(); why.placeholder = 'Say what needs changing first — it is what ' + first(d.requestedBy) + ' reads.'; return; }
+      var t = String(why.value || '').trim(), ch = changesIn(o), n = Object.keys(ch).length;
+      if (!t && !n) { why.focus(); why.placeholder = 'Change a detail on the left, or say what needs changing here.'; return; }
       busy(true); no.textContent = 'Sending…';
-      decide(id, function (x) { x.state = 'changes'; x.decidedAt = new Date().toISOString(); x.decidedBy = ME.name || ME.email; x.comments = t; })
-        .then(function () { return load(); }).then(function () { show(id); }, done);
+      decide(id, function (x) {
+        x.state = n ? 'revised' : 'changes'; x.decidedAt = new Date().toISOString(); x.decidedBy = ME.name || ME.email; x.comments = t;
+        if (n) x.proposed = ch;
+      }).then(function () { return load(); }).then(function () { show(id); window.scrollTo(0, 0); }, done);
     });
   }
   function route() { var id = idFromHash(); if (id) show(id); else home(); window.scrollTo(0, 0); }
