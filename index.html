@@ -2268,7 +2268,13 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
       return login(keys[i], email, password).catch(function (e) {
         if (e.status === 403) { sawForbidden = true; lastErr = e; return attempt(i + 1); }
         if (e.code === 'UNKNOWN_PROJECT') { sawUnknown = true; unkErr = unkErr || e; lastErr = e; return attempt(i + 1); }
-        if (e.closed) { lastErr = e; return attempt(i + 1); }
+        /* ⚠ A WRONG PASSWORD STOPS HERE (6 Nov 2026). Since sign-in moved to the
+           shared account list, the password is checked against the PERSON, not the
+           project — so a 401 on one key is the same 401 on every key, and each try
+           counts toward the five-wrong-passwords lock. Trying the next key used to
+           turn one typo into five wrong passwords and lock the account on the
+           first press (Erin, 6 Nov). Only a 403 (no access to THIS key) and an
+           unknown project move on to the next key. */
         throw e;
       });
     }
@@ -13174,7 +13180,7 @@ function loadCompanyCore(slug) {
     var signIn = blk('Signing In', steps([
       'Go to <b>resources.mismo.org/service-orders/</b>.',
       'Type the email address MISMO set you up with, and the password they sent you separately.',
-      'Press <b>Sign In</b>. Your session lasts four hours and ends when you close the tab.',
+      'Press <b>Sign In</b>. Your session lasts eight hours and ends when you close the tab.',
       'The account is <b>yours</b>, not your company’s — do not share the password.']));
 
     /* ---- the people who enter time, and nothing else --------------------- */
@@ -13454,7 +13460,7 @@ function loadCompanyCore(slug) {
             'placeholder="paste the password you were sent"></div>' +
         '</div>' +
         '<button class="signgo" type="button" id="si-go">Sign In</button>' +
-        '<p class="signfine">Your session lasts four hours and ends when you close this tab.<br>' +
+        '<p class="signfine">Your session lasts eight hours and ends when you close this tab.<br>' +
         'No password? Email <a href="mailto:jcritchley@mismo.org">Jonna Critchley</a>.</p>' +
         '<p class="signfine buildline">Build ' + esc(BUILD) + '</p>' +
       '</div></div>');
@@ -13500,10 +13506,20 @@ function loadCompanyCore(slug) {
                (e.project ? ' for <b>' + esc(e.project) + '</b>' : '') + '.');
           return;
         }
+        if (e && (e.status === 423 || e.code === 'LOCKED')) {
+          warn('<b>Your account is locked</b> after too many incorrect passwords. Check your email for ' +
+               'the link to set a new password, or <a href="/reset-password.html">reset it here</a>. ' +
+               'Then sign in with the new one.');
+          passEl.value = '';
+          return;
+        }
         if (e && e.closed) {
-          warn('<b>That email and password were not recognised.</b> Check the address is the one ' +
-               'MISMO set up, and that the password was pasted whole — they are long on purpose. ' +
-               'Nothing is locked; you can try again.');
+          var left = e.body && typeof e.body.remaining === 'number' ? e.body.remaining : null;
+          warn('<b>That email and password do not match.</b> Use your MISMO Resources email and ' +
+               'password \u2014 the same ones you use for the other MISMO tools.' +
+               (left != null ? ' <b>' + left + (left === 1 ? ' try' : ' tries') + ' left</b> before the ' +
+                 'account locks. <a href="/reset-password.html">Forgot it? Reset it here.</a>'
+                 : ' <a href="/reset-password.html">Forgot it? Reset it here.</a>'));
           passEl.value = ''; passEl.focus();
           return;
         }
