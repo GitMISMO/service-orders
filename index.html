@@ -5019,8 +5019,37 @@ function loadCompanyCore(slug) {
      Appends one record.  parentSha travels with the save and a 409 re-reads and
      re-applies, exactly as a signature does, so two people revising different
      orders in the same minute do not overwrite each other. */
-  function addRevision(slug, record) {
+  /* `seen` is the list of revisions this screen loaded (November 5, 2026). One
+     saved since for the same order that set a field this one also sets, to
+     something else, is a clash: the person saving is asked, and Cancel leaves
+     theirs standing for that field. Answered once, however many retries. */
+  function addRevision(slug, record, seen, answered) {
+    answered = answered || {};
+    var had = {};
+    (seen || []).forEach(function (rv) { had[JSON.stringify([rv.orderId, rv.revisedOn, rv.revisedBy])] = 1; });
     return R.update(keyFor(slug), 'revisions/' + slug + '.json', function (cur) {
+      if (seen) {
+        var newer = ((cur && cur.revisions) || []).filter(function (rv) {
+          return rv && rv.orderId === record.orderId &&
+            !had[JSON.stringify([rv.orderId, rv.revisedOn, rv.revisedBy])];
+        });
+        var clashes = [];
+        Object.keys(record.changes || {}).forEach(function (k) {
+          var theirs;
+          newer.forEach(function (rv) { if (rv.changes && k in rv.changes) theirs = rv.changes[k]; });
+          if (theirs === undefined || sameVal(theirs, record.changes[k])) return;
+          var f = (typeof REVFIELDS !== 'undefined' ? REVFIELDS : []).filter(function (x) { return x.k === k; })[0];
+          clashes.push({ k: k, label: (f && f.label) || k, theirs: theirs, mine: record.changes[k] });
+        });
+        if (clashes.length) {
+          askClash(clashes, answered, (record.order || 'this order'));
+          clashes.forEach(function (c) {
+            if (answered[c.k] === false) { delete record.changes[c.k]; delete record.before[c.k]; }
+          });
+          if (!Object.keys(record.changes).length) throw { keptTheirs: true };
+          record.binding = touchesBinding(record.changes);
+        }
+      }
       var next = JSON.parse(JSON.stringify(cur || {}));
       next.company = next.company || slug;
       next.revisions = (next.revisions || []).concat([record]);
@@ -5046,10 +5075,35 @@ function loadCompanyCore(slug) {
   /* Write the hours copy for one company. ⚠ Built from the file as the page
      has it — revisions and company details already merged — so what a
      facilitator reads is the current truth, minus the money. */
-  function publishHoursCopy(slug, F) {
-    var body = hoursCopy(F);
-    return R.update(keyFor(slug), 'orders-public/' + slug + '.json', function () { return body; },
-      'hours copy: ' + (F.company || slug), {});
+  /* ⚠ November 5, 2026: built from the files as they are AT THE MOMENT OF
+     WRITING, not from the copy this screen loaded. The hours copy is the whole
+     file, so a screen left open for hours used to publish its own older picture
+     of the company: an order somebody else had ended or revised since went back
+     to how it was on every hours-only screen. Now orders/ and revisions/ are read
+     again first, and `mine` (the change just saved here, if any) is laid on top
+     in case the read lands a moment before that save shows. A conflict reads
+     again and rebuilds; F itself is no longer what gets published. */
+  function freshCompanyFile(slug) {
+    return Promise.all([
+      R.read(keyFor(slug), 'orders/' + slug + '.json'),
+      R.readOr(keyFor(slug), 'revisions/' + slug + '.json', { revisions: [] })
+        .catch(function (e) {
+          if (e && e.status === 403) return { sha: null, data: { revisions: [] }, absent: true };
+          throw e;
+        })
+    ]).then(function (r) { return applyLocal(r[0].data, r[1].data || {}); });
+  }
+  function publishHoursCopy(slug, F, mine, tries) {
+    tries = tries == null ? 3 : tries;
+    return freshCompanyFile(slug).then(function (G) {
+      if (mine) G = mine(G) || G;
+      var body = hoursCopy(G);
+      return R.update(keyFor(slug), 'orders-public/' + slug + '.json', function () { return body; },
+        'hours copy: ' + (G.company || (F && F.company) || slug), {}, 1);
+    }).catch(function (e) {
+      if (e && e.conflict && tries > 1) return publishHoursCopy(slug, F, mine, tries - 1);
+      throw e;
+    });
   }
   function loadAll(slugs) { return Promise.all(slugs.map(loadCompany)); }
 
@@ -6443,6 +6497,76 @@ function loadCompanyCore(slug) {
         '</div>');
   }
 
+  /* ---- saving without overwriting anyone (November 5, 2026) ---------------
+     A panel can sit open for hours, on a laptop and a phone at once. Keeping an
+     expense used to write the whole expense exactly as the panel had it, so a
+     Send to MISMO done somewhere else in the meantime quietly went back to a
+     draft. These helpers carry only what was changed in the panel: every other
+     field keeps its newest value, merged into the copy read at the moment of
+     writing (R.update reads again on every try). Where two people changed the
+     same field, the person saving is asked which to keep. The company details
+     and revisions use askClash the same way. */
+  var XOPENED = typeof WeakMap === 'function' ? new WeakMap() : null;   // expense -> as it was when its panel opened
+  function normVal(v) {
+    /* "", null, undefined and false are all "nothing", and 5 is the same as "5" */
+    if (v === undefined || v === null || v === '' || v === false) return '';
+    if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+    if (typeof v === 'string') return v;
+    return JSON.stringify(v);
+  }
+  function sameVal(x, y) { return normVal(x) === normVal(y); }
+  function cloneVal(v) { return v === undefined ? undefined : JSON.parse(JSON.stringify(v)); }
+  /* cur: the record as it is now. mine: as the panel has it. base: as the panel opened. */
+  function mergeRecord(cur, mine, base) {
+    if (!cur || !base) return mine;
+    var out = cloneVal(cur), keys = {};
+    Object.keys(mine).concat(Object.keys(base)).forEach(function (k) { keys[k] = 1; });
+    Object.keys(keys).forEach(function (k) {
+      if (sameVal(mine[k], base[k])) return;            // not changed here: the newest value stands
+      if (mine[k] === undefined) delete out[k]; else out[k] = cloneVal(mine[k]);
+    });
+    return out;
+  }
+  function clashFields(cur, mine, base) {
+    if (!cur || !mine || !base) return [];
+    var keys = {};
+    Object.keys(mine).concat(Object.keys(base)).forEach(function (k) { keys[k] = 1; });
+    return Object.keys(keys).filter(function (k) {
+      return !sameVal(mine[k], base[k]) && !sameVal(cur[k], base[k]) && !sameVal(cur[k], mine[k]);
+    });
+  }
+  /* Asks once per field per save, however many times a conflict makes the
+     change run again. clashes: [{ k, label, theirs, mine }]. answered: the
+     answers so far, field -> true (keep mine) or false (keep theirs). */
+  function askClash(clashes, answered, what) {
+    var fresh = clashes.filter(function (c) { return !(c.k in answered); });
+    if (!fresh.length) return answered;
+    var show = function (v) { var t = normVal(v); return t === '' ? '(blank)' : t.slice(0, 80); };
+    var ok = window.confirm('While you had ' + what + ' open, somebody else saved a different value in the same ' +
+      (fresh.length === 1 ? 'field' : 'fields') + ':\n\n' +
+      fresh.map(function (c) {
+        return '• ' + c.label + ' — theirs: ' + show(c.theirs) + '   ·   yours: ' + show(c.mine);
+      }).join('\n') +
+      '\n\nOK keeps yours. Cancel keeps theirs for ' + (fresh.length === 1 ? 'this field' : 'these fields') +
+      ' — your other changes still save.');
+    fresh.forEach(function (c) { answered[c.k] = ok; });
+    return answered;
+  }
+  var EXP_LABELS = { date: 'Date', cat: 'What It Was For', amt: 'Amount', trip: 'Trip or Reason',
+    desc: 'Description', receipt: 'Receipt Attached', rcptAmt: 'What the Receipt Says',
+    state: 'Where It Is', receiptFile: 'The Receipt' };
+  /* The expense the panel is keeping, laid over the one stored now. */
+  function keepExpense(cur, mine, base, answered) {
+    if (!cur || !base) return mine;
+    var cl = clashFields(cur, mine, base);
+    askClash(cl.map(function (k) {
+      return { k: k, label: EXP_LABELS[k] || k, theirs: cur[k], mine: mine[k] };
+    }), answered, 'this expense');
+    var m = cloneVal(mine);
+    cl.forEach(function (k) { if (answered[k] === false) m[k] = cloneVal(base[k]); });   // theirs stands
+    return mergeRecord(cur, m, base);
+  }
+
   /* Write one change into this person's own hours file. ⚠ Read-modify-write
      through R.update, so two tabs cannot lose each other's work — the same
      mechanism the weeks use. */
@@ -6508,6 +6632,7 @@ function loadCompanyCore(slug) {
         var id = b.dataset.panel.slice(3);
         var e = ((EXPS.file && EXPS.file.expenses) || []).filter(function (x) {
           return x.id === id; })[0];
+        if (e && XOPENED && !XOPENED.has(e)) XOPENED.set(e, cloneVal(e));   // what the panel opened with
         if (e) onPanelOpen(function () { wireExpensePanel(C, person, fy, e, false); });
       });
     });
@@ -6677,13 +6802,16 @@ function loadCompanyCore(slug) {
           [R.binaryFile(next.receiptFile, pending.b64)],
           'receipt: ' + person.name + ' ' + (next.date || ''));
       }
+      /* Only what was changed in this panel is written over the stored expense
+         (November 5, 2026); the rest keeps its newest value. */
+      var base = isNew ? null : ((XOPENED && XOPENED.get(e)) || null), answered = {};
       upload.then(function () {
       return saveExpenses(C, person, fy, function (cur) {
         var found = false;
         var out = cur.map(function (x) {
           if (x.id !== next.id) return x;
           found = true;
-          return expLocked(x) ? x : next;        // never edit something locked
+          return expLocked(x) ? x : keepExpense(x, next, base, answered);   // never edit something locked
         });
         if (!found) out = out.concat([next]);
         return out;
@@ -9310,8 +9438,9 @@ function loadCompanyCore(slug) {
             /* \u26a0 The hours copy has to be republished, or the people logging
                time keep being offered an order that has ended \u2014 their screen
                reads orders-public/, not this one. */
-            return publishHoursCopy(n.C.slug, applyEndings(n.C.F,
-              [{ orderId: n.order.id, endsOn: f.on, why: f.why, by: ME.name, at: at }]));
+            return publishHoursCopy(n.C.slug, n.C.F, function (G) {
+              return applyEndings(G,
+                [{ orderId: n.order.id, endsOn: f.on, why: f.why, by: ME.name, at: at }]); });
           })
           .then(function () {
             return notify(n.C.slug, {
@@ -9337,13 +9466,14 @@ function loadCompanyCore(slug) {
           return next;
         }, 'end removed: ' + n.order.subject, { revisions: [] })
           .then(function () {
-            var F2 = JSON.parse(JSON.stringify(n.C.F));
-            (F2.orders || []).forEach(function (o) {
-              if (o.id === n.order.id) {
-                delete o.endedOn; delete o.endedWhy; delete o.endedBy; delete o.endedAt;
-              }
+            return publishHoursCopy(n.C.slug, n.C.F, function (F2) {
+              (F2.orders || []).forEach(function (o) {
+                if (o.id === n.order.id) {
+                  delete o.endedOn; delete o.endedWhy; delete o.endedBy; delete o.endedAt;
+                }
+              });
+              return F2;
             });
-            return publishHoursCopy(n.C.slug, F2);
           })
           .then(function () { toast('Put back. It is running again.', 'ok'); redraw(); })
           .catch(function (er) { b.disabled = false; failed(er); });
@@ -11564,10 +11694,59 @@ function loadCompanyCore(slug) {
           }
 
           b.disabled = true; b.textContent = 'Saving…';
+          /* What the stored overrides were when this screen loaded, so a field
+             somebody else has saved since can be told apart (November 5, 2026). */
+          var was = (C.local && C.local.details) || {}, answered = {};
           R.update(keyFor(slug), 'revisions/' + slug + '.json', function (cur) {
             var next = JSON.parse(JSON.stringify(cur || {}));
             next.company = next.company || slug;
             var had = next.details || { letters: {}, people: {} };
+            /* Both changed the same field: ask, once, and on Cancel leave theirs
+               standing for those fields by not writing them. */
+            var clashes = [], drop = [];
+            function check(key, label, mineObj, k, theirsObj, baseObj) {
+              var mine = mineObj[k], theirs = (theirsObj || {})[k], base = (baseObj || {})[k];
+              if (sameVal(theirs, base) || sameVal(theirs, mine)) return;
+              clashes.push({ k: key, label: label, theirs: theirs, mine: mine });
+              drop.push(function () { if (answered[key] === false) delete mineObj[k]; });
+            }
+            var nameOf = function (sl) {
+              var pr = (F.people || []).filter(function (x) { return x.slug === sl; })[0];
+              return (pr && pr.name) || sl;
+            };
+            Object.keys(d.signer || {}).forEach(function (k) {
+              check('signer.' + k, 'Order signer — ' + k, d.signer, k, had.signer, was.signer);
+            });
+            Object.keys(d.letters).forEach(function (fl) {
+              var one = d.letters[fl], th = (had.letters || {})[fl] || {}, bs = (was.letters || {})[fl] || {};
+              ['address', 'salutation'].forEach(function (k) {
+                if (k in one) check('letters.' + fl + '.' + k, fl + ' letter — ' + k, one, k, th, bs);
+              });
+              Object.keys(one.signer || {}).forEach(function (k) {
+                check('letters.' + fl + '.signer.' + k, fl + ' letter signer — ' + k, one.signer, k, th.signer, bs.signer);
+              });
+            });
+            if (d.coverAll != null) check('coverAll', 'Everybody covers every order', d, 'coverAll', had, was);
+            Object.keys(d.people).forEach(function (sl) {
+              Object.keys(d.people[sl]).forEach(function (k) {
+                check('people.' + sl + '.' + k, nameOf(sl) + ' — ' + k, d.people[sl], k, (had.people || {})[sl], (was.people || {})[sl]);
+              });
+            });
+            if (clashes.length) {
+              askClash(clashes, answered, F.company + '’s details');
+              drop.forEach(function (f) { f(); });
+              if (d.signer && !Object.keys(d.signer).length) delete d.signer;
+              Object.keys(d.letters).forEach(function (fl) {
+                var one = d.letters[fl];
+                if (one.signer && !Object.keys(one.signer).length) delete one.signer;
+                if (!Object.keys(one).length) delete d.letters[fl];
+              });
+              Object.keys(d.people).forEach(function (sl) {
+                if (!Object.keys(d.people[sl]).length) delete d.people[sl];
+              });
+              if (!d.signer && !Object.keys(d.letters).length && !Object.keys(d.people).length &&
+                  d.coverAll == null && !d.added) throw { keptTheirs: true };
+            }
             /* Merged onto what is already overridden, never replacing it —
                two people editing different companies, or the same company on
                different days, must not undo each other. */
@@ -11606,8 +11785,7 @@ function loadCompanyCore(slug) {
                drift from the real file the first busy week — and a stale copy
                is how somebody ends up logging against an order that moved. */
             .then(function () {
-              var merged = applyDetails(JSON.parse(JSON.stringify(F)), d);
-              return publishHoursCopy(slug, merged).catch(function (e) {
+              return publishHoursCopy(slug, F, function (G) { return applyDetails(G, d); }).catch(function (e) {
                 if (window.console && console.warn) console.warn('hours copy', e);
                 toast('Details saved, but the hours copy could not be republished — ' +
                   'use Republish the Hours Copy.', 'warn');
@@ -11791,8 +11969,9 @@ function loadCompanyCore(slug) {
           };
 
           b.disabled = true; b.textContent = 'Saving…';
-          addRevision(slug, record)
+          addRevision(slug, record, C.revisions || [])
             .then(function () {
+              binding = record.binding;   // a field left as theirs may have changed this
               /* The nudge is the VP's, not Jonna's — it is him the order is
                  going back to.  A revision that changes nothing binding stays
                  where it is, so nobody is nudged about it. */
@@ -12185,6 +12364,9 @@ function loadCompanyCore(slug) {
    * Failure, and the closed door
    * ======================================================================= */
   function failed(e) {
+    /* Somebody else's value was kept for everything this save would have changed
+       (November 5, 2026). Nothing went wrong, so it is not said as if it had. */
+    if (e && e.keptTheirs) { toast('Nothing saved — their version was kept.', 'warn'); return; }
     /* ⚠ First, before anything else: a write refused because she is viewing as
        somebody else is not a failure and must never read like one.  Pressing
        the button is the point of a training session. */
