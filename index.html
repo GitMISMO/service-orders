@@ -9,7 +9,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Expenses">
-<script src="expenses-app.js?v=2"></script>
+<script src="expenses-app.js?v=3"></script>
 <title>MISMO Service Orders and Agreements</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
@@ -2029,23 +2029,49 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
   function sget(name) { try { return sessionStorage.getItem(NS + name); } catch (e) { return null; } }
   function sdrop(name) { try { sessionStorage.removeItem(NS + name); } catch (e) {} }
 
+  /* ---- the phone app keeps its sign-in (Jonna, 6 Nov 2026) ---------------
+     The portal's sign-in lives in sessionStorage and dies with the tab. On an
+     iPhone, a home-screen app that has been fully closed is a new tab, so the
+     Expenses app asked for the password every time it was opened. In the
+     Expenses app only (?app=expenses, or opened from the home-screen icon) the
+     sign-in is also kept in this browser, like Team HQ's, until it runs out
+     (eight hours) or they sign out. The full portal on a computer is unchanged. */
+  var KEEP = 'app-session';
+  var APPMODE = (function () {
+    try {
+      return /[?&]app=expenses(&|$)/.test(location.search) ||
+        (global.matchMedia && global.matchMedia('(display-mode: standalone)').matches) ||
+        global.navigator.standalone === true;
+    } catch (e) { return false; }
+  })();
+  function lget(name) { try { return localStorage.getItem(NS + name); } catch (e) { return null; } }
+  function lput(name, value) { try { localStorage.setItem(NS + name, value); } catch (e) {} }
+  function ldrop(name) { try { localStorage.removeItem(NS + name); } catch (e) {} }
+  function tokGet() {
+    var raw = sget(TOKEN);
+    if (!raw && APPMODE) { raw = lget(KEEP); if (raw) sput(TOKEN, raw); }
+    return raw;
+  }
+  function tokPut(v) { sput(TOKEN, v); if (APPMODE) lput(KEEP, v); }
+  function tokDrop() { sdrop(TOKEN); ldrop(KEEP); }
+
   /* ---- the session ------------------------------------------------------- */
   /* What the relay hands back at sign-in: token, name, email, access, expiresAt.
      The token is NOT project-bound — signing in once covers every key the person
      has — so the access map is what says which projects they may ask about. */
   function session() {
-    var raw = sget(TOKEN);
+    var raw = tokGet();
     if (!raw) return null;
     var s;
-    try { s = JSON.parse(raw); } catch (e) { sdrop(TOKEN); return null; }
-    if (!s || !s.token) { sdrop(TOKEN); return null; }
+    try { s = JSON.parse(raw); } catch (e) { tokDrop(); return null; }
+    if (!s || !s.token) { tokDrop(); return null; }
     /* A token lasts four hours.  Checking the clock here means an expired session
        shows a sign-in rather than a wall of failed requests. */
-    if (s.expiresAt && new Date(s.expiresAt).getTime() <= Date.now()) { sdrop(TOKEN); return null; }
+    if (s.expiresAt && new Date(s.expiresAt).getTime() <= Date.now()) { tokDrop(); return null; }
     return s;
   }
   function signedIn() { return !!session(); }
-  function signOut() { sdrop(TOKEN); HEAD = {}; }
+  function signOut() { tokDrop(); HEAD = {}; }
 
   function login(project, email, password) {
     return fetch(BASE + '/' + enc(project) + '/auth/login', {
@@ -2054,7 +2080,7 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
       body: JSON.stringify({ email: email, password: password })
     }).then(readBody).then(function (r) {
       if (!r.ok) throw tag(fail(r.status, r.body), project);
-      sput(TOKEN, JSON.stringify(r.body));
+      tokPut(JSON.stringify(r.body));
       HEAD = {};
       return r.body;
     });
@@ -2104,7 +2130,7 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
        instead of a bare code somebody then has to guess at. */
     var proj = decodeURIComponent(String(path).split('/')[1] || '');
     return fetch(BASE + path, opts).then(readBody).then(function (r) {
-      if (r.status === 401) { sdrop(TOKEN); throw tag(fail(401, r.body), proj); }
+      if (r.status === 401) { tokDrop(); throw tag(fail(401, r.body), proj); }
       if (!r.ok) throw tag(fail(r.status, r.body), proj);
       return r.body;
     });
@@ -13460,7 +13486,9 @@ function loadCompanyCore(slug) {
             'placeholder="paste the password you were sent"></div>' +
         '</div>' +
         '<button class="signgo" type="button" id="si-go">Sign In</button>' +
-        '<p class="signfine">Your session lasts eight hours and ends when you close this tab.<br>' +
+        '<p class="signfine">' + (document.documentElement.classList.contains('soxp')
+          ? 'You stay signed in on this phone for eight hours, or until you sign out.'
+          : 'Your session lasts eight hours and ends when you close this tab.') + '<br>' +
         'No password? Email <a href="mailto:jcritchley@mismo.org">Jonna Critchley</a>.</p>' +
         '<p class="signfine buildline">Build ' + esc(BUILD) + '</p>' +
       '</div></div>');

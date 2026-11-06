@@ -286,7 +286,7 @@
     'html.soxp #view .psec[data-name="My Expenses"]{display:block!important}',
     'html.soxp #view .psec[data-name="My Expenses"] #xp-new{display:none}',
     'html.soxp #view .psec[data-name="My Expenses"] .onebar:not(:has(#xp-send)){display:none}',
-    'html.soxp .soxp-out{border:1px solid rgba(255,255,255,.45);background:transparent;color:#fff;font:inherit;font-size:12.5px;font-weight:600;border-radius:6px;padding:5px 10px;cursor:pointer;margin-left:8px;white-space:nowrap}',
+    'html.soxp .soxp-out{pointer-events:auto;border:1px solid rgba(255,255,255,.45);background:transparent;color:#fff;font:inherit;font-size:12.5px;font-weight:600;border-radius:6px;padding:5px 10px;cursor:pointer;margin-left:8px;white-space:nowrap}',
     '.soxp-dock{display:none}',
     'html.soxp body:not(.signedout) .soxp-dock{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;gap:10px;padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));background:var(--surface);border-top:1px solid var(--border);box-shadow:0 -6px 20px rgba(6,32,47,.10)}',
     'html.soxp body.soxp-busy .soxp-dock,html.soxp body:has(#panel.on) .soxp-dock{display:none!important}',
@@ -356,7 +356,7 @@
   }
 
   function session() {
-    try { var s = JSON.parse(sget('session') || 'null'); return s && s.token ? s : null; } catch (e) { return null; }
+    try { var s = JSON.parse(sget('session') || lget('app-session') || 'null'); return s && s.token ? s : null; } catch (e) { return null; }
   }
   function askKeys(s) {
     var all = (root.RELAY && root.RELAY.projects) || [];
@@ -667,7 +667,7 @@
       out.type = 'button';
       out.onclick = function () {
         var r = document.querySelector('#rail-nav .railout');
-        if (r) r.click(); else { sdrop('session'); location.reload(); }
+        if (r) r.click(); else { sdrop('session'); try { localStorage.removeItem(NS + 'app-session'); } catch (e) {} location.reload(); }
       };
       top.appendChild(out);
     }
