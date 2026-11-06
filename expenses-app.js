@@ -608,9 +608,24 @@
     b.insertBefore(t, b.firstChild);
   }
 
+  /* The same fix Team HQ has for iPhones (5 Nov 2026). Safari saves the page
+     that is open, with the app details it read when that page first loaded,
+     so Add to Home Screen from the full portal would not give an Expenses
+     icon that opens straight to Expenses. On a phone, opening My Expenses
+     therefore loads the Expenses app itself, ready for Add to Home Screen —
+     no "Open It" step. Somebody who chose the full portal stays in it. */
+  var PHONE = isiOS || (root.matchMedia && matchMedia('(max-width:820px)').matches);
+  function toApp(sec) {
+    if (APP || standalone || !PHONE || sget('xp.full') === '1') return false;
+    if (!sec || !sec.classList.contains('current')) return false;
+    try { location.replace(location.pathname + '?app=expenses'); } catch (e) { return false; }
+    return true;
+  }
+
   function paint() {
     if (!view) return;
     var sec = expSec();
+    if (toApp(sec)) return;
     if (sec) tip(sec);
     if (!APP) return;
     var signedOut = document.body.classList.contains('signedout');
@@ -666,6 +681,8 @@
   panel = document.getElementById('panel');
   view = document.getElementById('view');
   if (view) new MutationObserver(schedule).observe(view, { childList: true, subtree: true });
+  /* a page switch is a class change on its section (for the phone fix above) */
+  if (view && !APP) new MutationObserver(function () { if (toApp(expSec())) return; }).observe(view, { attributes: true, attributeFilter: ['class'], subtree: true });
   new MutationObserver(schedule).observe(document.body, { attributes: true, attributeFilter: ['class'] });
   schedule();
 
