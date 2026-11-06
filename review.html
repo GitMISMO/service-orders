@@ -92,6 +92,8 @@ textarea:focus,input:focus{outline:2px solid var(--sky);outline-offset:1px}
 .ed .hint{font-size:12px;color:var(--ink-3);margin:3px 0 0}
 .ed textarea.chg,.ed input.chg{border-color:var(--warn);background:rgba(162,112,26,.06)}
 .lead{margin:0 0 14px;color:var(--ink-2)}
+.ed textarea.gap,.ed input.gap{border-color:var(--bad);background:rgba(179,55,44,.06)}
+.chg-n.bad{color:var(--bad)}
 .chg-n{font-size:12.5px;color:var(--warn);font-weight:600;margin:10px 0 0;min-height:1em}
 .or{display:flex;align-items:center;gap:10px;color:var(--ink-3);font-size:12px;margin:14px 0 0}
 .or:before,.or:after{content:"";flex:1;height:1px;background:var(--rule)}
@@ -292,6 +294,9 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
     { k: 'tasksFromMismo', label: 'What MISMO Provides', area: 1 },
     { k: 'modifications', label: 'Agreed Modifications', area: 1 }
   ];
+  /* Anything in [square brackets] is a gap the requester has to fill in. */
+  var PH_RE = /\[[^\]\n]{2,}\]/;
+  function hasGaps(o) { return EDIT.some(function (f) { return PH_RE.test(asText(o[f.k])); }); }
   function asText(v) { return Array.isArray(v) ? v.join('\n') : (v == null ? '' : String(v)); }
   function asList(s) { return String(s || '').split('\n').map(function (x) { return x.trim(); }).filter(Boolean); }
   function editForm(o, hourly) {
@@ -344,8 +349,8 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
       sec('What MISMO Provides', o.tasksFromMismo) + sec('Agreed Modifications', o.modifications) +
       sec('Why This Order Exists', o.raisedWhy) + sec('Written Under', o.msaFlavour ? o.msaFlavour + ' Master Services Agreement' : '');
     if (!body) body = '<p style="margin:0;color:var(--ink-2)">Only the title and the figures above have been filled in so far.</p>';
-    if (mineToDo) body = '<p class="lead">Change anything that is not right \u2014 what you change is marked. ' +
-      'Leave the rest as it is.</p>' + editForm(o, hourly) +
+    if (mineToDo) body = '<p class="lead">' + (gaps ? 'Fill in every part in [brackets], and change anything else that is not right \u2014 ' +
+      'what you change is marked.' : 'Change anything that is not right \u2014 what you change is marked. Leave the rest as it is.') + '</p>' + editForm(o, hourly) +
       (o.raisedWhy ? '<div class="sec" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--rule)"><h3>Why This Order Exists</h3><p>' + esc(o.raisedWhy) + '</p></div>' : '');
     else if (d.state === 'revised') {
       var P = d.proposed || {};
@@ -359,7 +364,17 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
         [d.company + ' accepts it from the email', ''], ['The President approves it', '']
       ].map(function (s, i) { return '<li class="' + s[1] + '"><i>' + (s[1] === 'done' ? '✓' : (i + 1)) + '</i>' + esc(s[0]) + '</li>'; }).join('') + '</ol>';
     var side;
-    if (mineToDo) {
+    var gaps = mineToDo && hasGaps(o);
+    if (gaps) {
+      side = '<div class="card decide"><h2>Fill In the Gaps</h2><p class="say">' + esc(d.requestedBy) + ' drafted this for you and left ' +
+        'some parts in <b>[brackets]</b> for you to fill in \u2014 they are outlined in red. Replace each one with the real details, change ' +
+        'anything else that needs it, and send it back to ' + esc(first(d.requestedBy)) + '. It cannot be approved until they are filled in, ' +
+        'and nothing reaches ' + esc(d.company) + ' until ' + esc(vp) + ' approves it.</p>' +
+        '<label class="l" for="why">Anything Else to Say</label>' +
+        '<textarea id="why" placeholder="Optional. ' + esc(first(d.requestedBy)) + ' reads exactly this."></textarea>' +
+        '<div style="margin-top:10px"><button class="btn wide" type="button" id="no">Send It Back to ' + esc(first(d.requestedBy)) + '</button></div>' +
+        '<p class="chg-n" id="chgn"></p>' + stepsHtml + '</div>';
+    } else if (mineToDo) {
       side = '<div class="card decide"><h2>Your Decision</h2><p class="say">' + esc(d.requestedBy) + ' drafted this for you. ' +
         'If it is right, approve it and it goes on to ' + esc(vp) + '. If anything is wrong, change it on the left and send it back to ' +
         esc(first(d.requestedBy)) + ' to put in. Nothing reaches ' + esc(d.company) + ' until it is approved.</p>' +
@@ -389,28 +404,42 @@ c57 -33 76 -84 76 -200 0 -116 -19 -167 -76 -200 -32 -19 -52 -20 -294 -20
       tiles + '<div class="grid"><div class="card">' + body + '</div>' + side + '</div>';
     if (!mineToDo) return;
     var ok = document.getElementById('ok'), no = document.getElementById('no'), why = document.getElementById('why');
-    function busy(on) { ok.disabled = no.disabled = on; }
+    function busy(on) { if (ok) ok.disabled = on; no.disabled = on; }
     function done(e) {
       if (e && e.already) { DOCS[id] = e.already; show(id); return; }
       busy(false); alert('That did not save: ' + ((e && e.message) || 'please try again') + '.');
     }
     var chgn = document.getElementById('chgn');
+    function gapsLeft() {
+      var left = 0;
+      main.querySelectorAll('.ed input, .ed textarea').forEach(function (e) { var g = PH_RE.test(e.value || ''); e.classList.toggle('gap', g); if (g) left++; });
+      return left;
+    }
     function refresh() {
-      var n = Object.keys(changesIn(o)).length;
+      var n = Object.keys(changesIn(o)).length, left = gapsLeft();
+      if (gaps) {
+        no.disabled = left > 0;
+        chgn.className = 'chg-n' + (left ? ' bad' : '');
+        chgn.textContent = left ? (left === 1 ? 'One part' : left + ' parts') + ' in [brackets] still to fill in.'
+          : 'All filled in. Send it back to ' + first(d.requestedBy) + '.';
+        return;
+      }
       ok.disabled = n > 0;
       ok.textContent = n > 0 ? 'Approve As It Was Sent' : 'Approve This Service Order';
       chgn.textContent = n ? 'You changed ' + (n === 1 ? 'one detail' : n + ' details') + '. Send them to ' + first(d.requestedBy) +
         ' to put in, or put them back to approve it as it was sent.' : '';
     }
+    refresh();
     main.querySelectorAll('.ed input, .ed textarea').forEach(function (e) { e.addEventListener('input', refresh); });
-    ok.addEventListener('click', function () {
-      if (Object.keys(changesIn(o)).length) return;
+    if (ok) ok.addEventListener('click', function () {
+      if (Object.keys(changesIn(o)).length || hasGaps(o)) return;
       busy(true); ok.textContent = 'Approving…';
       decide(id, function (x) { x.state = 'approved'; x.decidedAt = new Date().toISOString(); x.decidedBy = ME.name || ME.email; x.comments = ''; })
         .then(function () { return load(); }).then(function () { show(id); }, done);
     });
     no.addEventListener('click', function () {
       var t = String(why.value || '').trim(), ch = changesIn(o), n = Object.keys(ch).length;
+      if (gaps && gapsLeft()) { refresh(); return; }
       if (!t && !n) { why.focus(); why.placeholder = 'Change a detail on the left, or say what needs changing here.'; return; }
       busy(true); no.textContent = 'Sending…';
       decide(id, function (x) {

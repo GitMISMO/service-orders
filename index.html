@@ -145,6 +145,14 @@ h1,h2,h3,h4{letter-spacing:-.012em;margin:0}
 .refile[open] summary{margin-bottom:4px}
 .revgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px 20px;margin:12px 0 4px}
 .revgrid .f.wide{grid-column:1/-1}
+/* saved templates (6 Nov 2026) */
+.no-tplacts{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:5px}
+.linkish{font:inherit;font-size:12.5px;font-weight:600;color:var(--navy-mid);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:2px;white-space:nowrap}
+.linkish:hover{color:var(--ink)}
+:root[data-theme="dark"] .linkish{color:var(--sky)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .linkish{color:var(--sky)}}
+.no-tplsave{display:flex;gap:8px;margin-top:8px;align-items:center}
+.no-tplsave input{flex:1 1 auto;min-width:0}
 .revgrid textarea{font:inherit;font-size:13.5px;font-family:var(--display);line-height:1.5;
  color:var(--ink);background:var(--surface);border:1px solid var(--border);border-radius:6px;
  padding:5px 8px;width:100%;min-width:0;box-sizing:border-box;resize:vertical}
@@ -5246,7 +5254,21 @@ function loadCompanyCore(slug) {
       throw e;
     });
   }
-  function loadAll(slugs) { return Promise.all(slugs.map(loadCompany)).then(withReviewDecisions); }
+  function loadAll(slugs) { return Promise.all(slugs.map(loadCompany)).then(withReviewDecisions).then(withSavedTemplates); }
+  /* Templates Jonna saved herself (a summit workshop, say). Only the admin
+     raises orders, so only the admin reads them; a failed read just means
+     the templates worked out from the orders are the only ones offered. */
+  var SAVED_TPLS = [];
+  function withSavedTemplates(list) {
+    if (!ME || ME.kind !== 'admin' || VIEWAS || !R.readData) return list;
+    return R.readData('team-hq', 'sotemplates').then(function (r) {
+      var docs = (r.data && r.data.docs) || {};
+      SAVED_TPLS = Object.keys(docs).map(function (k) { return docs[k]; })
+        .filter(function (t) { return t && t.id && t.label && !t.removed; })
+        .sort(function (a, b) { return String(a.label).localeCompare(String(b.label)); });
+      return list;
+    }, function () { return list; });
+  }
 
   /* =========================================================================
    * THE REQUESTER'S REVIEW (Jonna, 5 November 2026)
@@ -5395,9 +5417,14 @@ function loadCompanyCore(slug) {
     return notify(C.slug, {
       kind: 'order-review-requested', company: C.F.company, orderId: order.id, order: order.subject,
       who: ME.name, to: review.by.email, title: 'A Service Order for You to Review',
-      said: ME.name + ' drafted a new service order for ' + C.F.company + ', "' + order.subject +
-            '". Please check the details: change anything that needs it and send it back, or approve it as it is. ' +
-            'Once it is right it goes to ' + vpName + ' and then to ' + C.F.company + ' to accept.',
+      said: hasPlaceholders(order)
+        ? ME.name + ' drafted a new service order for ' + C.F.company + ', "' + order.subject +
+          '", and needs you to fill in the parts marked in [brackets]. It cannot go ahead until you do. ' +
+          'Fill them in, change anything else that needs it, and send it back to ' + String(ME.name).split(' ')[0] +
+          '. From there it goes to ' + vpName + ' and then to ' + C.F.company + ' to accept.'
+        : ME.name + ' drafted a new service order for ' + C.F.company + ', "' + order.subject +
+          '". Please check the details: change anything that needs it and send it back, or approve it as it is. ' +
+          'Once it is right it goes to ' + vpName + ' and then to ' + C.F.company + ' to accept.',
       cta: { text: 'Review the Service Order', url: REVIEW_URL + '#r=' + review.id },
       raisedOn: review.requestedAt, forAttentionOf: null, sent: false, sentOn: null });
   }
@@ -5468,6 +5495,118 @@ function loadCompanyCore(slug) {
       console.warn('notice not filed', e && e.status);
     });
   }
+  /* ---- after the VP: the email to the company, the reminders, the President ----
+     (Jonna, 6 November 2026.) Each email is a nudge like every other one; the
+     reminders are filed at the same time with `sent: 'scheduled'` and a
+     `notBefore` date; the Power Automate flow sends a scheduled nudge only
+     once that date has come, and a plain one (`sent: false`) straight away. When the
+     company accepts, or asks a question, the reminders still waiting for those
+     orders are struck off, so nobody is chased about something already done. */
+  var JONNA = 'jcritchley@mismo.org';
+  var PORTAL_URL = 'https://resources.mismo.org/service-orders/';
+  var WEEK = 7 * 24 * 3600 * 1000;
+  function fileNotices(slug, list) {
+    if (!list.length) return Promise.resolve();
+    return R.update(keyFor(slug), 'notify/' + slug + '.json', function (cur) {
+      var next = JSON.parse(JSON.stringify(cur || {}));
+      next.company = next.company || slug;
+      next.notices = (next.notices || []).concat(list);
+      return next;
+    }, 'nudges: ' + list.map(function (n) { return n.kind; }).join(', '))
+      .catch(function (e) { console.warn('notices not filed', e && e.status); });
+  }
+  function orderWords(orders) {
+    return orders.length === 1 ? 'a service order, "' + orders[0].subject + '"'
+      : orders.length + ' service orders: ' + orders.map(function (o) { return '"' + o.subject + '"'; }).join(', ');
+  }
+  function longDate(iso) {
+    var d = new Date(iso); return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+  }
+  function companyNotices(C, orders, when) {
+    var s = (C.F.signers && C.F.signers.order) || {}, n = orders.length;
+    var ids = orders.map(function (o) { return o.id; }), sendId = 'S-' + Date.now().toString(36);
+    var them = n === 1 ? 'it' : 'them';
+    var base = { company: C.F.company, orderIds: ids, orderId: ids[0], order: n === 1 ? orders[0].subject : n + ' service orders',
+                 sendId: sendId, who: 'MISMO', raisedOn: when, sent: false, sentOn: null,
+                 cta: { text: 'Review and Accept', url: PORTAL_URL } };
+    var out = [Object.assign({}, base, {
+      kind: 'order-sent-to-company', to: s.email || null, cc: JONNA, forAttentionOf: s.email ? null : JONNA,
+      title: n === 1 ? 'A Service Order for You to Accept' : n + ' Service Orders for You to Accept',
+      said: 'MISMO has sent ' + C.F.company + ' ' + orderWords(orders) + '. Sign in to the MISMO Service Orders portal to read ' +
+            them + ' in full and accept ' + them + ', or to ask MISMO a question.'
+    })];
+    [1, 2, 3].forEach(function (k) {
+      out.push(Object.assign({}, base, {
+        kind: 'order-reminder', reminder: k, sent: 'scheduled', notBefore: new Date(Date.parse(when) + k * WEEK).toISOString(),
+        to: s.email || null, forAttentionOf: s.email ? null : JONNA,
+        title: 'Reminder: ' + (n === 1 ? 'A Service Order Is' : n + ' Service Orders Are') + ' Waiting for You to Accept',
+        said: 'MISMO sent ' + C.F.company + ' ' + orderWords(orders) + ' on ' + longDate(when) + ', and ' +
+              (n === 1 ? 'it has' : 'they have') + ' not been accepted yet. Sign in to read ' + them + ' and accept ' + them +
+              ', or ask MISMO a question if something needs changing.'
+      }));
+    });
+    out.push(Object.assign({}, base, {
+      kind: 'order-not-signed', sent: 'scheduled', notBefore: new Date(Date.parse(when) + 4 * WEEK).toISOString(),
+      to: JONNA, forAttentionOf: JONNA,
+      title: 'Still Not Accepted After Three Reminders',
+      said: C.F.company + ' has still not accepted ' + orderWords(orders) + '. It was sent on ' + longDate(when) +
+            ' and three weekly reminders have gone to ' + (s.name || 'their signer') + '. Over to you.',
+      cta: { text: 'Open the Service Orders Portal', url: PORTAL_URL }
+    }));
+    return out;
+  }
+  /* Writes the send date (what the company's page goes by) and files the email and its reminders. */
+  function sendToCompany(C, orders) {
+    if (!orders.length) return Promise.resolve();
+    var when = new Date().toISOString();
+    return R.update(keyFor(C.slug), 'revisions/' + C.slug + '.json', function (cur) {
+      var next = JSON.parse(JSON.stringify(cur || {}));
+      next.company = next.company || C.slug;
+      next.sent = next.sent || {};
+      orders.forEach(function (o) {
+        var was = next.sent[o.id];
+        /* a binding revision since it was last sent means it goes again */
+        if (!was || (o.revisedOn && o.revisionBinding && Date.parse(was) < Date.parse(o.revisedOn))) next.sent[o.id] = when;
+      });
+      return next;
+    }, 'sent orders to ' + C.F.company, { revisions: [] })
+      .then(function () { return fileNotices(C.slug, companyNotices(C, orders, when)); });
+  }
+  /* The company answered: strike their orders off the reminders still waiting,
+     and when they accepted, tell the President (Jonna cc'd). */
+  function companyAnswered(C, orders, accepted, signer) {
+    var ids = orders.map(function (o) { return o.id; }), at = new Date().toISOString();
+    var pres = C.F.mismoSigner || {}, slug = C.slug || C.F.slug;
+    return R.update(keyFor(slug), 'notify/' + slug + '.json', function (cur) {
+      var next = JSON.parse(JSON.stringify(cur || {}));
+      next.company = next.company || slug;
+      next.notices = next.notices || [];
+      next.notices.forEach(function (n) {
+        if (n.sent !== 'scheduled' || !Array.isArray(n.orderIds)) return;
+        n.orderIds = n.orderIds.filter(function (id) { return ids.indexOf(id) < 0; });
+        if (!n.orderIds.length) { n.sent = true; n.sentOn = null; n.cancelled = accepted ? 'accepted' : 'question'; n.cancelledOn = at; }
+      });
+      if (accepted) next.notices.push({
+        kind: 'order-to-president', company: C.F.company, orderIds: ids, orderId: ids[0],
+        order: ids.length === 1 ? orders[0].subject : ids.length + ' service orders',
+        who: (signer && signer.signerName) || '', to: pres.email || null, cc: JONNA, forAttentionOf: pres.email ? null : JONNA,
+        title: ids.length === 1 ? 'A Service Order Ready for Your Approval' : ids.length + ' Service Orders Ready for Your Approval',
+        said: C.F.company + ' accepted ' + orderWords(orders) + ((signer && signer.signerName) ? ' (signed by ' + signer.signerName + ')' : '') +
+              '. ' + (ids.length === 1 ? 'It is' : 'They are') + ' ready for your approval.',
+        cta: { text: 'Approve in the Portal', url: PORTAL_URL },
+        raisedOn: at, sent: false, sentOn: null });
+      return next;
+    }, accepted ? 'accepted: reminders stopped, President told' : 'question: reminders stopped')
+      .catch(function (e) { console.warn('answer not filed', e && e.status); });
+  }
+  /* Anything in [square brackets] is a gap the requester has to fill. */
+  var PH_RE = /\[[^\]\n]{2,}\]/;
+  var PH_FIELDS = ['subject', 'description', 'services', 'deliverables', 'deliverySchedule', 'paymentSchedule',
+    'tasksFromMismo', 'modifications', 'startDate', 'endDate'];
+  function hasPlaceholders(o) {
+    return PH_FIELDS.some(function (k) { var v = o && o[k]; return PH_RE.test(Array.isArray(v) ? v.join('\n') : String(v == null ? '' : v)); });
+  }
+
   function notice(kind, o, company, who, said) {
     return {
       kind: kind, orderId: o.id, order: o.subject, company: company,
@@ -11196,8 +11335,11 @@ function loadCompanyCore(slug) {
 
   /* what the nudge outbox is holding, and whether anything has gone out */
   function outboxLine(outbox) {
-    var waiting = (outbox || []).filter(function (n) { return !n.sent; });
-    var gone = (outbox || []).length - waiting.length;
+    var now = Date.now();
+    var due = function (n) { return !n.notBefore || Date.parse(n.notBefore) <= now; };
+    var later = (outbox || []).filter(function (n) { return n.sent === 'scheduled' && !due(n); });
+    var waiting = (outbox || []).filter(function (n) { return !n.sent || (n.sent === 'scheduled' && due(n)); });
+    var gone = (outbox || []).filter(function (n) { return n.sent === true && !n.cancelled; }).length;
     if (!outbox || !outbox.length) {
       return '<div class="note ok"><b>The nudge outbox is empty.</b> ' +
         '<code>notify/&lt;company&gt;.json</code> changes only when an order stops, so whatever is ' +
@@ -11208,6 +11350,7 @@ function loadCompanyCore(slug) {
         ? waiting.length + ' ' + (waiting.length === 1 ? 'nudge is' : 'nudges are') + ' waiting to go out.'
         : 'Every nudge has gone out.') +
       '</b> ' + (gone ? gone + ' already sent. ' : '') +
+      (later.length ? later.length + (later.length === 1 ? ' reminder is' : ' reminders are') + ' scheduled for later and stop by themselves when the company accepts. ' : '') +
       'They are queued in <code>notify/&lt;company&gt;.json</code> — one line per stopped order. ' +
       '<b>Until that file is wired to send mail, this list is the only place they appear.</b> ' +
       'See <b>NOTIFY.md</b>.</div>';
@@ -11338,6 +11481,9 @@ function loadCompanyCore(slug) {
       go.disabled = true; go.textContent = 'Accepting…';
       addSignatures(who().slug, recs, 'accepted ' + recs.length + ' orders')
         .then(function () {
+          return companyAnswered(C, ids.map(function (id) { return C.F.orders.filter(function (x) { return x.id === id; })[0]; }), true, signedBy);
+        })
+        .then(function () {
           toast(recs.length + (recs.length === 1 ? ' order accepted' : ' orders accepted'), 'good');
           contractorView();
         })
@@ -11354,6 +11500,7 @@ function loadCompanyCore(slug) {
         addSignatures(who().slug, [signature('Consultant', 'Accepted', o,
           { signerName: nm.value.trim(), signerTitle: (titleEl && titleEl.value.trim()) || who().title, signerEmail: who().email })],
           'accepted ' + o.subject)
+          .then(function () { return companyAnswered(C, [o], true, { signerName: nm.value.trim() }); })
           .then(function () { toast('Accepted', 'good'); contractorView(); })
           .catch(function (e) { b.disabled = false; failed(e); });
       });
@@ -11378,6 +11525,7 @@ function loadCompanyCore(slug) {
           .then(function () {
             return notify(who().slug, notice('Question Raised', o, C.F.company, who().name, asked));
           })
+          .then(function () { return companyAnswered(C, [o], false); })
           .then(function () { toast('Sent back to MISMO with your question'); contractorView(); })
           .catch(function (e) { b.disabled = false; failed(e); });
       });
@@ -11589,7 +11737,7 @@ function loadCompanyCore(slug) {
                   '" placeholder="This comes back to Jonna with the order"></div>' +
                   '<button class="gobtn ghost vphold" type="button" data-slug="' + esc(C.slug) +
                   '" data-id="' + esc(o.id) + '">Hold This One</button></div>' +
-                  '<p class="fineprint">Releasing lets MISMO send it. Holding stops it and returns ' +
+                  '<p class="fineprint">Releasing sends it to the contracting company straight away, with a button to accept it. Holding stops it and returns ' +
                   'it to Jonna with your reason \u2014 <b>a reason is required</b>.</p>';
                 return panelRow('vp-' + o.id, o.subject, C.F.company,
                   (feeLabel(o)), doc);
@@ -11635,7 +11783,8 @@ function loadCompanyCore(slug) {
           var o = C.waiting.filter(function (x) { return x.id === b.dataset.id; })[0];
           b.disabled = true;
           decide(C, [o], 'Approved to Send')
-            .then(function () { toast('Released for MISMO to send', 'good'); vpView(); })
+            .then(function () { return sendToCompany(C, [o]); })
+            .then(function () { toast('Approved and sent to ' + C.F.company, 'good'); vpView(); })
             .catch(function (e) { b.disabled = false; failed(e); });
         });
       });
@@ -11645,7 +11794,8 @@ function loadCompanyCore(slug) {
           var C = waiting.filter(function (x) { return x.slug === b.dataset.slug; })[0];
           b.disabled = true;
           decide(C, C.waiting, 'Approved to Send')
-            .then(function () { toast('Released for MISMO to send', 'good'); vpView(); })
+            .then(function () { return sendToCompany(C, C.waiting); })
+            .then(function () { toast('Approved and sent to ' + C.F.company, 'good'); vpView(); })
             .catch(function (e) { b.disabled = false; failed(e); });
         });
       });
@@ -11676,8 +11826,9 @@ function loadCompanyCore(slug) {
       if (va) va.addEventListener('click', function () {
         va.disabled = true; va.textContent = 'Approving…';
         waiting.reduce(function (p, C) {
-          return p.then(function () { return decide(C, C.waiting, 'Approved to Send'); });
-        }, Promise.resolve()).then(function () { toast(total + ' released to send', 'good'); vpView(); })
+          return p.then(function () { return decide(C, C.waiting, 'Approved to Send'); })
+            .then(function () { return sendToCompany(C, C.waiting); });
+        }, Promise.resolve()).then(function () { toast(total + ' approved and sent', 'good'); vpView(); })
           .catch(function (e) { va.disabled = false; failed(e); });
       });
     }).catch(closed);
@@ -11895,7 +12046,25 @@ function loadCompanyCore(slug) {
       return t;
     });
     var rank = function (t) { return /DWG/.test(t.key) ? 0 : /CoP/.test(t.key) ? 1 : 2; };
-    return out.sort(function (a, b) { return (rank(a) - rank(b)) || a.label.localeCompare(b.label); });
+    out.sort(function (a, b) { return (rank(a) - rank(b)) || a.label.localeCompare(b.label); });
+    out.forEach(function (t) { t.titlePre = t.fy + ' '; });
+    /* each company's usual rate, for a saved template that names none for it */
+    var coRate = {};
+    list.forEach(function (C) { coRate[C.slug] = mostCommon((C.F.orders || []).map(function (o) { return o.hourlyRate; })); });
+    var saved = SAVED_TPLS.map(function (s) {
+      var t = JSON.parse(JSON.stringify(s));
+      t.key = 'saved:' + s.id; t.saved = true; t.f = t.f || {}; t.carry = t.carry || {}; t.rate = t.rate || {};
+      Object.keys(coRate).forEach(function (k) { if (t.rate[k] == null && coRate[k] != null && !t.perReview) t.rate[k] = coRate[k]; });
+      return t;
+    });
+    return saved.concat(out);
+  }
+  function tplOptions(TPLS) {
+    var opt = function (t, i) { return '<option value="' + i + '">' + esc(t.label) + '</option>'; };
+    var mine = TPLS.map(function (t, i) { return t.saved ? opt(t, i) : ''; }).join('');
+    var rest = TPLS.map(function (t, i) { return t.saved ? '' : opt(t, i); }).join('');
+    return (mine ? '<optgroup label="Saved Templates">' + mine + '</optgroup>' : '') +
+      (rest ? '<optgroup label="From the Orders on File">' + rest + '</optgroup>' : '');
   }
   function isPerReviewOrder(o) { return !!(o && (o.source === 'certification' || o.feeType === 'perReview')); }
 
@@ -11939,9 +12108,12 @@ function loadCompanyCore(slug) {
       'the email, and ' + esc(((list[0].F.mismoSigner) || {}).name || 'the President') + ' approves it.</p>' +
       '<div class="revgrid">' +
       '<div class="f"><label>Start From</label><select class="no-tpl" id="no-tpl">' +
-      '<option value="">A blank order</option>' + TPLS.map(function (t, i) {
-        return '<option value="' + i + '">' + esc(t.label) + '</option>'; }).join('') + '</select></div>' +
-      '<div class="f"><label>Workgroup or CoP Name</label><input type="text" class="no-name" id="no-name" ' +
+      '<option value="">A blank order</option>' + tplOptions(TPLS) + '</select>' +
+      '<div class="no-tplacts"><button type="button" class="linkish" id="no-tplsave">Save These Details as a Template</button>' +
+      '<button type="button" class="linkish" id="no-tpldel" hidden>Remove This Template</button></div>' +
+      '<div class="no-tplsave" id="no-tplsavebox" hidden><input type="text" id="no-tplname" placeholder="Template name, e.g. Summit Workshop Facilitation">' +
+      '<button type="button" class="gobtn ghost" id="no-tplsavego">Save</button></div></div>' +
+      '<div class="f"><label>Workgroup, CoP or Workshop Name</label><input type="text" class="no-name" id="no-name" ' +
       'placeholder="e.g. Automated Valuation Model \u2014 fills in the title and description"></div>' +
       '<div class="f"><label>Who Asked for It (Reviews It First)</label><select class="nof no-rev" data-k="__rev">' +
       '<option value="">Nobody \u2014 straight to ' + esc(((list[0].F.vpProduct) || {}).name || 'the VP') + '</option>' +
@@ -12483,9 +12655,9 @@ function loadCompanyCore(slug) {
         };
       })();
 
-      var sendBody = '<p class="lede">An order can be sent once ' + esc(list[0].F.vpProduct.name) +
-        ' has released it. Sending writes the date onto the order; the contracting company sees it ' +
-        'the next time they sign in. Choose a company to see what is ready.</p>' +
+      var sendBody = '<p class="lede">' + esc(list[0].F.vpProduct.name) + '\u2019s release now sends an order to the ' +
+        'contracting company by itself, with you copied, and reminds them every week for three weeks. Anything listed ' +
+        'here was released before that and is still waiting to be sent; sending it does the same.</p>' +
         '<div class="hqrows">' + list.map(function (C) {
           var ready = C.F.orders.filter(function (o) { return C.st[o.id].key === 'vp'; });
           var body = ready.length
@@ -12706,6 +12878,7 @@ function loadCompanyCore(slug) {
           b.addEventListener('click', function () {
             var x = find(b.dataset.rvuse); if (!x) return;
             var pr = (x.o.review && x.o.review.proposed) || {};
+            if (hasPlaceholders(Object.assign({}, x.o, pr))) { toast('Their version still has parts in [brackets]. Send it for review again, or revise it below.', 'warn'); return; }
             b.disabled = true; b.textContent = 'Saving…';
             var at = new Date().toISOString();
             var rv = Object.assign({}, x.o.review || {}, { state: 'accepted', acceptedAt: at, acceptedBy: ME.name });
@@ -12743,6 +12916,7 @@ function loadCompanyCore(slug) {
           if (b.dataset.wired) return; b.dataset.wired = '1';
           b.addEventListener('click', function () {
             var x = find(b.dataset.rvskip); if (!x) return;
+            if (hasPlaceholders(x.o)) { toast('Parts in [brackets] still need filling in before it can go to ' + (((x.C.F.vpProduct) || {}).name || 'the VP') + '. Revise the order below first.', 'warn'); return; }
             b.disabled = true;
             var rv = Object.assign({}, x.o.review || {}, { state: 'skipped', skippedAt: new Date().toISOString(), skippedBy: ME.name });
             setReview(x.C, x.o, rv, 'review skipped: ' + x.o.subject)
@@ -13032,18 +13206,78 @@ function loadCompanyCore(slug) {
         function names() {
           var t = cur(), n = String((document.getElementById('no-name') || {}).value || '').trim();
           if (!t || !n) return;
-          setv('subject', t.fy + ' ' + n + (t.titleEnd ? ' ' + t.titleEnd : ''));
-          setv('description', n + (t.descEnd ? ' ' + t.descEnd : ''));
+          if (t.fixedTitle) return;
+          setv('subject', (t.titlePre != null ? t.titlePre : t.fy + ' ') + n + (t.titleEnd ? ' ' + t.titleEnd : ''));
+          setv('description', (t.descPre || '') + n + (t.descEnd ? ' ' + t.descEnd : ''));
         }
         function apply() {
           var t = cur(); if (!t) return;
           setv('feeType', t.perReview ? 'perReview' : 'hourly');
-          Object.keys(t.f).forEach(function (k) { if (k !== 'hourlyRate') setv(k, t.f[k]); });
+          Object.keys(t.f).forEach(function (k) { if (k !== 'hourlyRate' && k !== 'feeType') setv(k, t.f[k]); });
+          if (t.fixedTitle) setv('subject', t.fixedTitle);
           setv('hourlyRate', t.rate[slug()] != null ? t.rate[slug()] : t.f.hourlyRate);
           names(); fee();
           toast('Filled in from ' + t.label + ' — change anything you need to', 'good');
         }
         tplSel.addEventListener('change', apply);
+        tplSel.addEventListener('change', function () { var t = cur(); var d = document.getElementById('no-tpldel'); if (d) d.hidden = !(t && t.saved); });
+
+        /* ---- save what is in the form as a template, for next time ---- */
+        var saveBtn = document.getElementById('no-tplsave'), box = document.getElementById('no-tplsavebox');
+        var nameIn = document.getElementById('no-tplname'), go = document.getElementById('no-tplsavego');
+        var delBtn = document.getElementById('no-tpldel');
+        if (saveBtn) saveBtn.addEventListener('click', function () {
+          box.hidden = !box.hidden;
+          if (!box.hidden) { var t = cur(); if (t && t.saved && !nameIn.value) nameIn.value = t.label; nameIn.focus(); }
+        });
+        function tplId(label) { return String(label).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60) || ('t' + Date.now()); }
+        function splitAround(whole, n) {
+          whole = String(whole || ''); var i = n ? whole.indexOf(n) : -1;
+          return i < 0 ? null : { pre: whole.slice(0, i), end: whole.slice(i + n.length).trim() };
+        }
+        if (go) go.addEventListener('click', function () {
+          var label = String(nameIn.value || '').trim();
+          if (!label) { nameIn.focus(); return; }
+          var t0 = cur(), s = slug(), n = String((document.getElementById('no-name') || {}).value || '').trim();
+          var val = function (k) { var e = el(k); return e ? String(e.value || '').trim() : ''; };
+          var num = function (k) { var v = val(k).replace(/[$,\s]/g, ''); return v === '' || !isFinite(Number(v)) ? null : Number(v); };
+          var f = {};
+          TPL_FIELDS.forEach(function (k) { var v = val(k); if (!v) return; f[k] = (k === 'services' || k === 'deliverables') ? asList(v) : v; });
+          if (num('estimatedHours') != null) f.estimatedHours = num('estimatedHours');
+          if (num('hourlyRate') != null) f.hourlyRate = num('hourlyRate');
+          var T = { id: tplId(label), label: label, f: f, perReview: val('feeType') === 'perReview',
+            /* orders raised from it are filed as this kind, not the kind it was started from */
+            carry: Object.assign({}, (t0 && t0.carry) || {}, { category: label }), rate: {}, fy: (t0 && t0.fy) || 'FY 2027',
+            savedBy: ME.name, savedAt: new Date().toISOString() };
+          if (s && f.hourlyRate != null) T.rate[s] = f.hourlyRate;
+          var ts = splitAround(val('subject'), n), ds = splitAround(val('description'), n);
+          if (ts) { T.titlePre = ts.pre; T.titleEnd = ts.end; } else if (val('subject')) T.fixedTitle = val('subject');
+          if (ds) { T.descPre = ds.pre; T.descEnd = ds.end; } else if (val('description')) f.description = val('description');
+          go.disabled = true; go.textContent = 'Saving…';
+          R.updateData('team-hq', 'sotemplates', function (cur) {
+            var next = cur || {}; next.docs = next.docs || {};
+            var old = next.docs[T.id];
+            if (old && old.rate) Object.keys(old.rate).forEach(function (k) { if (T.rate[k] == null) T.rate[k] = old.rate[k]; });
+            next.docs[T.id] = T; return next;
+          }).then(function () {
+            SAVED_TPLS = SAVED_TPLS.filter(function (x) { return x.id !== T.id; }).concat([T]);
+            go.disabled = false; go.textContent = 'Save'; box.hidden = true;
+            toast('Saved as a template: ' + label + '. It is at the top of Start From next time.', 'good');
+          }, function (e) { go.disabled = false; go.textContent = 'Save'; failed(e); });
+        });
+        if (delBtn) delBtn.addEventListener('click', function () {
+          var t = cur(); if (!t || !t.saved) return;
+          if (!confirm('Remove the template "' + t.label + '"? Orders already raised from it are not changed.')) return;
+          delBtn.disabled = true;
+          R.updateData('team-hq', 'sotemplates', function (c) {
+            var next = c || {}; next.docs = next.docs || {};
+            if (next.docs[t.id]) next.docs[t.id] = Object.assign({}, next.docs[t.id], { removed: true, removedBy: ME.name, removedAt: new Date().toISOString() });
+            return next;
+          }).then(function () {
+            SAVED_TPLS = SAVED_TPLS.filter(function (x) { return x.id !== t.id; });
+            toast('Template removed', 'good'); adminView();
+          }, function (e) { delBtn.disabled = false; failed(e); });
+        });
         ['feeType', 'msaFlavour'].forEach(function (k) { var e = el(k); if (e) e.addEventListener('change', function () { e.dataset.picked = '1'; }); });
         var nm = document.getElementById('no-name');
         if (nm) nm.addEventListener('input', names);
@@ -13073,6 +13307,10 @@ function loadCompanyCore(slug) {
 
           if (!slug) { toast('Choose the contracting company first'); return; }
           if (!vals.subject) { toast('Give the order a title first'); return; }
+          if (!vals.__rev && hasPlaceholders(vals)) {
+            toast('Parts in [brackets] still need filling in. Choose who asked for it so they can fill them in, or fill them in yourself.', 'warn');
+            return;
+          }
 
           var C = list.filter(function (x) { return x.slug === slug; })[0];
           if (!C) { toast('That company could not be found'); return; }
@@ -13252,15 +13490,7 @@ function loadCompanyCore(slug) {
              and the relay scopes by project, not by person, so it is read-only
              to MISMO as well. Writing the send date here keeps the generator's
              file untouched and keeps this button working. */
-          R.update(keyFor(C.slug), 'revisions/' + C.slug + '.json', function (cur) {
-            var next = JSON.parse(JSON.stringify(cur || {}));
-            next.company = next.company || C.slug;
-            next.sent = next.sent || {};
-            C.F.orders.forEach(function (o) {
-              if (C.st[o.id] && C.st[o.id].key === 'vp' && !next.sent[o.id]) next.sent[o.id] = when;
-            });
-            return next;
-          }, 'sent orders to ' + C.F.company, { revisions: [] })
+          sendToCompany(C, C.F.orders.filter(function (o) { return C.st[o.id] && C.st[o.id].key === 'vp'; }))
             .then(function () { toast('Sent to ' + C.F.signers.order.name, 'good'); adminView(); })
             .catch(function (e) { b.disabled = false; failed(e); });
         });
