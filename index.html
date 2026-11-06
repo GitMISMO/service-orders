@@ -5335,8 +5335,15 @@ function loadCompanyCore(slug) {
     return R.readData('team-hq', 'people').then(function (r) {
       var docs = (r.data && r.data.docs) || {};
       STAFF = Object.keys(docs).map(function (k) { return docs[k]; })
-        .filter(function (p) { return p && p.name && p.email && !p.left && !p.archived; })
-        .map(function (p) { return { name: p.name, email: String(p.email) }; })
+        .filter(function (p) { return p && p.name && !p.left && !p.archived; })
+        /* Not everybody has an email saved in Team HQ. MISMO addresses are the first
+           initial and surname at mismo.org, so that is used for anybody without one. */
+        .map(function (p) {
+          var w = String(p.name).toLowerCase().replace(/[^a-z ]/g, '').split(' ').filter(Boolean);
+          var guess = w.length > 1 ? w[0][0] + w[w.length - 1] + '@mismo.org' : '';
+          return { name: p.name, email: String(p.email || guess) };
+        })
+        .filter(function (p) { return p.email; })
         .sort(function (a, b) { return a.name.localeCompare(b.name); });
       return STAFF;
     }, function () { STAFF = []; return STAFF; });
