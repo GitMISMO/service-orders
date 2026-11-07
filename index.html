@@ -12043,6 +12043,37 @@ function loadCompanyCore(slug) {
   var TPL_FIELDS = ['services', 'deliverables', 'deliverySchedule', 'paymentSchedule', 'tasksFromMismo',
     'modifications', 'startDate', 'endDate', 'msaFlavour'];
   var TPL_CARRY = ['category', 'template', 'plAccount', 'rateType'];
+  /* THE STATEMENT OF ACTIVITIES LINE AN ORDER SITS ON (Jonna, 7 Nov 2026: "when i create a
+     new service order where those funds come out of and where that new line item sits").
+     MISMO Money reads it to put each invoice's hours on the right line and to move that
+     line's forecast. The values are MISMO Money's own line names; the label is what shows. */
+  var SOA_LINES = [
+    ['Expense > Professional Fees > Workgroup Support > Assigned Workgroup Support', 'Workgroup Support'],
+    ['Expense > Professional Fees > Certifications', 'Certifications'],
+    ['Expense > Professional Fees > Product Support > eEligibility Exchange', 'Product Support: eEligibility Exchange'],
+    ['Expense > Professional Fees > Product Support > MISMO Link', 'Product Support: MISMO Link'],
+    ['Expense > Professional Fees > Product Support > R&D', 'Product Support: R&D'],
+    ['Expense > Professional Fees > Product Support > Certification Updates and Maintenance', 'Product Support: Certification Updates and Maintenance'],
+    ['Expense > Professional Fees > Product Support > Reference Model Release Support', 'Product Support: Reference Model Release Support'],
+    ['Expense > Professional Fees > Product Support > Summit Workshop Facilitation', 'Product Support: Summit Workshop Facilitation'],
+    ['Expense > Professional Fees > Product Support > Chatbot Support', 'Product Support: Chatbot Support'],
+    ['Expense > Professional Fees > Product Support > MISMO.org Migration', 'Product Support: MISMO.org Migration'],
+    ['Expense > Professional Fees > Product Support > Addl Product Support', 'Product Support: Additional Product Support'],
+    ['Expense > Professional Fees > Sales/Marketing > IIF Support', 'Sales and Marketing: IIF Support'],
+    ['Expense > Professional Fees > Sales/Marketing > Credit Union Support', 'Sales and Marketing: Credit Union Support'],
+    ['Expense > Professional Fees > Sales/Marketing > MISMO Rebranding', 'Sales and Marketing: MISMO Rebranding'],
+    ['Expense > Professional Fees > Sales/Marketing > Outsourced Marketing Support', 'Sales and Marketing: Outsourced Marketing Support'],
+    ['Expense > Professional Fees > Finance/Admin > Operational Support', 'Finance and Admin: Operational Support']
+  ];
+  /* a template's older short name ("Workgroup Support", "EEE") as one of the lines above */
+  function soaLineFromAccount(a) {
+    var k = String(a || '').trim().toLowerCase();
+    if (!k) return '';
+    if (/^expense > /.test(k)) return String(a).trim();
+    return ({ 'workgroup support': SOA_LINES[0][0], 'certifications': SOA_LINES[1][0], 'eee': SOA_LINES[2][0],
+              'mismo link': SOA_LINES[3][0], 'mismo link - community version': SOA_LINES[3][0],
+              'iif support': SOA_LINES[11][0] })[k] || '';
+  }
   function tplLabel(cat) {
     if (/DWG/.test(cat)) return 'Development Workgroup (DWG) Facilitation';
     if (/CoP/.test(cat)) return 'Community of Practice (CoP) Facilitation';
@@ -12220,6 +12251,10 @@ function loadCompanyCore(slug) {
       '<div class="f"><label>How It Is Paid</label><select class="nof" data-k="feeType">' +
       '<option value="hourly">Hourly rate, up to a maximum fee</option>' +
       '<option value="perReview">Paid per review — a fee schedule, no hourly rate</option>' +
+      '</select></div>' +
+      '<div class="f"><label>Statement of Activities Line *</label><select class="nof" data-k="soaLine">' +
+      '<option value="">Choose the line it is paid from…</option>' +
+      SOA_LINES.map(function (l) { return '<option value="' + esc(l[0]) + '">' + esc(l[1]) + '</option>'; }).join('') +
       '</select></div>' + fields + '</div>' +
       '<div class="onebar"><div class="f"><label>Why This Order Exists</label>' +
       '<input type="text" class="nowhy" placeholder="Goes on the record and travels with the order"></div>' +
@@ -12227,8 +12262,9 @@ function loadCompanyCore(slug) {
       '<button class="gobtn ghost no-add" type="button">Add Another</button>' +
       '<button class="gobtn no-go" type="button">Send for Review</button></div>' +
       '<div class="no-batch" id="no-batch" hidden></div>' +
-      '<p class="fineprint">⚠ <b>This order names no forecast line</b>, so nothing here checks ' +
-      'it against the budget. A title and a company are required; everything else can be filled in ' +
+      '<p class="fineprint">The <b>Statement of Activities line</b> says where the money comes from: MISMO Money ' +
+      'puts this order\u2019s invoices on that line and takes it from the line\u2019s amount not yet given out. ' +
+      'A title, a company and the line are required (a template that already names its line fills it in); everything else can be filled in ' +
       'later by revising it. <b>Nothing goes to the company from here</b> \u2014 only the person you ' +
       'chose is emailed, with a button to fill in the gaps, change anything that needs it, and send it ' +
       'back to you. With nobody chosen, it goes straight to ' + VPN + '.</p>' +
@@ -13479,9 +13515,10 @@ function loadCompanyCore(slug) {
           deliverySchedule: vals.deliverySchedule,
           paymentSchedule: vals.paymentSchedule,
           tasksFromMismo: vals.tasksFromMismo, modifications: vals.modifications,
-          /* ⚠ No forecast line and no budget check — Jonna's decision,
-             1 Oct 2026, to be revisited when the financial system is up. */
-          forecastLine: null,
+          /* The line it sits on. Jonna, 1 Oct 2026: no forecast line until the
+             financial system was up; 7 Nov 2026: it is, so every new order names one. */
+          soaLine: vals.soaLine || '',
+          forecastLine: vals.soaLine || null,
           raisedBy: who().name, raisedOn: new Date().toISOString(), raisedWhy: why
         };
         /* what kind of order it is, carried from the template it started from */
@@ -13491,6 +13528,9 @@ function loadCompanyCore(slug) {
           var t = src.tplKey ? T.filter(function (x) { return x.key === src.tplKey; })[0] : null;
           if (t) TPL_CARRY.forEach(function (k) { if (t.carry[k] != null) order[k] = t.carry[k]; });
         })();
+        if (!order.soaLine) order.soaLine = soaLineFromAccount(order.plAccount);
+        if (!order.soaLine) return say('Choose the Statement of Activities line this order is paid from', 'warn');
+        order.forecastLine = order.soaLine;
         ['hourlyRate', 'estimatedHours', 'maximumFee'].forEach(function (k) {
           if (order[k] != null && !isFinite(order[k])) order[k] = null;
         });
