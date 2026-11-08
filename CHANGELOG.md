@@ -6,6 +6,9 @@ without descriptions; the portal has been in use since early October 2026.
 
 ## 2026-11-08
 
+- Automatic checks on every upload: scripts parse, no keys or tokens, saving is set right, every page has its safety list, the version is stamped, and browser checks of the whole order, review, drafts, sign-in, invoice and phone-app paths on made-up companies [20261108a]
+- Each page has a safety list (Content-Security-Policy) naming the only places it may load code from or send data to: the save relay, Google Fonts, and the receipt reader's files [20261108a]
+- Help ends with the version you are on; the Test Copy shows a banner saying it is the test copy and that its saves are real [20261108a]
 - How-it-works guide for whoever works on Service Orders next (DEVELOPING.md)
 - This change log
 

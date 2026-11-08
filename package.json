@@ -1,0 +1,11 @@
+{
+  "name": "service-orders",
+  "private": true,
+  "description": "Service Orders: the checks that run on every upload and before every publish",
+  "scripts": {
+    "test": "node tests/run.js"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}
