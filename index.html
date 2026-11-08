@@ -9618,6 +9618,15 @@ function loadCompanyCore(slug) {
    * ======================================================================= */
   /* MBA's accounts payable. ⚠ One place, so it is changed once. */
   var AP_EMAIL = 'Accounts.Payable@mortgagebankers.org';
+  /* The accounts payable email (Jonna, 7 Nov 2026): the Send Notifications flow
+     sends it with the invoice PDF attached (the notice's `file`) and Jonna cc'd,
+     in the same words MISMO Money's Email to Accounting uses. Accounts payable
+     cannot sign in to the portal, so its button is a reply to Jonna. */
+  var AP_CTA = { text: 'Questions? Email Jonna', url: 'mailto:jcritchley@mismo.org' };
+  function apWords(what) {
+    return 'Good day. Please find the attached invoice to process: ' + what + ', approved by ' + ME.name +
+      ' at MISMO. Reach out with any questions. Thanks, MISMO Programs and Operations';
+  }
 
   /* The address an invoice came from, so the answer goes back to whoever
      actually sent it rather than to whoever happens to sign orders. */
@@ -10510,9 +10519,10 @@ function loadCompanyCore(slug) {
           kind: 'invoice-to-payable', company: c.C.F.company, invoice: c.iv.number || c.iv.id,
           period: c.iv.period, total: c.iv.total, who: ME.name, to: AP_EMAIL,
           cc: 'jcritchley@mismo.org', file: c.iv.file || null,
-          said: 'Please process expense invoice ' + (c.iv.number || '') + ' from ' + c.C.F.company +
-                (c.iv.person ? ' (expenses of ' + c.iv.person + ')' : '') + ', ' + money(Number(c.iv.total)) +
-                '. Approved by ' + ME.name + ' at MISMO.',
+          title: 'Invoice to Process: ' + ((c.iv.number || 'Expense Invoice') + ''),
+          cta: AP_CTA,
+          said: apWords('expense invoice ' + (c.iv.number || '') + ' from ' + c.C.F.company +
+                (c.iv.person ? ' (expenses of ' + c.iv.person + ')' : '') + ', ' + money(Number(c.iv.total))),
           raisedOn: at, forAttentionOf: null, sent: false, sentOn: null });
       });
   }
@@ -10658,9 +10668,10 @@ function loadCompanyCore(slug) {
                      that actually moves money, and she wants the record. */
                   cc: 'jcritchley@mismo.org',
                   file: c.iv.file || null,
-                  said: 'Please process invoice ' + (c.iv.number || '') + ' from ' +
-                        c.C.F.company + ' for ' + H.periodLabel(c.iv.period) + ', ' +
-                        money(Number(c.iv.total)) + '. Approved by ' + ME.name + ' at MISMO.',
+                  title: 'Invoice to Process: ' + ((c.iv.number || 'Invoice') + ''),
+                  cta: AP_CTA,
+                  said: apWords('invoice ' + (c.iv.number || '') + ' from ' + c.C.F.company + ' for ' +
+                        H.periodLabel(c.iv.period) + ', ' + money(Number(c.iv.total))),
                   raisedOn: at, forAttentionOf: null, sent: false, sentOn: null });
               });
           })
