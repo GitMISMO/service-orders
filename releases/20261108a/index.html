@@ -14610,14 +14610,23 @@ start();
   if (!/\/releases\/[^\/]+\//.test(location.pathname)) return;
   var v = (document.querySelector('meta[name="so-version"]') || {}).content || '';
   function add() {
-    var b = document.createElement('div');
+    /* A small tag in the masthead, next to the page name, so it never covers anything. */
+    var b = document.createElement('span');
     b.id = 'so-testcopy';
     b.setAttribute('role', 'status');
-    b.style.cssText = 'position:fixed;left:50%;bottom:12px;transform:translateX(-50%);z-index:9999;background:#a2701a;color:#fff;' +
-      'font:600 13px/1.4 "IBM Plex Sans",sans-serif;padding:8px 14px;border-radius:6px;box-shadow:0 4px 14px rgba(0,0,0,.25);max-width:calc(100% - 32px)';
-    b.textContent = 'Test Copy of version ' + v + ' \u2014 this is the real data, so anything you save here is saved for real. ' +
+    b.title = 'This is the real data, so anything you save here is saved for real. ' +
       'When it looks right, publish it from GitHub (Actions \u203a Publish a Version).';
-    document.body.appendChild(b);
+    b.innerHTML = 'Test Copy<span class="so-tc-v"> ' + v + ' \u00b7 saves are real</span>';
+    var st = document.createElement('style');
+    st.textContent = '#so-testcopy{flex:0 1 auto;min-width:0;margin-left:14px;background:#a2701a;color:#fff;' +
+      'font:600 12px/1.2 "IBM Plex Sans",sans-serif;padding:5px 9px;border-radius:4px;white-space:nowrap;' +
+      'overflow:hidden;text-overflow:ellipsis}' +
+      '#so-testcopy.so-tc-float{position:fixed;left:12px;top:12px;z-index:9999;margin:0}' +
+      '@media(max-width:700px){#so-testcopy{flex:0 0 auto;margin-left:10px}#so-testcopy .so-tc-v{display:none}}';
+    document.head.appendChild(st);
+    var name = document.querySelector('.hqtop .hqname');
+    if (name) name.insertAdjacentElement('afterend', b);
+    else { b.className = 'so-tc-float'; document.body.appendChild(b); }
   }
   if (document.body) add(); else document.addEventListener('DOMContentLoaded', add);
 })();
