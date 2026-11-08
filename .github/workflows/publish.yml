@@ -1,0 +1,68 @@
+# Publish a Version: makes a saved Service Orders version live, or rolls back to an earlier one.
+#
+# Every version is saved whole in releases/<version>/ and can be tried first as the Test Copy:
+#   https://resources.mismo.org/service-orders/releases/<version>/
+# Then run this (Actions > Publish a Version > Run workflow) with the same version. It runs every
+# check against that version and only publishes if they all pass.
+# To roll back, run it again with the earlier version (LIVE says which one is live now).
+name: Publish a Version
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to make live (for example 20261108a). To roll back, enter an earlier version."
+        required: true
+      skip_checks:
+        description: "Emergency rollback only: publish without running the checks"
+        type: boolean
+        default: false
+permissions:
+  contents: write
+  pages: write
+concurrency:
+  group: publish
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Is it a saved version?
+        env:
+          V: ${{ inputs.version }}
+        run: |
+          if ! printf '%s' "$V" | grep -Eq '^[0-9]{8}[a-z]$'; then echo "::error::Version names are the date and a letter, for example 20261108a."; exit 1; fi
+          if [ ! -d "releases/$V" ]; then echo "::error::No saved version $V. Saved versions:"; ls releases; exit 1; fi
+          for f in index.html review.html expenses-app.js; do
+            [ -f "releases/$V/$f" ] || { echo "::error::releases/$V is missing $f."; exit 1; }
+          done
+          grep -q "<meta name=\"so-version\" content=\"$V\">" "releases/$V/index.html" || { echo "::error::releases/$V/index.html is not stamped as version $V."; exit 1; }
+      - uses: actions/setup-node@v4
+        if: ${{ !inputs.skip_checks }}
+        with:
+          node-version: 20
+      - name: Run every check against this version
+        if: ${{ !inputs.skip_checks }}
+        env:
+          SO_VERSION: ${{ inputs.version }}
+        run: |
+          npm install --no-audit --no-fund
+          npx playwright install --with-deps chromium
+          npm test
+      - name: Make the version live
+        env:
+          V: ${{ inputs.version }}
+        run: |
+          cp -R "releases/$V/." .
+          printf '%s\n' "$V" > LIVE
+          git config user.name "Service Orders Publisher"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A -- LIVE index.html review.html expenses-app.js expenses.webmanifest xp-icon-*.png
+          if git diff --cached --quiet; then echo "Version $V is already live."; exit 0; fi
+          git commit -m "Publish version $V"
+          git push
+      - name: Ask GitHub Pages to rebuild
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh api -X POST "repos/${{ github.repository }}/pages/builds" || echo "Pages will rebuild on its own."
