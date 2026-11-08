@@ -1,0 +1,35 @@
+# Service Orders checks: run on every upload (push) and every pull request.
+# They check the newest saved version in releases/ (see tests/run.js): scripts parse, no keys
+# or tokens, saving is set right, every page has its safety list, the version is stamped, and
+# browser checks on made-up companies. A failure emails whoever uploaded the change.
+# Checking does not publish anything: Jonna publishes with Actions > Publish a Version.
+name: Service Orders Checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to check (for example 20261108a). Leave empty for the newest."
+        required: false
+permissions:
+  contents: read
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm install --no-audit --no-fund
+      - run: npx playwright install --with-deps chromium
+      - name: Run the checks
+        env:
+          SO_VERSION: ${{ inputs.version }}
+        run: npm test
