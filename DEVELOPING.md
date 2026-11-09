@@ -22,7 +22,7 @@ signing, hours, invoices, expenses and the Master Services Agreement (MSA) exten
 | --- | --- |
 | **Jonna** (admin; Vanessa can be too) | Everything, across every company: Needs You, Send Orders, Time Submitted, Invoices, Contractor Expenses, Hours Remaining, New Service Order, Revise an Order, End a Service Order, Executed Documents, Company Details, View As, the Status Board |
 | **The VP** (Jonathan Kearns) | Awaiting Your Decision: approves (which sends the order to the company) or holds each order; Already Decided |
-| **The President** (Brian Vieaux) | Awaiting Your Approval: approves accepted orders, singly or by company; Already Approved |
+| **The President** (Brian Vieaux) | Awaiting Your Approval: approves accepted orders, singly or by company, or holds one with a reason; Already Approved |
 | **A contracting company's signer or time manager** (one company key) | Its own company only: To Review (accept or ask a question), My Service Orders, the company's month and weeks of hours, My Invoices, My Agreements |
 | **A contractor** (hours-only key) | Only their own hours and expenses: My Hours, My Submitted Time, When I Am Away, My Expenses. **Never money** (Decision 26): no rate, no maximum fee, no totals, not even the order document, because the rate is written on it. Their rates never even reach their browser: an hours-only key can read only `orders-public/` |
 | **A staff member who asked for a new order** | Only `review.html`, from the email: fill in [bracketed] gaps, change details, approve or send changes back |

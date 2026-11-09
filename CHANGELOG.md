@@ -6,6 +6,7 @@ without descriptions; the portal has been in use since early October 2026.
 
 ## 2026-11-08
 
+- Help for staff, the VP and the President now matches how orders move: review first, back to Jonna, the VP's release sends it to the company, reminders, Brian, and the automatic Accounts Payable email; it covers templates, drafts, Add Another and the Statement of Activities line [20261108a]
 - Publishing: a change is saved as a version in `releases/<version>/`, tried first as the Test Copy (resources.mismo.org/service-orders/releases/&lt;version&gt;/), and made live by Jonna with Actions › Publish a Version, which runs every check first; running it with an earlier version rolls back. No more uploading index.html by hand [20261108a]
 - Automatic checks on every upload: scripts parse, no keys or tokens, saving is set right, every page has its safety list, the version is stamped, and browser checks of the whole order, review, drafts, sign-in, invoice and phone-app paths on made-up companies [20261108a]
 - Each page has a safety list (Content-Security-Policy) naming the only places it may load code from or send data to: the save relay, Google Fonts, and the receipt reader's files [20261108a]
