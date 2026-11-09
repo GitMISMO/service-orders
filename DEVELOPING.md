@@ -133,7 +133,7 @@ Every change is a saved version:
 6. **Upload** the new `releases/<version>/` folder (and any changed `tests/`, `CHANGELOG.md`,
    `DEVELOPING.md`) to `main`. The checks run on GitHub; a failure emails the uploader.
 7. **Try the Test Copy**: `https://resources.mismo.org/service-orders/releases/<version>/`. It is the
-   real portal on the real data (a banner says so), so try it carefully; anything saved there is saved
+   real portal on the real data (a tag in the header says so), so try it carefully; anything saved there is saved
    for real. Emails it queues are real emails.
 8. **Jonna publishes it**: GitHub › GitMISMO/service-orders › Actions › **Publish a Version** › Run
    workflow › the version. It runs every check against that version and only then copies it to the
@@ -154,7 +154,7 @@ Every change is a saved version:
 - **In a browser** (`tests/harness.js`: a pretend sign-in and a pretend relay with real version
   clashes; `tests/fixtures.js`: two made-up companies, Northwind Facilitation and Bluebird Review
   Partners, with .test email addresses): every screen for staff, VP, President, a company and a
-  contractor opens without errors; Help shows the version and the Test Copy banner shows; a wrong
+  contractor opens without errors; Help shows the version and the Test Copy tag shows in the header; a wrong
   password counts once and a locked account is told how to unlock; a save on an out-of-date copy
   merges; a new order goes requester › Jonna › VP › company › President with reminders scheduled
   and stopped; drafts save, reopen and send; an approved expense invoice queues the accounts
