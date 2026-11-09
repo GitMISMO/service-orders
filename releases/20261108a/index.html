@@ -14168,12 +14168,14 @@ function loadCompanyCore(slug) {
     if (kind === 'president') {
       return blk('Getting In', steps([
         'Open the link MISMO sent you. It signs you in on its own — there is no password.',
-        'You see every company’s orders that are waiting for your signature, and nothing else.']))
+        'You see every company’s orders that are waiting for your signature, and nothing else.',
+        'You are emailed (with Jonna copied) as soon as a company accepts an order, with a button that brings you here.']))
         + blk('Approving One Company', steps([
           'Open the company’s row and read the orders inside it.',
-          'Type your name and title, and press <b>Approve</b>.']))
+          'Press <b>Approve These</b> to approve all of that company’s orders, or open one and press <b>Approve This One</b>.',
+          'To stop one, write why and press <b>Hold This One</b>. It goes back to Jonna with your reason.']))
         + blk('Approving Everything at Once', steps([
-          'Use <b>Approve Everything Waiting</b> at the top.',
+          'Use <b>Approve All Waiting</b> at the top.',
           'It approves every order on the page, for every company, in one action.']))
         + blk('What Your Approval Records', '<p>Your name, your title, the date and the time, ' +
           'that it came from your link, and the order exactly as it stood. <b>Signing is what ' +
@@ -14183,28 +14185,39 @@ function loadCompanyCore(slug) {
     if (kind === 'vp-product') {
       return blk('Getting In', steps([
         'Open the link MISMO sent you. It signs you in on its own.',
-        'You see the orders waiting for your decision before they go out.']))
+        'You see the orders waiting for your decision before they go out. Jonna sends them to you once the person who asked for each one has reviewed it.']))
         + blk('Releasing a Company’s Orders', steps([
           'Open the company’s row and read what is in it.',
-          'Press <b>Release These</b>. They can then be sent to the company.']))
+          'Press <b>Approve These</b> for all of that company’s orders, <b>Approve All to Send</b> for every company, or open one and press <b>Release This One to Send</b>.',
+          '<b>Releasing sends the order to the contracting company straight away</b>, with a button to accept it and Jonna copied. They are reminded each week for three weeks.']))
         + blk('Holding One Back', steps([
-          'Write what needs changing and press <b>Hold</b>.',
+          'Write what needs changing under <b>Why Are You Holding It?</b> and press <b>Hold This One</b>.',
           '<b>A reason is required</b> — it is what Jonna reads.',
           'A held order does not go out until it has been revised.']));
     }
 
     /* ---- MISMO ----------------------------------------------------------- */
     return blk('The Order of Things', steps([
-      '<b>New Service Order</b> — draft the orders for a company.',
-      '<b>Send Orders</b> — once the VP has released them, send them to the company.',
-      'The company accepts them, or sets one aside with a question.',
-      '<b>Brian signs</b>, and the order is executed. The company is emailed and can download it.',
+      '<b>New Service Order</b> — fill in the order and press <b>Send for Review</b>. The person who asked for it is emailed a button to check it.',
+      'Their review comes back to you in <b>Needs You</b>. You send it on to the VP.',
+      '<b>The VP’s release sends it to the contracting company</b> by itself, with you copied. They are reminded each week for three weeks; after that you are emailed that it still has not been accepted, and you take it from there.',
+      'The company accepts it, or sets it aside with a question.',
+      'Once it is accepted, <b>Brian is emailed to sign</b>, with you copied. His approval makes it executed; the company is emailed and can download it.',
       'People enter their time each week. <b>You do not approve it.</b>',
-      'The company sends its invoice. <b>You approve that</b>, and it goes to accounts payable.']))
-      + blk('A New Order the Requester Reviews First', steps([
-        'In <b>New Service Order</b>, choose <b>Who Asked for It</b>. They are emailed a button to review it on the review page.',
-        'They approve it, or send it back with what needs changing. <b>Approved, it goes to the VP</b> exactly like any other draft, then you send it and the company accepts it from the email.',
-        'Sent back, it appears in <b>Needs You</b> with their comments. Revise it there, then press <b>Send It for Review Again</b> \u2014 or <b>Skip the Review</b> to send it straight to the VP.']))
+      'The company sends its invoice. <b>You approve that</b>, and Service Orders emails it to MBA Accounts Payable with the PDF, with you copied.']))
+      + blk('Making a New Order', steps([
+        '<b>Start From</b> a template: DWG, CoP, Summit Workshop Facilitation, every other kind of order on file, and any you have saved. It fills in the services, deliverables, rate and usual hours.',
+        'Choose the <b>Statement of Activities Line</b> it is paid from. It is required: MISMO Money uses it to put the order’s invoices on that line.',
+        'Choose <b>Who Asked for It (Reviews It First)</b>. Anything you leave in [brackets] is for them to fill in; an order with gaps cannot be approved as it is or sent straight to the VP.',
+        '<b>Several at once?</b> Fill in one, press <b>Add Another</b>, and send them all together. Each reviewer gets one email for all of theirs.',
+        '<b>Not ready?</b> <b>Save as Draft</b> keeps it under <b>Your Drafts</b>. Open one again, delete it, or tick several and send them together.',
+        '<b>Save These Details as a Template</b> puts them at the top of Start From next time.']))
+      + blk('When a Review Comes Back', steps([
+        'It appears in <b>Needs You</b> with what they said.',
+        'Approved: press <b>Send to</b> the VP, or <b>Send All Approved Orders</b> when there are several.',
+        'They changed the details: read them, then <b>Use Their Changes \u2014 Send to</b> the VP.',
+        'Otherwise revise it there and press <b>Send It for Review Again</b> (they get a fresh email), or <b>Skip the Review \u2014 Straight to</b> the VP.',
+        '<b>Send Orders</b> only lists orders the VP released before releasing sent them by itself.']))
       + blk('Contractor Expenses', steps([
         'Contractors snap receipts in <b>My Expenses</b>, or email them to <b>expense@mismo.org</b>: Team HQ files each one in that person\u2019s own expenses here.',
         'They submit everything at once as an <b>expense report</b>, and their company sends <b>one expense invoice</b> for it, checked against the report to the cent.',
@@ -14221,7 +14234,7 @@ function loadCompanyCore(slug) {
         'Each shows <b>their invoice</b> beside <b>the time MISMO holds</b>, and the difference if there is one.',
         '<b>That figure is worked out fresh from the hours as they stand today</b> — not from what their browser calculated when they sent it. A week corrected since shows here as a difference.',
         'Open <b>their PDF</b>. It is the document of record; the table on screen is only the portal’s reading of it.',
-        '<b>Approve and Send to Accounts Payable</b> — this is the moment that <b>locks every week behind the invoice</b>.',
+        '<b>Approve and Send to Accounts Payable</b> — this is the moment that <b>locks every week behind the invoice</b>. Service Orders emails MBA Accounts Payable “Invoice to Process” with their PDF attached and you copied.',
         '<b>Send It Back With a Question</b> — the hours go back to the company with it, so they can correct a week and resend. A question is required.',
         '<b>Mark as Paid</b> once MBA accounts payable confirms. <b>Paid closes those weeks for good.</b>']))
       + blk('Not In Yet', '<p>Companies that have time MISMO can be invoiced for and have not sent ' +
@@ -14244,15 +14257,16 @@ function loadCompanyCore(slug) {
         'Open <b>Executed Documents</b> and find the company.',
         'Upload the <b>whole DocuSign output</b>, including the Certificate of Completion — that certificate is the evidence of execution and the part an auditor asks for.',
         'Put in the <b>Envelope ID</b> and press <b>File It</b>.']))
-      + blk('What Needs You', '<p>Three things stop an order and put it on your desk: a company ' +
-        'has set one aside with a question, the VP has held one, or an order changed after it was ' +
-        'accepted. <b>None of them moves on its own.</b> Each is listed with <b>what was actually ' +
+      + blk('What Needs You', '<p>Four things put an order on your desk: a requester’s review has ' +
+        'come back, a company has set one aside with a question, the VP or Brian has held one, or an ' +
+        'order changed after it was accepted. <b>None of them moves on its own.</b> Each is listed with <b>what was actually ' +
         'said</b> and who said it.</p>')
       + blk('The Emails, and Where They Come From', steps([
         '<b>This page cannot send email.</b> It writes what needs saying into a small queue in the repository.',
         'A scheduled job runs each weekday morning and adds the reminders that are due — unsigned orders, time past due, orders waiting on Brian, and companies whose time is all in but whose invoice has not arrived.',
         'Power Automate reads that queue every hour, sends the emails and marks them sent.',
         '<b>The same reminder is held back for seven days</b>, so nobody is mailed daily about the same thing.',
+        'The order emails go out on their own: the review request, the order to the company when the VP releases it (you copied), three weekly reminders and then a note to you, Brian’s request to sign once it is accepted (you copied), and the invoice to MBA Accounts Payable when you approve it (you copied).',
         'Nobody on vacation is chased, and nobody who has left is emailed at all.']));
   }
 
