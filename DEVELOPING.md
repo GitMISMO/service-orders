@@ -122,7 +122,7 @@ Every change is a saved version:
 
 1. **Start from the live copy.** `git fetch` and work on `origin/main`. Never upload an older copy
    over a newer one (other Claudes change this repo too; check `git log` first).
-2. **Make a new version**: `tools/new-version.sh 20261109a` (the date and a letter; it copies the
+2. **Make a new version**: `bash tools/new-version.sh 20261110a` (the date and a letter; it copies the
    version in `LIVE` into `releases/20261109a/`, stamps the version and rebuilds `review.html`).
 3. **Edit the files in `releases/<version>/`.** If you changed `index.html`, run
    `python3 tools/make_review.py releases/<v>/index.html releases/<v>/review.html` again.
@@ -248,6 +248,11 @@ Every email is the branded email with a button. The button is **Send for Review*
 - They submit all their expenses at once as an expense report, and print it for their company.
 - The company sends a separate expense invoice that matches the report.
 - Meghan Tidgewell manages her company's people's time (time manager, full access).
+
+**Weeks and months** (Nov 9, 2026: "10/31 belongs to October, no matter when the week ends"):
+- Weeks end on a Friday. From November 2026, **no week crosses a month end** (the split-month lines from Smartsheet): a month ending Monday to Thursday gets its own week ending on its last day (w/e 11/30/26, 12/31/26), and the next week starts on the 1st. A month ending on a weekend keeps that weekend in its last Friday week (w/e 10/30/26 runs to Saturday 10/31). `SPLIT_FROM`, `weekEndings()`, `weekStart()` and `weekLast()` in `index.html`.
+- So every week goes on one month's invoice whole (invoices group weeks by the month of their week ending). The old "Of Those, in October" question only applies to weeks before November 2026; October 2026 got no extra line.
+- Month-end lines are owed like any week. The MMS Daily Digest's hours reminder counts Fridays only, so it does not chase them; the portal does.
 
 **Hours.** Hours Remaining shows allotted, used and remaining hours per order, filterable by company, facilitator and date range, so Jonna can say how many hours an order has left.
 

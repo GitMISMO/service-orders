@@ -4,6 +4,10 @@ One line per change people would notice, newest first. Add a line with every new
 version name in brackets once versions began). Before October 2026 many changes were uploaded
 without descriptions; the portal has been in use since early October 2026.
 
+## 2026-11-09
+
+- Split months the Smartsheet way: from November 2026 no week crosses a month end. A month ending Monday to Thursday gets its own short week ending on its last day (first one: w/e 11/30/26), and a month-end weekend stays with its Friday week (w/e 10/30/26 runs to Saturday 10/31). The week ending 11/6/26 starts November 1 and no longer asks how many hours were in October [20261109a]
+
 ## 2026-11-08
 
 - Help for staff, the VP and the President now matches how orders move: review first, back to Jonna, the VP's release sends it to the company, reminders, Brian, and the automatic Accounts Payable email; it covers templates, drafts, Add Another and the Statement of Activities line [20261108a]
