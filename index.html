@@ -2,6 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<!-- The page safety list: the only places this page may load code from or send data to.
+     A new outside service is added HERE and in tests/run.js (SAFETY_LIST), or it is blocked. -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://rgvdi67cg27o5kcmiytcqbqnrm0hmztx.lambda-url.us-east-1.on.aws https://cdn.jsdelivr.net https://tessdata.projectnaptha.com data: blob:; worker-src 'self' blob: https://cdn.jsdelivr.net; frame-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'">
+<!-- Which saved version this is: set by tools/new-version.sh, checked by Publish a Version. -->
+<meta name="so-version" content="20261109a">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="manifest" href="expenses.webmanifest">
 <meta name="theme-color" content="#0d314c">
@@ -2530,7 +2535,8 @@ window.H = (function () {
   }
 
   /* ---- week endings ------------------------------------------------------
-     Weeks end on a Friday.  That is all.
+     Weeks end on a Friday, plus a month-end line from November 2026 (see
+     SPLIT_FROM below, which SUPERSEDES the 29 September note that follows).
 
      ⚠ An earlier version added the last day of a month as an extra week ending,
      on the reasoning that a week straddling a month end would put two months'
@@ -2539,6 +2545,20 @@ window.H = (function () {
      on the September invoice and 1 and 2 October on the October one — and the
      split is made by DAY inside the week, not by cutting the week in two.
      See monthSplit() below, which is what asks for it. */
+  /* ---- split months, the Smartsheet way (Jonna, 9 November 2026) ----------
+     "10/31 belongs to October, no matter when the week ends." From November
+     2026 on, NO WEEK CROSSES A MONTH END:
+       - a month that ends Monday to Thursday gets an extra week ending on its
+         last day (w/e 11/30/26 is Saturday 28 to Monday 30 November), and the
+         next week starts on the 1st;
+       - a month that ends on a Saturday or Sunday has no working days to split
+         off, so that weekend stays with the Friday week before it (the week
+         ending 10/30/26 runs to Saturday 31 October).
+     So every week sits in one month and goes on that month's invoice whole;
+     nobody is asked how many hours fell in the earlier month. October 2026 is
+     closed and gets no extra line. Weeks before SPLIT_FROM are untouched. */
+  var SPLIT_FROM = new Date(2026, 10, 1);
+  function isMonthEnd(d) { return addDays(d, 1).getDate() === 1; }
   var WE_CACHE = {};
   function weekEndings(fy) {
     if (WE_CACHE[fy]) return WE_CACHE[fy];
@@ -2546,7 +2566,8 @@ window.H = (function () {
     if (!b) return [];
     var out = [], d = new Date(b.start.getTime());
     while (d <= b.end) {
-      if (d.getDay() === 5) out.push(new Date(d.getTime()));
+      var dow = d.getDay();
+      if (dow === 5 || (d >= SPLIT_FROM && isMonthEnd(d) && dow >= 1 && dow <= 4)) out.push(new Date(d.getTime()));
       d = addDays(d, 1);
     }
     /* The year's last days may fall after the final Friday; they still have to
@@ -2561,14 +2582,38 @@ window.H = (function () {
   function weekStart(fy, ending) {
     var ends = weekEndings(fy), b = fyBounds(fy);
     for (var i = 0; i < ends.length; i++) {
-      if (sameDay(ends[i], ending)) return i === 0 ? b.start : addDays(ends[i - 1], 1);
+      if (sameDay(ends[i], ending)) {
+        var s = i === 0 ? b.start : addDays(ends[i - 1], 1);
+        /* A month-end weekend stayed with the Friday before it. */
+        if (ending >= SPLIT_FROM && s.getMonth() !== ending.getMonth()) {
+          s = new Date(ending.getFullYear(), ending.getMonth(), 1);
+        }
+        return s;
+      }
     }
     return null;
+  }
+  /* The last day a week covers: its ending, or the month-end weekend after it. */
+  function weekLast(fy, ending) {
+    var ends = weekEndings(fy);
+    for (var i = 0; i < ends.length - 1; i++) {
+      if (sameDay(ends[i], ending)) {
+        var next = weekStart(fy, ends[i + 1]);
+        return next ? addDays(next, -1) : ending;
+      }
+    }
+    return ending;
+  }
+  /* A week ending on a month's last day rather than a Friday. */
+  function isPartWeek(fy, ending) {
+    var e = typeof ending === 'string' ? parse(ending) : ending;
+    return !!e && e.getDay() !== 5 && e >= SPLIT_FROM && isMonthEnd(e);
   }
   function weekSpan(fy, endingStr) {
     var e = parse(endingStr), s = e && weekStart(fy, e);
     if (!s || !e) return '';
-    return longDate(s) + ' to ' + longDate(e);
+    var l = weekLast(fy, e);
+    return sameDay(s, l) ? longDate(s) : longDate(s) + ' to ' + longDate(l);
   }
   /* The week a given day falls in — the first ending on or after it. */
   /* The week somebody is IN.
@@ -2663,7 +2708,7 @@ window.H = (function () {
      is paid per review) has no pace and logs no time. */
   function orderWeeks(fy, o) {
     var s = parse(o.startDate), e = parse(o.endDate);
-    var ends = weekEndings(fy), n = 0;
+    var ends = weekEndings(fy).filter(function (d) { return !isPartWeek(fy, d); }), n = 0;
     for (var i = 0; i < ends.length; i++) {
       if ((!s || ends[i] >= s) && (!e || ends[i] <= e)) n++;
     }
@@ -2832,6 +2877,15 @@ window.H = (function () {
      Tuesday, and a week quietly written off because somebody took two days is
      time that never gets billed. */
   function awayList(file) { return (file && file.away) || []; }
+  /* The week's first working day: the Monday (the Friday minus four), or the
+     1st of the month when the week starts there, skipping a weekend. A
+     month-end week ending Monday 30 November is just that Monday. */
+  function firstWorkday(fy, e) {
+    var st = addDays(e, -4), ws = weekStart(fy, e);
+    if (ws && ws > st) st = ws;
+    while (st < e && (st.getDay() === 0 || st.getDay() === 6)) st = addDays(st, 1);
+    return st;
+  }
   function awayCovers(file, fy, endingStr) {
     var e = parse(endingStr); if (!e) return null;
     /* ⚠ The MONDAY, not weekStart(). A reporting week runs to a Friday, and
@@ -2839,7 +2893,7 @@ window.H = (function () {
        Asking a vacation to cover from the Saturday meant an ordinary Monday
        to Friday booking never covered any week at all, and everybody on
        holiday was still chased. The working week is the Friday minus four. */
-    var st = addDays(e, -4);
+    var st = firstWorkday(fy, e);
     var list = awayList(file);
     for (var i = 0; i < list.length; i++) {
       var a = list[i], af = parse(a.from), at = parse(a.to);
@@ -2852,7 +2906,7 @@ window.H = (function () {
      so beside it rather than leaving it looking like a plain omission. */
   function awayDuring(file, fy, endingStr) {
     var e = parse(endingStr); if (!e) return null;
-    var st = addDays(e, -4);
+    var st = firstWorkday(fy, e);
     var list = awayList(file);
     for (var i = 0; i < list.length; i++) {
       var a = list[i], af = parse(a.from), at = parse(a.to);
@@ -3060,7 +3114,7 @@ window.H = (function () {
     weekEndings: weekEndings, weekStart: weekStart, weekSpan: weekSpan,
     weekFor: weekFor, weeksTo: weeksTo, priorApproval: priorApproval,
     awayList: awayList, awayCovers: awayCovers, awayDuring: awayDuring,
-    straddle: straddle, splitMonths: splitMonths,
+    straddle: straddle, splitMonths: splitMonths, isPartWeek: isPartWeek, weekLast: weekLast,
     orderWeeks: orderWeeks, perWeek: perWeek,
     emptyFile: emptyFile, weekIn: weekIn, rowsOf: rowsOf, hoursIn: hoursIn,
     splitOf: splitOf, splitOver: splitOver,
@@ -3549,6 +3603,9 @@ window.H = (function () {
    * refusing them here makes the whole mode read-only by construction — a
    * button added later is covered without anybody remembering to.
    * ======================================================================= */
+  /* A saved version opened from releases/<version>/ before it is published. Same data,
+     same saving: only the banner (below) and the Help line say it is the test copy. */
+  var TEST_COPY = /\/releases\/[^\/]+\//.test(location.pathname);
   var VIEWAS = null;          // { slug, company, role, as } or null
 
   var R = (function () {
@@ -6463,6 +6520,14 @@ function loadCompanyCore(slug) {
          all Fridays, which is visible from the dates themselves. What is left
          here is the one thing that is NOT obvious — a week that straddles a
          month end and therefore splits across two invoices. */
+      (!strad && H.isPartWeek(fy, ending)
+        ? '<p class="fineprint"><b>This is the short week that ends ' + esc(H.monthLabel(H.monthOf(ending)).split(' ')[0]) +
+          '.</b> Log only ' + esc(H.weekSpan(fy, ending)) + ' here; the rest of the week has its own week ending ' +
+          'on Friday, on the next month\u2019s invoice.</p>'
+        : !strad && H.weekLast(fy, H.parse(ending)) > H.parse(ending)
+        ? '<p class="fineprint"><b>The month ends on the weekend after this Friday</b>, so ' +
+          'that weekend belongs to this week.</p>'
+        : '') +
       (strad
         ? '<p class="fineprint"><b>This one crosses a month end</b>, so it is split between two ' +
           'invoices — ' + esc(strad.firstDays) + ' goes on the ' + esc(strad.firstMonth) +
@@ -13974,7 +14039,8 @@ function loadCompanyCore(slug) {
   function helpTimeEntry() {
     return blk('Entering Your Time', steps([
       'Open <b>My Hours</b>. It opens on the week you are in, with one row for every service order you work on.',
-      'The big date at the top is the <b>week ending</b> — always a Friday. The week runs Monday to that Friday.',
+      'The big date at the top is the <b>week ending</b>, usually a Friday. The week runs Monday to that Friday.',
+      '<b>A week never crosses a month end.</b> When a month ends on a Monday to Thursday, that month gets its own short week ending on its last day, and the next week starts on the 1st. Log each day in the week it falls in, so it goes on the right month’s invoice. A month that ends on a weekend keeps that weekend in its last Friday week.',
       'Click a row to open it on the right. Put the hours in <b>Hours This Week</b>.',
       'Write one line in <b>This Week</b>. <b>That note is the part MISMO actually reads</b> — the hours alone do not say what happened.',
       '<b>Upcoming</b> is what is next. It is how MISMO sees what is coming without having to ask.',
@@ -14071,7 +14137,13 @@ function loadCompanyCore(slug) {
       'Neither screen edits anybody’s time. Correcting a week is the person’s own job.']));
   }
 
-  function helpFor(kind, F, opts) {
+  /* Every Help page ends with the version, so anyone can say which one they are on. */
+  function helpFor(kind, F, opts) { return helpForInner(kind, F, opts) + versionLine(); }
+  function versionLine() {
+    var v = (document.querySelector('meta[name="so-version"]') || {}).content || 'not versioned';
+    return '<p class="fineprint so-ver">Version ' + esc(v) + (TEST_COPY ? ' \u00b7 Test Copy' : '') + '</p>';
+  }
+  function helpForInner(kind, F, opts) {
     var o = opts || {};
     var signIn = blk('Signing In', steps([
       'Go to <b>resources.mismo.org/service-orders/</b>.',
@@ -14154,12 +14226,14 @@ function loadCompanyCore(slug) {
     if (kind === 'president') {
       return blk('Getting In', steps([
         'Open the link MISMO sent you. It signs you in on its own — there is no password.',
-        'You see every company’s orders that are waiting for your signature, and nothing else.']))
+        'You see every company’s orders that are waiting for your signature, and nothing else.',
+        'You are emailed (with Jonna copied) as soon as a company accepts an order, with a button that brings you here.']))
         + blk('Approving One Company', steps([
           'Open the company’s row and read the orders inside it.',
-          'Type your name and title, and press <b>Approve</b>.']))
+          'Press <b>Approve These</b> to approve all of that company’s orders, or open one and press <b>Approve This One</b>.',
+          'To stop one, write why and press <b>Hold This One</b>. It goes back to Jonna with your reason.']))
         + blk('Approving Everything at Once', steps([
-          'Use <b>Approve Everything Waiting</b> at the top.',
+          'Use <b>Approve All Waiting</b> at the top.',
           'It approves every order on the page, for every company, in one action.']))
         + blk('What Your Approval Records', '<p>Your name, your title, the date and the time, ' +
           'that it came from your link, and the order exactly as it stood. <b>Signing is what ' +
@@ -14169,28 +14243,39 @@ function loadCompanyCore(slug) {
     if (kind === 'vp-product') {
       return blk('Getting In', steps([
         'Open the link MISMO sent you. It signs you in on its own.',
-        'You see the orders waiting for your decision before they go out.']))
+        'You see the orders waiting for your decision before they go out. Jonna sends them to you once the person who asked for each one has reviewed it.']))
         + blk('Releasing a Company’s Orders', steps([
           'Open the company’s row and read what is in it.',
-          'Press <b>Release These</b>. They can then be sent to the company.']))
+          'Press <b>Approve These</b> for all of that company’s orders, <b>Approve All to Send</b> for every company, or open one and press <b>Release This One to Send</b>.',
+          '<b>Releasing sends the order to the contracting company straight away</b>, with a button to accept it and Jonna copied. They are reminded each week for three weeks.']))
         + blk('Holding One Back', steps([
-          'Write what needs changing and press <b>Hold</b>.',
+          'Write what needs changing under <b>Why Are You Holding It?</b> and press <b>Hold This One</b>.',
           '<b>A reason is required</b> — it is what Jonna reads.',
           'A held order does not go out until it has been revised.']));
     }
 
     /* ---- MISMO ----------------------------------------------------------- */
     return blk('The Order of Things', steps([
-      '<b>New Service Order</b> — draft the orders for a company.',
-      '<b>Send Orders</b> — once the VP has released them, send them to the company.',
-      'The company accepts them, or sets one aside with a question.',
-      '<b>Brian signs</b>, and the order is executed. The company is emailed and can download it.',
+      '<b>New Service Order</b> — fill in the order and press <b>Send for Review</b>. The person who asked for it is emailed a button to check it.',
+      'Their review comes back to you in <b>Needs You</b>. You send it on to the VP.',
+      '<b>The VP’s release sends it to the contracting company</b> by itself, with you copied. They are reminded each week for three weeks; after that you are emailed that it still has not been accepted, and you take it from there.',
+      'The company accepts it, or sets it aside with a question.',
+      'Once it is accepted, <b>Brian is emailed to sign</b>, with you copied. His approval makes it executed; the company is emailed and can download it.',
       'People enter their time each week. <b>You do not approve it.</b>',
-      'The company sends its invoice. <b>You approve that</b>, and it goes to accounts payable.']))
-      + blk('A New Order the Requester Reviews First', steps([
-        'In <b>New Service Order</b>, choose <b>Who Asked for It</b>. They are emailed a button to review it on the review page.',
-        'They approve it, or send it back with what needs changing. <b>Approved, it goes to the VP</b> exactly like any other draft, then you send it and the company accepts it from the email.',
-        'Sent back, it appears in <b>Needs You</b> with their comments. Revise it there, then press <b>Send It for Review Again</b> \u2014 or <b>Skip the Review</b> to send it straight to the VP.']))
+      'The company sends its invoice. <b>You approve that</b>, and Service Orders emails it to MBA Accounts Payable with the PDF, with you copied.']))
+      + blk('Making a New Order', steps([
+        '<b>Start From</b> a template: DWG, CoP, Summit Workshop Facilitation, every other kind of order on file, and any you have saved. It fills in the services, deliverables, rate and usual hours.',
+        'Choose the <b>Statement of Activities Line</b> it is paid from. It is required: MISMO Money uses it to put the order’s invoices on that line.',
+        'Choose <b>Who Asked for It (Reviews It First)</b>. Anything you leave in [brackets] is for them to fill in; an order with gaps cannot be approved as it is or sent straight to the VP.',
+        '<b>Several at once?</b> Fill in one, press <b>Add Another</b>, and send them all together. Each reviewer gets one email for all of theirs.',
+        '<b>Not ready?</b> <b>Save as Draft</b> keeps it under <b>Your Drafts</b>. Open one again, delete it, or tick several and send them together.',
+        '<b>Save These Details as a Template</b> puts them at the top of Start From next time.']))
+      + blk('When a Review Comes Back', steps([
+        'It appears in <b>Needs You</b> with what they said.',
+        'Approved: press <b>Send to</b> the VP, or <b>Send All Approved Orders</b> when there are several.',
+        'They changed the details: read them, then <b>Use Their Changes \u2014 Send to</b> the VP.',
+        'Otherwise revise it there and press <b>Send It for Review Again</b> (they get a fresh email), or <b>Skip the Review \u2014 Straight to</b> the VP.',
+        '<b>Send Orders</b> only lists orders the VP released before releasing sent them by itself.']))
       + blk('Contractor Expenses', steps([
         'Contractors snap receipts in <b>My Expenses</b>, or email them to <b>expense@mismo.org</b>: Team HQ files each one in that person\u2019s own expenses here.',
         'They submit everything at once as an <b>expense report</b>, and their company sends <b>one expense invoice</b> for it, checked against the report to the cent.',
@@ -14207,7 +14292,7 @@ function loadCompanyCore(slug) {
         'Each shows <b>their invoice</b> beside <b>the time MISMO holds</b>, and the difference if there is one.',
         '<b>That figure is worked out fresh from the hours as they stand today</b> — not from what their browser calculated when they sent it. A week corrected since shows here as a difference.',
         'Open <b>their PDF</b>. It is the document of record; the table on screen is only the portal’s reading of it.',
-        '<b>Approve and Send to Accounts Payable</b> — this is the moment that <b>locks every week behind the invoice</b>.',
+        '<b>Approve and Send to Accounts Payable</b> — this is the moment that <b>locks every week behind the invoice</b>. Service Orders emails MBA Accounts Payable “Invoice to Process” with their PDF attached and you copied.',
         '<b>Send It Back With a Question</b> — the hours go back to the company with it, so they can correct a week and resend. A question is required.',
         '<b>Mark as Paid</b> once MBA accounts payable confirms. <b>Paid closes those weeks for good.</b>']))
       + blk('Not In Yet', '<p>Companies that have time MISMO can be invoiced for and have not sent ' +
@@ -14230,15 +14315,16 @@ function loadCompanyCore(slug) {
         'Open <b>Executed Documents</b> and find the company.',
         'Upload the <b>whole DocuSign output</b>, including the Certificate of Completion — that certificate is the evidence of execution and the part an auditor asks for.',
         'Put in the <b>Envelope ID</b> and press <b>File It</b>.']))
-      + blk('What Needs You', '<p>Three things stop an order and put it on your desk: a company ' +
-        'has set one aside with a question, the VP has held one, or an order changed after it was ' +
-        'accepted. <b>None of them moves on its own.</b> Each is listed with <b>what was actually ' +
+      + blk('What Needs You', '<p>Four things put an order on your desk: a requester’s review has ' +
+        'come back, a company has set one aside with a question, the VP or Brian has held one, or an ' +
+        'order changed after it was accepted. <b>None of them moves on its own.</b> Each is listed with <b>what was actually ' +
         'said</b> and who said it.</p>')
       + blk('The Emails, and Where They Come From', steps([
         '<b>This page cannot send email.</b> It writes what needs saying into a small queue in the repository.',
         'A scheduled job runs each weekday morning and adds the reminders that are due — unsigned orders, time past due, orders waiting on Brian, and companies whose time is all in but whose invoice has not arrived.',
         'Power Automate reads that queue every hour, sends the emails and marks them sent.',
         '<b>The same reminder is held back for seven days</b>, so nobody is mailed daily about the same thing.',
+        'The order emails go out on their own: the review request, the order to the company when the VP releases it (you copied), three weekly reminders and then a note to you, Brian’s request to sign once it is accepted (you copied), and the invoice to MBA Accounts Payable when you approve it (you copied).',
         'Nobody on vacation is chased, and nobody who has left is emailed at all.']));
   }
 
@@ -14589,6 +14675,38 @@ start();
 })();
 (function season(){ if(new Date().getMonth()===11) document.documentElement.setAttribute("data-season","december"); })();
 })();
+</script>
+<!-- Test Copy banner: shown only when the page is opened from releases/<version>/. -->
+<script>
+(function () {
+  if (!/\/releases\/[^\/]+\//.test(location.pathname)) return;
+  var v = (document.querySelector('meta[name="so-version"]') || {}).content || '';
+  function add() {
+    /* A small tag in the masthead, next to the page name, so it never covers anything. */
+    var b = document.createElement('span');
+    b.id = 'so-testcopy';
+    b.setAttribute('role', 'status');
+    b.title = 'This is the real data, so anything you save here is saved for real. ' +
+      'When it looks right, publish it from GitHub (Actions \u203a Publish a Version).';
+    b.innerHTML = 'Test Copy<span class="so-tc-v"> ' + v + '</span><span class="so-tc-s"> \u00b7 saves are real</span>';
+    var st = document.createElement('style');
+    st.textContent = '#so-testcopy{flex:0 0 auto;margin-left:14px;background:#a2701a;color:#fff;' +
+      'font:600 12px/1.2 "IBM Plex Sans",sans-serif;padding:5px 9px;border-radius:4px;white-space:nowrap;' +
+      'overflow:hidden;text-overflow:ellipsis}' +
+      '#so-testcopy.so-tc-float{position:fixed;left:12px;top:12px;z-index:9999;margin:0}' +
+      '@media(max-width:1100px){#so-testcopy .so-tc-v{display:none}}' +
+      '@media(max-width:700px){#so-testcopy{margin-left:10px}#so-testcopy .so-tc-s{display:none}}';
+    document.head.appendChild(st);
+    var name = document.querySelector('.hqtop .hqname');
+    if (name) name.insertAdjacentElement('afterend', b);
+    else { b.className = 'so-tc-float'; document.body.appendChild(b); }
+  }
+  if (document.body) add(); else document.addEventListener('DOMContentLoaded', add);
+})();
+/* Anything the safety list blocks is reported in the console, so a test copy shows it at once. */
+document.addEventListener('securitypolicyviolation', function (e) {
+  console.error('Blocked by the page safety list: ' + e.violatedDirective + ' ' + (e.blockedURI || ''));
+});
 </script>
 </body>
 </html>
