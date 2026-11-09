@@ -72,7 +72,10 @@ async function open(opts) {
     }
     return route.abort();   // nothing else outside is reached during the checks
   });
-  const sess = { token: 't', name: u.name, email: u.email, access: u.access, expiresAt: new Date(Date.now() + 8 * 3600e3).toISOString() };
+  // `now` stands the page on another day (for example '2026-11-30T15:00:00'), for date rules.
+  const t0 = opts.now ? new Date(opts.now).getTime() : Date.now();
+  if (opts.now) await page.clock.setFixedTime(new Date(opts.now));
+  const sess = { token: 't', name: u.name, email: u.email, access: u.access, expiresAt: new Date(t0 + 8 * 3600e3).toISOString() };
   if (!opts.noSession) {
     await ctx.addInitScript(([s]) => {
       try { sessionStorage.setItem('resources:service-orders:session', s); localStorage.setItem('resources:session', s); } catch (e) {}

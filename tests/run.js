@@ -224,6 +224,45 @@ function tracked(dir) {
     noErrors(s.errs); await s.close();
   });
 
+  await check('From November 2026 no week crosses a month end (the split-month lines)', async () => {
+    const s = await open(opts({ who: 'admin' }));
+    await wait(s, 2500);
+    const r = await s.page.evaluate(() => {
+      const H = window.H, fy = 'FY 2027';
+      if (!H.isPartWeek) return { old: true };   // versions before 20261109a: Fridays only
+      const ends = H.weekEndings(fy).map(H.print);
+      const cross = [];
+      H.weekEndings(fy).forEach(d => {
+        const s = H.weekStart(fy, d), l = H.weekLast(fy, d);
+        if (d >= new Date(2026, 10, 1) && (s.getMonth() !== d.getMonth() || l.getMonth() !== d.getMonth())) cross.push(H.print(d));
+      });
+      return {
+        ends, cross,
+        span1030: H.weekSpan(fy, '10/30/26'), span1106: H.weekSpan(fy, '11/06/26'),
+        span1130: H.weekSpan(fy, '11/30/26'), span1204: H.weekSpan(fy, '12/04/26'),
+        strad1106: H.straddle(fy, '11/06/26'),
+        part1130: H.isPartWeek(fy, '11/30/26'), part1127: H.isPartWeek(fy, '11/27/26'),
+        on1130: H.weekFor(fy, new Date(2026, 10, 30, 15)), on1201: H.weekFor(fy, new Date(2026, 11, 1, 9)),
+        on1031: H.weekFor(fy, new Date(2026, 9, 31, 10))
+      };
+    });
+    if (!r.old) {
+      expect(!r.cross.length, 'these weeks cross a month end: ' + r.cross.join(', '));
+      expect(r.ends.indexOf('10/31/26') < 0, 'October 2026 is closed and must not get a 10/31 line');
+      ['11/30/26', '12/31/26', '03/31/27', '06/30/27', '08/31/27', '09/30/27'].forEach(e =>
+        expect(r.ends.indexOf(e) >= 0, 'missing the month-end line ' + e));
+      ['01/31/27', '02/28/27', '07/31/27'].forEach(e =>
+        expect(r.ends.indexOf(e) < 0, e + ' is a weekend month end and needs no line of its own'));
+      expect(/October 24.*October 31/.test(r.span1030), 'w/e 10/30 should run to 31 October, got ' + r.span1030);
+      expect(/^November 1,/.test(r.span1106), 'w/e 11/06 should start 1 November, got ' + r.span1106);
+      expect(!r.strad1106, 'w/e 11/06 must not ask about October');
+      expect(/November 28.*November 30/.test(r.span1130) && /^December 1,/.test(r.span1204), 'the November month-end split is wrong: ' + r.span1130 + ' / ' + r.span1204);
+      expect(r.part1130 && !r.part1127, 'isPartWeek is wrong');
+      expect(r.on1130 === '11/30/26' && r.on1201 === '12/04/26' && r.on1031 === '10/30/26', 'the week that opens is wrong: ' + [r.on1031, r.on1130, r.on1201].join(' '));
+    }
+    noErrors(s.errs); await s.close();
+  });
+
   await check('Sign-in: a wrong password counts once, and a locked account is told how to unlock', async () => {
     const store = mkStore();
     const s = await open(opts({ who: 'casey', store, noSession: true }));
