@@ -181,8 +181,13 @@ each one from Jonna's mailbox as the branded email (`/assets/email-shell.html`) 
 marks it sent. A notice's fields: `kind`, `company`, `orderId`/`orderIds`, `title`, `said`, `to`,
 `cc`, `forAttentionOf`, `cta {text, url}`, `file` (a PDF to attach), `sent` (`false`, or
 `"scheduled"` with `notBefore` for reminders), `sentOn`. **Add fields; never rename or remove one**:
-the flow reads them. The flow holds a GitHub key (`gh1token`) to read and write the notify files and
-fetch invoice PDFs; it is in the flow, never in this repo.
+the flow reads them. The flow reads and writes the notify files and fetches invoice PDFs with the
+GitHub key "MISMO Service Orders - notify" (code read and write on the so-*-data repos only). The key
+is **not in the flow and never in this repo**: it lives in Jonna's OneDrive (My files › MISMO Flow
+Keys › service-orders-notify-key.txt), the flow's first step (Get GitHub key, outputs hidden) reads
+it each run, and the five GitHub steps have their inputs hidden so it never shows in run history.
+To replace it, regenerate the key on GitHub and paste the new value into that file; the flow needs no
+change. (Moved out of the flow on Nov 10, 2026.)
 
 | Email | To | Copied |
 | --- | --- | --- |
