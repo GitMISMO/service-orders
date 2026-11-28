@@ -324,6 +324,10 @@
     '.soxp-dock{display:none}',
     'html.soxp body:not(.signedout) .soxp-dock{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:60;gap:10px;padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));background:var(--surface);border-top:1px solid var(--border);box-shadow:0 -6px 20px rgba(6,32,47,.10)}',
     'html.soxp body.soxp-busy .soxp-dock,html.soxp body:has(#panel.on) .soxp-dock{display:none!important}',
+    'html.soxp body.soxp-noexp .soxp-dock,html.soxp body.soxp-noexp .hqtop .xp-info{display:none!important}',
+    'html.soxp body.soxp-noexp main.wrap{padding-bottom:28px!important}',
+    'html.soxp body.soxp-noexp header.hqtop .hqtop-r{margin-left:auto!important}',
+    '.soxp-none a{color:inherit;font-weight:600;text-decoration:underline;text-decoration-color:var(--sky)}',
     '.soxp-dock button{flex:1;display:flex;align-items:center;justify-content:center;gap:8px;min-height:52px;border-radius:8px;font:inherit;font-size:16px;font-weight:700;cursor:pointer;border:1px solid var(--navy);white-space:nowrap}',
     '.soxp-dock .snap{background:var(--navy);color:#fff}',
     '.soxp-dock .hand{background:var(--surface);color:var(--ink);border-color:var(--border-strong)}',
@@ -653,6 +657,19 @@
   function toApp(sec) {
     if (APP || standalone || !PHONE || sget('xp.full') === '1') return false;
     if (!sec || !sec.classList.contains('current')) return false;
+    /* ⚠ Back comes back (audit, 28 Nov 2026). Opening Expenses from the menu used to
+       replace the page, so the phone's Back button left Contractor HQ altogether. The
+       page they were on is written into this entry's address first, and the app opens
+       as a new step, so Back returns to it. Opened straight from a bookmark, there is
+       nothing to come back to and the page is replaced as before. */
+    var prev = root.__hqPrevPage, P = root.MISMO_PORTAL_PARTS;
+    if (prev && prev !== 'My Expenses' && P && P.pageSlug) {
+      try {
+        history.replaceState(null, '', location.pathname + location.search + '#' + P.pageSlug(prev));
+        location.assign(location.pathname + '?app=expenses');
+        return true;
+      } catch (e) {}
+    }
     try { location.replace(location.pathname + '?app=expenses'); } catch (e) { return false; }
     return true;
   }
@@ -673,6 +690,10 @@
     var secs = view.querySelectorAll('.psec');
     document.body.classList.toggle('soxp-busy', !secs.length);
     var none = view.querySelector('.soxp-none');
+    /* ⚠ With expenses not switched on (or no Contractor HQ at all) the snap and add
+       buttons had nothing to open, and the policy i nothing to explain (audit, 28 Nov 2026). */
+    var noExp = !sec && !signedOut;
+    if (document.body.classList.contains('soxp-noexp') !== noExp) document.body.classList.toggle('soxp-noexp', noExp);
     if (secs.length && !sec) {
       if (!none) {
         none = el('div', 'soxp-none',

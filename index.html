@@ -6,7 +6,7 @@
      A new outside service is added HERE and in tests/run.js (SAFETY_LIST), or it is blocked. -->
 <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' https://cdn.jsdelivr.net blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; connect-src 'self' https://rgvdi67cg27o5kcmiytcqbqnrm0hmztx.lambda-url.us-east-1.on.aws https://cdn.jsdelivr.net https://tessdata.projectnaptha.com data: blob:; worker-src 'self' blob: https://cdn.jsdelivr.net; frame-src 'self' blob: data:; object-src 'none'; base-uri 'self'; form-action 'self'">
 <!-- Which saved version this is: set by tools/new-version.sh, checked by Publish a Version. -->
-<meta name="so-version" content="20261127b">
+<meta name="so-version" content="20261128a">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <link rel="manifest" href="expenses.webmanifest">
 <meta name="theme-color" content="#0d314c">
@@ -249,6 +249,9 @@ th.n{text-align:right}
 tr:last-child td{border-bottom:0}
 tfoot td{font-weight:700;background:var(--surface-2);border-top:2px solid var(--border-strong)}
 .tbl{border:1px solid var(--border);border-radius:9px;overflow:hidden;background:var(--surface)}
+/* ⚠ Audit, 28 Nov 2026: on a phone a wide table cut off its right-hand columns (the
+   signed orders' Download, a VP's Status). It now scrolls sideways inside its own box. */
+@media (max-width:900px){ .tbl{overflow-x:auto;-webkit-overflow-scrolling:touch} }
 
 /* chips + callouts */
 .chip{display:inline-flex;align-items:center;gap:5px;font-family:var(--display);font-size:10.5px;
@@ -1889,7 +1892,19 @@ td .notefmt.fineprint{margin-top:6px}
 /* every order starts a new sheet */
 @media print{ .pagebreak{break-before:page;page-break-before:always} }
 
+.sg-fee{display:none}
+/* contractor tables on a phone (audit, 28 Nov 2026): nothing off the right-hand edge */
 @media(max-width:560px){
+  .signtbl .sg-feecol{display:none}
+  .signtbl .sg-fee{display:block;margin-top:3px;font-size:12.5px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+  .factbl, .factbl tbody{display:block}
+  .factbl thead{display:none}
+  .factbl tr{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:2px 10px;padding:12px 14px;border-top:1px solid var(--border)}
+  .factbl tr:first-child{border-top:0}
+  .factbl td{display:block;padding:0!important;border:0!important;text-align:left!important;width:auto!important}
+  .factbl td:first-child{grid-column:1/-1;font-weight:600;margin-bottom:6px}
+  .factbl td.n::before{content:attr(data-l);display:block;font-size:10.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3);margin-bottom:1px}
+  .factbl td:last-child{grid-column:1/-1;margin-top:8px}
   .signedbox{padding:12px 12px 6px}
   .signtbl th.dl-col,.signtbl td.dl-col{padding-right:8px}
   .signtbl .gobtn.ghost{padding:5px 9px}
@@ -3630,6 +3645,16 @@ window.H = (function () {
     if (/^#open=/.test(location.hash || '') && addressedPage() === slug) return;
     try { history.replaceState(null, '', location.pathname + location.search + '#' + slug); } catch (e) {}
   }
+  /* ⚠ Coming Back from the phone's Expenses app (audit, 28 Nov 2026). A browser that
+     kept this page whole shows it as it was left, on My Expenses; the address says
+     the page they came from, so that is the one shown. */
+  window.addEventListener('pageshow', function (e) {
+    if (!e.persisted) return;
+    var want = addressedPage(); if (!want) return;
+    var all = document.querySelectorAll('#view .psec'), cur = document.querySelector('#view .psec.current');
+    if (cur && pageSlug(cur.getAttribute('data-name')) === want) return;
+    for (var i = 0; i < all.length; i++) if (pageSlug(all[i].getAttribute('data-name')) === want) { showPage(all[i], { keepScroll: true }); return; }
+  });
   function rememberedPage() {
     try { return R.store.get(PAGE_KEY) || ''; } catch (e) { return ''; }
   }
@@ -3637,6 +3662,8 @@ window.H = (function () {
     if (!sec) return;
     var root = sec.parentElement;
     if (!root) return;
+    var was = root.querySelector('.psec.current');
+    if (was && was !== sec) { try { window.__hqPrevPage = was.getAttribute('data-name') || ''; } catch (e) {} }
     Array.prototype.forEach.call(root.querySelectorAll('.psec'), function (s) {
       s.classList.toggle('current', s === sec);
     });
@@ -6756,7 +6783,7 @@ function loadCompanyCore(slug) {
         '<span class="tot-v">' + facHours(yearOrders, HRS.files) + '</span></div>' +
         '<p class="fineprint">Every order you may work on this fiscal year. One added later in the ' +
         'year lands in these figures too. MISMO\u2019s fiscal year runs 1 October to 30 September.</p>' +
-        '<div class="tbl"><table><thead><tr><th>Service Order</th>' +
+        '<div class="tbl"><table class="factbl"><thead><tr><th>Service Order</th>' +
         '<th class="n">Allotted</th><th class="n">Used</th><th class="n">Remaining</th>' +
         '<th style="width:150px">Of the Order</th></tr></thead><tbody>' +
         yearOrders.map(function (o) {
@@ -6765,9 +6792,9 @@ function loadCompanyCore(slug) {
           var pct = tot ? Math.min(100, 100 * used / tot) : 0;
           var cls = pct > 90 ? 'over' : pct > 70 ? 'hot' : '';
           return '<tr><td>' + esc(o.subject) + '</td>' +
-            '<td class="n">' + (tot ? hrs(tot) : '\u2014') + '</td>' +
-            '<td class="n">' + hrs(used) + '</td>' +
-            '<td class="n">' + (tot ? hrs(tot - used) : '\u2014') + '</td>' +
+            '<td class="n" data-l="Allotted">' + (tot ? hrs(tot) : '\u2014') + '</td>' +
+            '<td class="n" data-l="Used">' + hrs(used) + '</td>' +
+            '<td class="n" data-l="Remaining">' + (tot ? hrs(tot - used) : '\u2014') + '</td>' +
             '<td><div class="meterwrap"><span class="meter"><i class="' + cls +
             '" style="width:' + pct.toFixed(0) + '%"></i></span>' +
             '<span class="fineprint">' + pct.toFixed(0) + '%</span></div></td></tr>';
@@ -6806,16 +6833,16 @@ function loadCompanyCore(slug) {
           '<div class="tbl"><table class="signtbl"><thead><tr>' +
           '<th class="tick"><input type="checkbox" id="sg-all" aria-label="Tick every signed order"></th>' +
           '<th>Service Order</th><th class="hide-narrow">Executed</th>' +
-          '<th class="n">Maximum Fee</th><th class="dl-col"></th>' +
+          '<th class="n sg-feecol">Maximum Fee</th><th class="dl-col"></th>' +
           '</tr></thead><tbody>' +
           executed.map(function (o) {
             var sig = st[o.id].sig || {};
             return '<tr><td class="tick">' +
               '<input type="checkbox" class="sgtick" data-id="' + esc(o.id) + '" ' +
               'aria-label="' + esc(o.subject) + '"></td>' +
-              '<td>' + esc(o.subject) + '</td>' +
+              '<td>' + esc(o.subject) + '<span class="sg-fee">' + (feeLabel(o)) + '</span></td>' +
               '<td class="hide-narrow">' + esc(sig.signedOn ? stamp(sig.signedOn) : '\u2014') + '</td>' +
-              '<td class="n">' + (feeLabel(o)) + '</td>' +
+              '<td class="n sg-feecol">' + (feeLabel(o)) + '</td>' +
               '<td class="dl-col"><button class="gobtn ghost sgone" type="button" ' +
               'data-id="' + esc(o.id) + '">Download</button></td></tr>';
           }).join('') + '</tbody></table></div>' +
@@ -8975,7 +9002,7 @@ function loadCompanyCore(slug) {
       '<div class="f"><label>Invoice Date</label><input type="text" id="inv-date" ' +
       'placeholder="10/09/26" value="' + esc(up.date || '') + '"></div>' +
       '<div class="f"><label>Total on Your Invoice</label><input type="number" step="0.01" ' +
-      'id="inv-total" value="' + esc(up.total == null ? '' : up.total) + '">' +
+      'id="inv-total" aria-label="Total on Your Invoice" value="' + esc(up.total == null ? '' : up.total) + '">' +
       '<span class="fineprint">' +
       (up.readTotal ? 'Read from the PDF. Not right? Type over it.' : '') + '</span></div>' +
       '</div>' +
@@ -12615,9 +12642,8 @@ function loadCompanyCore(slug) {
     var waiting = (outbox || []).filter(function (n) { return !n.sent || (n.sent === 'scheduled' && due(n)); });
     var gone = (outbox || []).filter(function (n) { return n.sent === true && !n.cancelled; }).length;
     if (!outbox || !outbox.length) {
-      return '<div class="note ok"><b>The nudge outbox is empty.</b> ' +
-        '<code>notify/&lt;company&gt;.json</code> changes only when an order stops, so whatever is ' +
-        'watching it has had nothing to send. See <b>NOTIFY.md</b> in the build package.</div>';
+      return '<div class="note ok"><b>No reminder emails are waiting.</b> One is only queued when an ' +
+        'order stops, and the email flow checks every hour.</div>';
     }
     return '<div class="note' + (waiting.length ? '' : ' ok') + '"><b>' +
       (waiting.length
@@ -13421,8 +13447,8 @@ function loadCompanyCore(slug) {
       { k: 'modifications',    label: 'Agreed Modifications', type: 'area' }
     ].map(function (f) {
       var input = f.type === 'area'
-        ? '<textarea class="nof" rows="3" data-k="' + esc(f.k) + '"></textarea>'
-        : '<input type="text" class="nof" data-k="' + esc(f.k) + '">';
+        ? '<textarea class="nof" rows="3" data-k="' + esc(f.k) + '" aria-label="' + esc(f.label) + '"></textarea>'
+        : '<input type="text" class="nof" data-k="' + esc(f.k) + '" aria-label="' + esc(f.label) + '">';
       var isSched = f.k === 'deliverySchedule' || f.k === 'paymentSchedule';
       return (f.k === 'deliverySchedule'
           ? '<div class="f wide"><label>Delivery and Payment Schedules</label>' +
@@ -15475,9 +15501,14 @@ function loadCompanyCore(slug) {
     var o = opts || {};
     var signIn = blk('Signing In', steps([
       'Go to <b>resources.mismo.org/contractor-hq/</b>.',
-      'Type the email address MISMO set you up with, and the password they sent you separately.',
-      'Press <b>Sign In</b>. Your session lasts eight hours and ends when you close the tab.',
+      'Type the email address MISMO set you up with and your password. The first time on a new browser, MISMO emails you a sign-in code to type in as well.',
+      'You stay signed in on that browser for up to eight hours, here and in the other MISMO tools you use. Sign out from your initials at the top right.',
+      'Forgot your password? Press <b>Forgot your password?</b> on the sign-in screen and MISMO emails you a link to set a new one.',
       'The account is <b>yours</b>, not your company’s — do not share the password.']));
+    /* the menu on a phone, and bookmarks (27 Nov 2026) */
+    signIn += blk('On a Phone, and Bookmarks', steps([
+      'On a phone the pages you use most are along the bottom of the screen. <b>Menu</b> opens every page, Help and Sign Out.',
+      'Every page has its own address, so you can bookmark it or add it to your home screen and it opens straight there: <b>My Hours</b> is resources.mismo.org/contractor-hq/#hours.']));
 
     /* ---- the people who enter time, and nothing else --------------------- */
     if (kind === 'facilitator') {
