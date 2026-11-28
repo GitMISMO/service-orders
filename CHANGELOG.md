@@ -4,6 +4,14 @@ One line per change people would notice, newest first. Add a line with every new
 version name in brackets once versions began). Before October 2026 many changes were uploaded
 without descriptions; the portal has been in use since early October 2026.
 
+## 2026-11-28
+
+- Full audit fixes. On a phone, nothing is cut off the right-hand edge of a table any more: a contractor's hours left (Allotted, Used, Remaining) stack under each order with their names, a signer's signed orders show the fee under the title so Download is whole, and any other wide table scrolls inside its box [20261128a]
+- Phone: Back from the Expenses app returns to the page you were on (it used to leave Contractor HQ) [20261128a]
+- Expenses app: someone without expenses switched on no longer sees Snap a Receipt, Add by Hand or the policy i, which had nothing to open [20261128a]
+- Help: Signing In describes the shared MISMO sign-in (the emailed code, up to eight hours on that browser, Forgot your password?, signing out from your initials), plus a short On a Phone, and Bookmarks section. Needs You no longer points at a build file when no reminders are waiting [20261128a]
+- New Service Order and the invoice total have names for screen readers [20261128a]
+
 ## 2026-11-27
 
 - Contractor HQ on a phone: the strip of icons down the left is gone, so pages use the whole width; a tab bar at the foot has Hours, Expenses, Service Orders and Menu, which slides in the full menu (every page, the other MISMO tools, Help, Sign Out). Computers are unchanged [20261127b]
