@@ -677,6 +677,77 @@ function tracked(dir) {
     await m.close();
   });
 
+  /* The full audit, 28 Nov 2026 (20261128a). */
+  await check('Audit: nothing is cut off the right-hand edge of a table on a phone', async () => {
+    if (read(path.join(DIR, 'index.html')).indexOf('Audit, 28 Nov 2026') < 0) return;
+    const CLIP = () => {
+      const out = [];
+      document.querySelectorAll('#view .psec.current .tbl *').forEach(e => {
+        const r = e.getBoundingClientRect(); if (!e.offsetParent || !r.width || e.children.length > 3 || !(e.textContent || '').trim()) return;
+        const box = e.closest('.tbl'); const s = getComputedStyle(box);
+        if (/(auto|scroll)/.test(s.overflowX)) return;
+        if (r.right > box.getBoundingClientRect().right + 2) out.push((e.textContent || '').trim().slice(0, 20));
+      });
+      return out;
+    };
+    for (const [who, page] of [['casey', 'My Service Orders'], ['sam', 'My Service Orders'], ['vp', 'Already Decided']]) {
+      for (const w of [390, 360]) {
+        const s = await open(opts({ who, viewport: { width: w, height: 800 } }));
+        await wait(s, 3000); await nav(s.page, page); await wait(s, 300);
+        const r = await s.page.evaluate(CLIP);
+        expect(!r.length, who + '\'s ' + page + ' cuts off ' + JSON.stringify(r.slice(0, 3)) + ' at ' + w + 'px');
+        if (who === 'casey') {
+          const c = await s.page.evaluate(() => { const t = document.querySelector('.psec.current .factbl'); if (!t) return null;
+            const td = t.querySelector('tbody td.n'); return { labelled: getComputedStyle(td, '::before').content, fits: t.getBoundingClientRect().right <= innerWidth }; });
+          expect(c && /Allotted/.test(c.labelled) && c.fits, 'the hours left should stack with their names on a phone: ' + JSON.stringify(c));
+        }
+        if (who === 'sam') {
+          const d = await s.page.evaluate(() => { const b = document.querySelector('.psec.current .sgone'); const r = b && b.getBoundingClientRect();
+            const f = document.querySelector('.psec.current .sg-fee'); return { btn: r && r.right <= innerWidth - 8, fee: !!(f && f.offsetParent && /\$/.test(f.textContent)) }; });
+          expect(d.btn && d.fee, 'Download should be whole and the fee under the title: ' + JSON.stringify(d));
+        }
+        noErrors(s.errs); await s.close();
+      }
+    }
+  });
+
+  await check('Audit: Back from the phone Expenses app comes back to the page you were on', async () => {
+    if (read(path.join(DIR, 'expenses-app.js')).indexOf('Back comes back') < 0) return;
+    const s = await open(opts({ who: 'casey', path: '#hours', viewport: { width: 390, height: 844 } }));
+    const p = s.page; await wait(s, 3000);
+    await p.click('#mnav button:has-text("Expenses")'); await wait(s, 3500);
+    expect(/[?&]app=expenses/.test(p.url()), 'the Expenses tab should open the Expenses app (' + p.url() + ')');
+    await p.goBack(); await wait(s, 3500);
+    const cur = await p.evaluate(() => { const c = document.querySelector('.psec.current'); return c && c.getAttribute('data-name'); });
+    expect(/#hours$/.test(p.url()) && cur === 'My Hours', 'Back should return to My Hours (' + p.url() + ', ' + cur + ')');
+    noErrors(s.errs); await s.close();
+  });
+
+  await check('Audit: the Expenses app shows no snap or add buttons when expenses are not switched on', async () => {
+    if (read(path.join(DIR, 'expenses-app.js')).indexOf('soxp-noexp') < 0) return;
+    for (const who of ['sam', 'riley', 'casey']) {
+      const s = await open(opts({ who, path: '?app=expenses', viewport: { width: 390, height: 844 } }));
+      await wait(s, 3500);
+      const r = await s.page.evaluate(() => { const d = document.querySelector('.soxp-dock'), i = document.querySelector('.hqtop .xp-info');
+        return { dock: !!(d && getComputedStyle(d).display !== 'none'), info: !!(i && getComputedStyle(i).display !== 'none') }; });
+      if (who === 'casey') expect(r.dock && r.info, 'someone with expenses should still have the buttons and the i');
+      else expect(!r.dock && !r.info, who + ' has no expenses, so no buttons that open nothing: ' + JSON.stringify(r));
+      noErrors(s.errs); await s.close();
+    }
+  });
+
+  await check('Audit: Help describes today\'s sign-in, and staff text has no build-file references', async () => {
+    if (read(path.join(DIR, 'index.html')).indexOf('On a Phone, and Bookmarks') < 0) return;
+    const html = read(path.join(DIR, 'index.html'));
+    expect(!/ends when you close the tab/.test(html), 'Help still says the sign-in ends with the tab');
+    expect(!/NOTIFY\.md in the build package/.test(html), 'Needs You still points at a build file');
+    const s = await open(opts({ who: 'casey' }));
+    await wait(s, 3000); await nav(s.page, 'Help');
+    const t = await s.page.evaluate(() => document.querySelector('.psec.current').innerText);
+    expect(/sign-in code/.test(t) && /Forgot your password\?/.test(t) && /#hours/.test(t), 'Help should cover the code, Forgot your password? and bookmarks');
+    noErrors(s.errs); await s.close();
+  });
+
   await check('Help shows the version, and the Test Copy says what it is', async () => {
     const s = await open(opts({ who: 'admin' }));
     await wait(s, 3500); await nav(s.page, 'Help');
